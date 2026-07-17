@@ -1,0 +1,4 @@
+wwwroot\assets\index-7urSHXtD.js
+wwwroot\favicon.svg
+wwwroot\icons.svg
+wwwroot\index.html
