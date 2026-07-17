@@ -17,6 +17,7 @@ namespace Api
 
             builder.Services.AddSingleton<ILobbyRepository, InMemoryLobbyRepository>();
             builder.Services.AddSingleton<ILobbyService, LobbyService>();
+            builder.Services.AddSingleton<INightService, NightService>();
             builder.Services.AddSignalR();
 
             var app = builder.Build();

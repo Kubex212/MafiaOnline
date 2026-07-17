@@ -24,6 +24,23 @@ export type SeatInfo = {
   seatIndex: number;
 };
 
+export type NightTurnStarted = {
+  activePlayerId: string;
+  activeSeatIndex: number;
+  hasAbility: boolean;
+  timeoutSeconds: number;
+};
+
+export type NightResolvedPayload = {
+  killed: string[];
+  attackBlocked: boolean;
+};
+
+export type DetectiveClueResponse = {
+  subjectNickname: string;
+  isWerewolf: boolean;
+};
+
 export async function createLobby(nickname: string): Promise<LobbyResponse> {
   const res = await fetch('/api/lobbies', {
     method: 'POST',
@@ -71,4 +88,29 @@ export function createHubConnection(): HubConnection {
     .withUrl('/lobbyHub')
     .withAutomaticReconnect()
     .build();
+}
+
+export async function submitNightAction(code: string, actorId: string, targetId: string): Promise<void> {
+  const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actorId, targetId })
+  });
+  if (!res.ok) throw new Error('Action failed: ' + res.statusText);
+}
+
+export async function skipNightTurn(code: string, actorId: string): Promise<void> {
+  const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/skip`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actorId })
+  });
+  if (!res.ok) throw new Error('Skip failed: ' + res.statusText);
+}
+
+export async function getDetectiveClue(code: string, playerId: string): Promise<DetectiveClueResponse | null> {
+  const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/clue/${encodeURIComponent(playerId)}`);
+  if (res.status === 204) return null;
+  if (!res.ok) throw new Error('Clue fetch failed: ' + res.statusText);
+  return res.json();
 }

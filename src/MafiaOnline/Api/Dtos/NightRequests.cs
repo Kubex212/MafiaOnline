@@ -1,0 +1,12 @@
+namespace MafiaOnline.Api.Dtos;
+
+public class NightActionRequest
+{
+    public Guid ActorId { get; set; }
+    public Guid TargetId { get; set; }
+}
+
+public class NightSkipRequest
+{
+    public Guid ActorId { get; set; }
+}

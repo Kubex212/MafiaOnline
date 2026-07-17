@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { LobbyResponse, RoleResponse, SeatInfo } from './api';
-import {
-  createLobby, joinLobby, createHubConnection,
-  getLobby, startLobby, getMyRole
-} from './api';
+import type { LobbyResponse, RoleResponse, SeatInfo, NightTurnStarted, NightResolvedPayload } from './api';
+import { createLobby, joinLobby, createHubConnection, getLobby, startLobby, getMyRole } from './api';
 import { HubConnection } from '@microsoft/signalr';
-import RoundTable from './RoundTable';
+import NightPhase, { type NightPhaseHandle } from './NightPhase';
+
+type GameView = 'lobby' | 'role-reveal' | 'night';
 
 export default function App() {
   const [nickname, setNickname] = useState('Player' + Math.floor(Math.random() * 1000));
@@ -13,18 +12,18 @@ export default function App() {
   const [codeToJoin, setCodeToJoin] = useState('');
   const [messages, setMessages] = useState<string[]>([]);
   const [hubStarted, setHubStarted] = useState(false);
-
-  // Persisted across renders via refs
-  const connRef = useRef<HubConnection | null>(null);
-  const lobbyRef = useRef<LobbyResponse | null>(null);
-
-  // Game state
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [seats, setSeats] = useState<SeatInfo[] | null>(null);
   const [myRole, setMyRole] = useState<RoleResponse | null>(null);
+  const [view, setView] = useState<GameView>('lobby');
 
-  // Keep lobbyRef in sync
+  const connRef = useRef<HubConnection | null>(null);
+  const lobbyRef = useRef<LobbyResponse | null>(null);
+  const myPlayerIdRef = useRef<string | null>(null);
+  const nightRef = useRef<NightPhaseHandle | null>(null);
+
   useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
+  useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
 
   useEffect(() => {
     const conn = createHubConnection();
@@ -33,41 +32,42 @@ export default function App() {
     conn.on('PlayerJoined', async (nick: string) => {
       setMessages(m => [...m, `${nick} joined the lobby`]);
       const code = lobbyRef.current?.code;
-      if (code) {
-        try { setLobby(await getLobby(code)); } catch { /* ignore */ }
-      }
+      if (code) { try { setLobby(await getLobby(code)); } catch { /* ignore */ } }
     });
 
     conn.on('GameStarted', async (seatList: SeatInfo[]) => {
       setMessages(m => [...m, 'Game started!']);
       const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
       setSeats(sorted);
-
-      // Fetch own role
       const code = lobbyRef.current?.code;
       const pid = myPlayerIdRef.current;
       if (code && pid) {
         try {
           const role = await getMyRole(code, pid);
           setMyRole(role);
+          setView('role-reveal');
+          // Automatically progress to the night phase after a brief reveal
+          setTimeout(() => setView('night'), 3000);
         } catch { /* ignore */ }
       }
     });
 
+    conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
+      setView('night');
+      nightRef.current?.onTurnStarted(turn);
+    });
+
+    conn.on('NightResolved', (payload: NightResolvedPayload) => {
+      nightRef.current?.onNightResolved(payload);
+    });
+
     conn.start()
-      .then(() => { setHubStarted(true); })
+      .then(() => setHubStarted(true))
       .catch(err => console.error('Hub start error', err));
 
-    return () => {
-      conn.stop().catch(() => {});
-      connRef.current = null;
-    };
+    return () => { conn.stop().catch(() => {}); connRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // We need a ref for myPlayerId inside the hub callback
-  const myPlayerIdRef = useRef<string | null>(null);
-  useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
 
   async function joinHubGroup(code: string) {
     const conn = connRef.current;
@@ -100,22 +100,46 @@ export default function App() {
 
   async function onStart() {
     if (!lobby || !myPlayerId) return;
-    try {
-      await startLobby(lobby.code, myPlayerId);
-      // GameStarted event will fire via SignalR for everyone including us
-    } catch (e) { alert(String(e)); }
+    try { await startLobby(lobby.code, myPlayerId); }
+    catch (e) { alert(String(e)); }
   }
 
   const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
   const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
 
-  // ?? GAME VIEW ??????????????????????????????????????????????????????????????
-  if (seats && myPlayerId) {
+  // ?? ROLE REVEAL ?????????????????????????????????????????????????????????????
+  if (view === 'role-reveal' && myRole) {
+    const teamColor = myRole.team === 'Werewolf' ? '#d9534f' : '#5cb85c';
+    return (
+      <div style={{ ...styles.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div style={{ fontSize: 14, color: '#aaa', letterSpacing: 3, textTransform: 'uppercase' }}>Your role is…</div>
+        <div style={{
+          fontSize: 48, fontWeight: 900, color: teamColor,
+          textShadow: `0 0 40px ${teamColor}88`,
+          animation: 'none',
+        }}>
+          {myRole.name}
+        </div>
+        <div style={{ color: '#aaa', fontSize: 15 }}>Team: {myRole.team}</div>
+        <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>Night phase begins in a moment…</div>
+      </div>
+    );
+  }
+
+  // ?? NIGHT PHASE ?????????????????????????????????????????????????????????????
+  if (view === 'night' && seats && myPlayerId && myRole) {
     return (
       <div style={styles.page}>
-        <h2 style={{ color: '#f0c040', marginBottom: 4 }}>Lobby {lobby?.code}</h2>
-        <p style={{ color: '#aaa', margin: '0 0 20px' }}>The night begins…</p>
-        <RoundTable seats={seats} myPlayerId={myPlayerId} myRole={myRole} />
+        <h2 style={{ color: '#aaa', margin: '0 0 16px', textAlign: 'center' }}>
+          ?? Night Phase — Lobby <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
+        </h2>
+        <NightPhase
+          ref={nightRef}
+          lobbyCode={lobby!.code}
+          seats={seats}
+          myPlayerId={myPlayerId}
+          myRole={myRole}
+        />
       </div>
     );
   }
@@ -136,12 +160,9 @@ export default function App() {
           <div style={styles.row}>
             <button style={styles.btn} onClick={onCreate}>Create Lobby</button>
             <span style={{ color: '#aaa', margin: '0 12px' }}>or join:</span>
-            <input
-              value={codeToJoin}
-              placeholder="Lobby code"
+            <input value={codeToJoin} placeholder="Lobby code"
               onChange={e => setCodeToJoin(e.target.value.toUpperCase())}
-              style={{ ...styles.input, width: 100, textTransform: 'uppercase' }}
-            />
+              style={{ ...styles.input, width: 100, textTransform: 'uppercase' }} />
             <button style={{ ...styles.btn, marginLeft: 8 }} onClick={onJoin}>Join</button>
           </div>
         </>
@@ -150,28 +171,23 @@ export default function App() {
       {lobby && (
         <div style={styles.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-            <h3 style={{ margin: 0, color: '#f0c040' }}>Lobby <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span></h3>
+            <h3 style={{ margin: 0, color: '#f0c040' }}>
+              Lobby <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span>
+            </h3>
             <span style={{ color: '#aaa', fontSize: 13 }}>{hubStarted ? '?? connected' : '?? connecting…'}</span>
           </div>
-
           <ul style={styles.playerList}>
             {lobby.players.map(p => (
-              <li key={p.id} style={{
-                ...styles.playerItem,
-                color: p.id === myPlayerId ? '#f0c040' : '#ddd',
-                fontWeight: p.id === myPlayerId ? 700 : 400,
-              }}>
+              <li key={p.id} style={{ ...styles.playerItem, color: p.id === myPlayerId ? '#f0c040' : '#ddd', fontWeight: p.id === myPlayerId ? 700 : 400 }}>
                 {p.nickname}
-                {p.isHost ? <span style={styles.badge}>host</span> : null}
-                {p.id === myPlayerId ? <span style={{ ...styles.badge, background: '#555' }}>you</span> : null}
+                {p.isHost && <span style={styles.badge}>host</span>}
+                {p.id === myPlayerId && <span style={{ ...styles.badge, background: '#555' }}>you</span>}
               </li>
             ))}
           </ul>
-
           <div style={{ color: '#aaa', fontSize: 13, marginBottom: 12 }}>
-            {lobby.players.length} / 4+ players {lobby.players.length < 4 && `— need ${4 - lobby.players.length} more`}
+            {lobby.players.length} / 4+ players{lobby.players.length < 4 && ` — need ${4 - lobby.players.length} more`}
           </div>
-
           {canStart && (
             <button style={{ ...styles.btn, background: '#5cb85c', fontSize: 16 }} onClick={onStart}>
               Start Game
@@ -193,34 +209,13 @@ export default function App() {
 }
 
 const styles = {
-  page: {
-    padding: 24,
-    fontFamily: 'Segoe UI, Roboto, Arial',
-    background: '#0f0f1a',
-    minHeight: '100vh',
-    color: '#ddd',
-  } as React.CSSProperties,
+  page: { padding: 24, fontFamily: 'Segoe UI, Roboto, Arial', background: '#0f0f1a', minHeight: '100vh', color: '#ddd' } as React.CSSProperties,
   row: { marginBottom: 12 } as React.CSSProperties,
   label: { display: 'flex', alignItems: 'center', gap: 8, color: '#ccc' } as React.CSSProperties,
-  input: {
-    background: '#1e1e2e', border: '1px solid #444', borderRadius: 6,
-    color: '#ddd', padding: '6px 10px', fontSize: 14,
-  } as React.CSSProperties,
-  btn: {
-    background: '#c0392b', color: '#fff', border: 'none', borderRadius: 8,
-    padding: '8px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  } as React.CSSProperties,
-  card: {
-    marginTop: 20, background: '#1a1a2e', borderRadius: 12,
-    padding: 20, maxWidth: 400, border: '1px solid #333',
-  } as React.CSSProperties,
+  input: { background: '#1e1e2e', border: '1px solid #444', borderRadius: 6, color: '#ddd', padding: '6px 10px', fontSize: 14 } as React.CSSProperties,
+  btn: { background: '#c0392b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600 } as React.CSSProperties,
+  card: { marginTop: 20, background: '#1a1a2e', borderRadius: 12, padding: 20, maxWidth: 400, border: '1px solid #333' } as React.CSSProperties,
   playerList: { listStyle: 'none', padding: 0, margin: '0 0 8px' } as React.CSSProperties,
-  playerItem: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '5px 0', borderBottom: '1px solid #2a2a3e',
-  } as React.CSSProperties,
-  badge: {
-    fontSize: 10, background: '#c0392b', color: '#fff',
-    borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase' as const,
-  } as React.CSSProperties,
+  playerItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #2a2a3e' } as React.CSSProperties,
+  badge: { fontSize: 10, background: '#c0392b', color: '#fff', borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase' as const } as React.CSSProperties,
 };

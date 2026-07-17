@@ -68,3 +68,23 @@ public class NightActionCommand : GameCommand
         game.SubmitNightAction(PlayerId, TargetId);
     }
 }
+
+/// <summary>
+/// Resolves the night with a pre-collected set of player actions.
+/// Used by the API after all seat turns have completed.
+/// </summary>
+public class ResolveNightCommand : GameCommand
+{
+    public ResolveNightCommand(IReadOnlyDictionary<Guid, Guid> actions)
+        : base(Guid.Empty)
+    {
+        Actions = actions;
+    }
+
+    public IReadOnlyDictionary<Guid, Guid> Actions { get; }
+
+    internal override void Execute(Game game)
+    {
+        game.ResolveNightWithActions(Actions);
+    }
+}

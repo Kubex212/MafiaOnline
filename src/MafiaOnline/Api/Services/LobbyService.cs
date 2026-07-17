@@ -10,11 +10,13 @@ public class LobbyService : ILobbyService
 {
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hubContext;
+    private readonly INightService _nightService;
 
-    public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext)
+    public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService)
     {
         _repository = repository;
         _hubContext = hubContext;
+        _nightService = nightService;
     }
 
     public Lobby CreateLobby(string hostNickname)
@@ -83,12 +85,19 @@ public class LobbyService : ILobbyService
         // Broadcast seat list (no roles) to all players in the group
         var seats = lobby.Players
             .OrderBy(p => p.SeatIndex)
-            .Select(p => new { p.Id, p.Nickname, p.SeatIndex })
+            .Select(p => new { id = p.Id, nickname = p.Nickname, seatIndex = p.SeatIndex })
             .ToList();
 
         await _hubContext.Clients
             .Group(lobby.Code)
             .SendAsync("GameStarted", seats);
+
+        // Give clients a moment to render before the first turn fires
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2000);
+            await _nightService.BeginNightAsync(lobby.Code);
+        });
 
         return lobby;
     }

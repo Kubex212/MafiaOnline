@@ -38,6 +38,25 @@ public class Game
     }
 
     /// <summary>
+    /// Resolves the night with a final set of collected actions.
+    /// Called by <see cref="Commands.ResolveNightCommand"/>.
+    /// </summary>
+    internal void ResolveNightWithActions(IReadOnlyDictionary<Guid, Guid> actions)
+    {
+        if (Phase != GamePhase.Night)
+            throw new InvalidOperationException("Not currently the night phase.");
+
+        var alivePlayers = _players.Where(p => p.IsAlive).ToList();
+        var resolver = new NightResolver();
+        LastNightResult = resolver.Resolve(alivePlayers, actions);
+
+        foreach (var killedId in LastNightResult.Killed)
+            _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
+
+        Phase = GamePhase.DayDiscussion;
+    }
+
+    /// <summary>
     /// Submit a night action for a player with a non-automatic night ability.
     /// When all required actions are in, the night resolves automatically.
     /// </summary>
