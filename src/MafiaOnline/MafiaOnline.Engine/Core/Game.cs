@@ -103,23 +103,32 @@ public class Game
         Phase = GamePhase.DayDiscussion;
     }
 
-    internal void AssignRoles()
+    internal void AssignRoles(IReadOnlyList<Guid>? orderedPlayerIds = null)
     {
-        var random = new Random();
+        List<Player> ordered;
 
-        var shuffled = _players
-            .OrderBy(_ => random.Next())
-            .ToList();
+        if (orderedPlayerIds is not null && orderedPlayerIds.Count == _players.Count)
+        {
+            // Use the explicitly supplied seat order
+            ordered = orderedPlayerIds
+                .Select(id => _players.First(p => p.Id == id))
+                .ToList();
+        }
+        else
+        {
+            // Fall back to random shuffle
+            var random = new Random();
+            ordered = _players.OrderBy(_ => random.Next()).ToList();
+        }
 
-        // Assign seat indices according to shuffled order
-        for (int i = 0; i < shuffled.Count; i++)
-            shuffled[i].SeatIndex = i;
+        for (int i = 0; i < ordered.Count; i++)
+            ordered[i].SeatIndex = i;
 
-        shuffled[0].AssignRole(new Werewolf());
-        shuffled[1].AssignRole(new Guardian(Config.Guardian));
-        shuffled[2].AssignRole(new Detective(Config.Detective));
+        ordered[0].AssignRole(new Werewolf());
+        ordered[1].AssignRole(new Guardian(Config.Guardian));
+        ordered[2].AssignRole(new Detective(Config.Detective));
 
-        foreach (var player in shuffled.Skip(3))
+        foreach (var player in ordered.Skip(3))
             player.AssignRole(new Villager());
     }
 }

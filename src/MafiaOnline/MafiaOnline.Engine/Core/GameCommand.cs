@@ -33,17 +33,20 @@ public class AddPlayerCommand : GameCommand
 
 public class StartGameCommand : GameCommand
 {
-    public StartGameCommand(Guid playerId)
+    public StartGameCommand(Guid playerId, IReadOnlyList<Guid>? orderedPlayerIds = null)
         : base(playerId)
     {
+        OrderedPlayerIds = orderedPlayerIds;
     }
+
+    public IReadOnlyList<Guid>? OrderedPlayerIds { get; }
 
     internal override void Execute(Game game)
     {
         if (game.Players.Count < 4)
             throw new InvalidOperationException("Not enough players (minimum 4).");
 
-        game.AssignRoles();
+        game.AssignRoles(OrderedPlayerIds);
 
         game.Status = GameStatus.InProgress;
         game.Phase = GamePhase.Night;

@@ -57,4 +57,25 @@ public class LobbiesController : ControllerBase
 
         return Ok(new RoleResponse { Name = roleName, Team = team });
     }
+
+    [HttpPost("{code}/order/move-up")]
+    public async Task<ActionResult<LobbyResponse>> MoveUp(string code, MovePlayerRequest request)
+    {
+        var lobby = await _lobbyService.MovePlayerUpAsync(code, request.RequestingPlayerId, request.TargetPlayerId);
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
+
+    [HttpPost("{code}/order/move-down")]
+    public async Task<ActionResult<LobbyResponse>> MoveDown(string code, MovePlayerRequest request)
+    {
+        var lobby = await _lobbyService.MovePlayerDownAsync(code, request.RequestingPlayerId, request.TargetPlayerId);
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
+
+    [HttpPost("{code}/order/shuffle")]
+    public async Task<ActionResult<LobbyResponse>> Shuffle(string code, ShufflePlayersRequest request)
+    {
+        var lobby = await _lobbyService.ShufflePlayersAsync(code, request.RequestingPlayerId);
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
 }

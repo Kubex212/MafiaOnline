@@ -4,6 +4,7 @@ export type PlayerResponse = {
   id: string;
   nickname: string;
   isHost: boolean;
+  lobbyPosition: number;
   seatIndex: number;
 };
 
@@ -40,6 +41,13 @@ export type DetectiveClueResponse = {
   subjectNickname: string;
   isWerewolf: boolean;
 };
+
+export type LobbyOrderChangedPayload = {
+  id: string;
+  nickname: string;
+  isHost: boolean;
+  lobbyPosition: number;
+}[];
 
 export async function createLobby(nickname: string): Promise<LobbyResponse> {
   const res = await fetch('/api/lobbies', {
@@ -112,5 +120,35 @@ export async function getDetectiveClue(code: string, playerId: string): Promise<
   const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/clue/${encodeURIComponent(playerId)}`);
   if (res.status === 204) return null;
   if (!res.ok) throw new Error('Clue fetch failed: ' + res.statusText);
+  return res.json();
+}
+
+export async function movePlayerUp(code: string, requestingPlayerId: string, targetPlayerId: string): Promise<LobbyResponse> {
+  const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/order/move-up`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestingPlayerId, targetPlayerId })
+  });
+  if (!res.ok) throw new Error('Move failed: ' + res.statusText);
+  return res.json();
+}
+
+export async function movePlayerDown(code: string, requestingPlayerId: string, targetPlayerId: string): Promise<LobbyResponse> {
+  const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/order/move-down`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestingPlayerId, targetPlayerId })
+  });
+  if (!res.ok) throw new Error('Move failed: ' + res.statusText);
+  return res.json();
+}
+
+export async function shufflePlayers(code: string, requestingPlayerId: string): Promise<LobbyResponse> {
+  const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/order/shuffle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestingPlayerId })
+  });
+  if (!res.ok) throw new Error('Shuffle failed: ' + res.statusText);
   return res.json();
 }

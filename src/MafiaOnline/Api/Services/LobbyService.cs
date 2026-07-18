@@ -115,4 +115,39 @@ public class LobbyService : ILobbyService
 
         return enginePlayer.Role.Name;
     }
+
+    public async Task<Lobby> MovePlayerUpAsync(string code, Guid requestingPlayerId, Guid targetPlayerId)
+        => await MutateOrderAsync(code, requestingPlayerId, lobby => lobby.MovePlayerUp(targetPlayerId));
+
+    public async Task<Lobby> MovePlayerDownAsync(string code, Guid requestingPlayerId, Guid targetPlayerId)
+        => await MutateOrderAsync(code, requestingPlayerId, lobby => lobby.MovePlayerDown(targetPlayerId));
+
+    public async Task<Lobby> ShufflePlayersAsync(string code, Guid requestingPlayerId)
+        => await MutateOrderAsync(code, requestingPlayerId, lobby => lobby.ShufflePlayers());
+
+    private async Task<Lobby> MutateOrderAsync(string code, Guid requestingPlayerId, Action<Lobby> mutation)
+    {
+        var lobby = _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        var requester = lobby.Players.FirstOrDefault(p => p.Id == requestingPlayerId)
+            ?? throw new InvalidOperationException("Player not found in lobby.");
+
+        if (!requester.IsHost)
+            throw new InvalidOperationException("Only the host can reorder players.");
+
+        mutation(lobby);
+        _repository.Update(lobby);
+
+        // Broadcast the new order to everyone in the lobby
+        var orderedPlayers = lobby.Players
+            .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
+            .ToList();
+
+        await _hubContext.Clients
+            .Group(lobby.Code)
+            .SendAsync("LobbyOrderChanged", orderedPlayers);
+
+        return lobby;
+    }
 }

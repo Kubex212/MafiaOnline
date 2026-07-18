@@ -33,6 +33,36 @@ public class Lobby
         _players.Add(player);
     }
 
+    /// <summary>Move a player one position towards the top of the list (lower index).</summary>
+    public void MovePlayerUp(Guid playerId)
+    {
+        AssertNotStarted();
+        var idx = _players.FindIndex(p => p.Id == playerId);
+        if (idx <= 0) return;
+        (_players[idx], _players[idx - 1]) = (_players[idx - 1], _players[idx]);
+    }
+
+    /// <summary>Move a player one position towards the bottom of the list (higher index).</summary>
+    public void MovePlayerDown(Guid playerId)
+    {
+        AssertNotStarted();
+        var idx = _players.FindIndex(p => p.Id == playerId);
+        if (idx < 0 || idx >= _players.Count - 1) return;
+        (_players[idx], _players[idx + 1]) = (_players[idx + 1], _players[idx]);
+    }
+
+    /// <summary>Randomly shuffle the current player order.</summary>
+    public void ShufflePlayers()
+    {
+        AssertNotStarted();
+        var random = new Random();
+        for (int i = _players.Count - 1; i > 0; i--)
+        {
+            int j = random.Next(i + 1);
+            (_players[i], _players[j]) = (_players[j], _players[i]);
+        }
+    }
+
     public void Start(Guid requestingPlayerId)
     {
         var requesting = _players.FirstOrDefault(p => p.Id == requestingPlayerId)
@@ -52,7 +82,9 @@ public class Lobby
         foreach (var lp in _players)
             game.Execute(new AddPlayerCommand(lp.Id, lp.Nickname));
 
-        game.Execute(new StartGameCommand(requestingPlayerId));
+        // Pass the current lobby order as the seat order
+        var seatOrder = _players.Select(p => p.Id).ToList();
+        game.Execute(new StartGameCommand(requestingPlayerId, seatOrder));
 
         foreach (var lp in _players)
         {
@@ -93,5 +125,10 @@ public class Lobby
         Game.Execute(new ResolveNightCommand(NightSession.SubmittedActions));
         NightSession = null;
         return Game.LastNightResult!;
+    }
+
+    private void AssertNotStarted()
+    {
+        if (Started) throw new InvalidOperationException("Cannot reorder players after the game has started.");
     }
 }
