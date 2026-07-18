@@ -1,4 +1,4 @@
-using MafiaOnline.Api.Hubs;
+﻿using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Engine.Night;
@@ -16,7 +16,7 @@ public interface INightService
 
 public class NightService : INightService
 {
-    private const int TurnSeconds = 10;
+    private const int TurnSeconds = 1000;
 
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
@@ -56,7 +56,7 @@ public class NightService : INightService
         await AdvanceTurnAsync(lobby);
     }
 
-    // ?? internals ??????????????????????????????????????????????????????????
+    // ── internals ──────────────────────────────────────────────────────────
 
     private async Task AdvanceTurnAsync(Lobby lobby)
     {
@@ -87,7 +87,7 @@ public class NightService : INightService
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(TurnSeconds), cts.Token);
-                // Timer fired � auto-skip this player
+                // Timer fired — auto-skip this player
                 var current = GetLobby(lobby.Code);
                 if (current.NightSession?.ActivePlayer?.Id == active.Id)
                 {

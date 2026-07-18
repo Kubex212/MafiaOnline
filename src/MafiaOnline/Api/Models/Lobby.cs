@@ -68,6 +68,7 @@ public class Lobby
     public void BeginNightSession()
     {
         if (Game is null) throw new InvalidOperationException("Game not started.");
+
         var alive = _players.Where(p => Game.Players.First(ep => ep.Id == p.Id).IsAlive);
         NightSession = new NightSession(alive);
     }

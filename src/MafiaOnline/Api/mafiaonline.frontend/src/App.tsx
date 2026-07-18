@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import type { LobbyResponse, RoleResponse, SeatInfo, NightTurnStarted, NightResolvedPayload } from './api';
 import { createLobby, joinLobby, createHubConnection, getLobby, startLobby, getMyRole } from './api';
 import { HubConnection } from '@microsoft/signalr';
@@ -7,205 +7,201 @@ import NightPhase, { type NightPhaseHandle } from './NightPhase';
 type GameView = 'lobby' | 'role-reveal' | 'night';
 
 export default function App() {
-  const [nickname, setNickname] = useState('Player' + Math.floor(Math.random() * 1000));
-  const [lobby, setLobby] = useState<LobbyResponse | null>(null);
-  const [codeToJoin, setCodeToJoin] = useState('');
-  const [messages, setMessages] = useState<string[]>([]);
-  const [hubStarted, setHubStarted] = useState(false);
-  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
-  const [seats, setSeats] = useState<SeatInfo[] | null>(null);
-  const [myRole, setMyRole] = useState<RoleResponse | null>(null);
-  const [view, setView] = useState<GameView>('lobby');
+    const [nickname, setNickname] = useState('Player' + Math.floor(Math.random() * 1000));
+    const [lobby, setLobby] = useState<LobbyResponse | null>(null);
+    const [codeToJoin, setCodeToJoin] = useState('');
+    const [messages, setMessages] = useState<string[]>([]);
+    const [hubStarted, setHubStarted] = useState(false);
+    const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+    const [seats, setSeats] = useState<SeatInfo[] | null>(null);
+    const [myRole, setMyRole] = useState<RoleResponse | null>(null);
+    const [view, setView] = useState<GameView>('lobby');
 
-  const connRef = useRef<HubConnection | null>(null);
-  const lobbyRef = useRef<LobbyResponse | null>(null);
-  const myPlayerIdRef = useRef<string | null>(null);
-  const nightRef = useRef<NightPhaseHandle | null>(null);
+    const connRef = useRef<HubConnection | null>(null);
+    const lobbyRef = useRef<LobbyResponse | null>(null);
+    const myPlayerIdRef = useRef<string | null>(null);
+    const nightRef = useRef<NightPhaseHandle | null>(null);
 
-  useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
-  useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
+    useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
+    useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
 
-  useEffect(() => {
+    useEffect(() => {
     const conn = createHubConnection();
     connRef.current = conn;
 
     conn.on('PlayerJoined', async (nick: string) => {
-      setMessages(m => [...m, `${nick} joined the lobby`]);
-      const code = lobbyRef.current?.code;
-      if (code) { try { setLobby(await getLobby(code)); } catch { /* ignore */ } }
+        setMessages(m => [...m, `${nick} joined the lobby`]);
+        const code = lobbyRef.current?.code;
+        if (code) { try { setLobby(await getLobby(code)); } catch { /* ignore */ } }
     });
 
     conn.on('GameStarted', async (seatList: SeatInfo[]) => {
-      setMessages(m => [...m, 'Game started!']);
-      const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
-      setSeats(sorted);
-      const code = lobbyRef.current?.code;
-      const pid = myPlayerIdRef.current;
-      if (code && pid) {
+        setMessages(m => [...m, 'Game started!']);
+        const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
+        setSeats(sorted);
+        const code = lobbyRef.current?.code;
+        const pid = myPlayerIdRef.current;
+        if (code && pid) {
         try {
-          const role = await getMyRole(code, pid);
-          setMyRole(role);
-          setView('role-reveal');
-          // Automatically progress to the night phase after a brief reveal
-          setTimeout(() => setView('night'), 3000);
+            const role = await getMyRole(code, pid);
+            setMyRole(role);
+            setView('role-reveal');
+            // Automatically progress to the night phase after a brief reveal
+            setTimeout(() => setView('night'), 3000);
         } catch { /* ignore */ }
-      }
+        }
     });
 
     conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
-      setView('night');
-      nightRef.current?.onTurnStarted(turn);
+        setView('night');
+        nightRef.current?.onTurnStarted(turn);
     });
 
     conn.on('NightResolved', (payload: NightResolvedPayload) => {
-      nightRef.current?.onNightResolved(payload);
+        nightRef.current?.onNightResolved(payload);
     });
 
     conn.start()
-      .then(() => setHubStarted(true))
-      .catch(err => console.error('Hub start error', err));
+        .then(() => setHubStarted(true))
+        .catch(err => console.error('Hub start error', err));
 
     return () => { conn.stop().catch(() => {}); connRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }, []);
 
-  async function joinHubGroup(code: string) {
+    async function joinHubGroup(code: string) {
     const conn = connRef.current;
     if (!conn) return;
     if (conn.state !== 'Connected') { await conn.start(); setHubStarted(true); }
     await conn.invoke('JoinLobby', code);
-  }
+    }
 
-  async function onCreate() {
+    async function onCreate() {
     try {
-      const res = await createLobby(nickname);
-      const me = res.players.find(p => p.isHost)!;
-      setMyPlayerId(me.id);
-      setLobby(res);
-      setMessages([`Lobby ${res.code} created`]);
-      await joinHubGroup(res.code);
+        const res = await createLobby(nickname);
+        const me = res.players.find(p => p.isHost)!;
+        setMyPlayerId(me.id);
+        setLobby(res);
+        setMessages([`Lobby ${res.code} created`]);
+        await joinHubGroup(res.code);
     } catch (e) { alert(String(e)); }
-  }
+    }
 
-  async function onJoin() {
+    async function onJoin() {
     try {
-      const res = await joinLobby(codeToJoin, nickname);
-      const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
-      setMyPlayerId(me.id);
-      setLobby(res);
-      setMessages([`Joined lobby ${res.code}`]);
-      await joinHubGroup(res.code);
+        const res = await joinLobby(codeToJoin, nickname);
+        const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
+        setMyPlayerId(me.id);
+        setLobby(res);
+        setMessages([`Joined lobby ${res.code}`]);
+        await joinHubGroup(res.code);
     } catch (e) { alert(String(e)); }
-  }
+    }
 
-  async function onStart() {
+    async function onStart() {
     if (!lobby || !myPlayerId) return;
     try { await startLobby(lobby.code, myPlayerId); }
     catch (e) { alert(String(e)); }
-  }
+    }
 
-  const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
-  const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
+    const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
+    const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
 
-  // ?? ROLE REVEAL ?????????????????????????????????????????????????????????????
-  if (view === 'role-reveal' && myRole) {
+    // ── ROLE REVEAL ─────────────────────────────────────────────────────────────
+    if (view === 'role-reveal' && myRole) {
     const teamColor = myRole.team === 'Werewolf' ? '#d9534f' : '#5cb85c';
     return (
-      <div style={{ ...styles.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <div style={{ fontSize: 14, color: '#aaa', letterSpacing: 3, textTransform: 'uppercase' }}>Your role is�</div>
-        <div style={{
-          fontSize: 48, fontWeight: 900, color: teamColor,
-          textShadow: `0 0 40px ${teamColor}88`,
-          animation: 'none',
-        }}>
-          {myRole.name}
+        <div style={{ ...styles.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div style={{ fontSize: 14, color: '#aaa', letterSpacing: 3, textTransform: 'uppercase' }}>Your role is{'\u2026'}</div>
+        <div style={{ fontSize: 48, fontWeight: 900, color: teamColor, textShadow: `0 0 40px ${teamColor}88` }}>
+            {myRole.name}
         </div>
         <div style={{ color: '#aaa', fontSize: 15 }}>Team: {myRole.team}</div>
-        <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>Night phase begins in a moment�</div>
-      </div>
+        <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>Night phase begins in a moment{'\u2026'}</div>
+        </div>
     );
-  }
+    }
 
-  // ?? NIGHT PHASE ?????????????????????????????????????????????????????????????
-  if (view === 'night' && seats && myPlayerId && myRole) {
+    // ── NIGHT PHASE ─────────────────────────────────────────────────────────────
+    if (view === 'night' && seats && myPlayerId && myRole) {
     return (
-      <div style={styles.page}>
+        <div style={styles.page}>
         <h2 style={{ color: '#aaa', margin: '0 0 16px', textAlign: 'center' }}>
-          ?? Night Phase � Lobby <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
+            {'\uD83C\uDF19'} Night Phase {'\u2014'} Lobby <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
         </h2>
         <NightPhase
-          ref={nightRef}
-          lobbyCode={lobby!.code}
-          seats={seats}
-          myPlayerId={myPlayerId}
-          myRole={myRole}
+            ref={nightRef}
+            lobbyCode={lobby!.code}
+            seats={seats}
+            myPlayerId={myPlayerId}
+            myRole={myRole}
         />
-      </div>
+        </div>
     );
-  }
+    }
 
-  // ?? LOBBY VIEW ?????????????????????????????????????????????????????????????
-  return (
+    // ── LOBBY VIEW ─────────────────────────────────────────────────────────────
+    return (
     <div style={styles.page}>
-      <h1 style={{ color: '#f0c040' }}>MafiaOnline</h1>
+        <h1 style={{ color: '#f0c040' }}>MafiaOnline</h1>
 
-      {!lobby && (
+        {!lobby && (
         <>
-          <div style={styles.row}>
+            <div style={styles.row}>
             <label style={styles.label}>
-              Nickname:
-              <input value={nickname} onChange={e => setNickname(e.target.value)} style={styles.input} />
+                Nickname:
+                <input value={nickname} onChange={e => setNickname(e.target.value)} style={styles.input} />
             </label>
-          </div>
-          <div style={styles.row}>
+            </div>
+            <div style={styles.row}>
             <button style={styles.btn} onClick={onCreate}>Create Lobby</button>
             <span style={{ color: '#aaa', margin: '0 12px' }}>or join:</span>
             <input value={codeToJoin} placeholder="Lobby code"
-              onChange={e => setCodeToJoin(e.target.value.toUpperCase())}
-              style={{ ...styles.input, width: 100, textTransform: 'uppercase' }} />
+                onChange={e => setCodeToJoin(e.target.value.toUpperCase())}
+                style={{ ...styles.input, width: 100, textTransform: 'uppercase' }} />
             <button style={{ ...styles.btn, marginLeft: 8 }} onClick={onJoin}>Join</button>
-          </div>
+            </div>
         </>
-      )}
+        )}
 
-      {lobby && (
+        {lobby && (
         <div style={styles.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
             <h3 style={{ margin: 0, color: '#f0c040' }}>
-              Lobby <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span>
+                Lobby <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span>
             </h3>
-            <span style={{ color: '#aaa', fontSize: 13 }}>{hubStarted ? '?? connected' : '?? connecting�'}</span>
-          </div>
-          <ul style={styles.playerList}>
+            <span style={{ color: '#aaa', fontSize: 13 }}>{hubStarted ? '\uD83D\uDFE2 connected' : '\uD83D\uDD34 connecting\u2026'}</span>
+            </div>
+            <ul style={styles.playerList}>
             {lobby.players.map(p => (
-              <li key={p.id} style={{ ...styles.playerItem, color: p.id === myPlayerId ? '#f0c040' : '#ddd', fontWeight: p.id === myPlayerId ? 700 : 400 }}>
+                <li key={p.id} style={{ ...styles.playerItem, color: p.id === myPlayerId ? '#f0c040' : '#ddd', fontWeight: p.id === myPlayerId ? 700 : 400 }}>
                 {p.nickname}
                 {p.isHost && <span style={styles.badge}>host</span>}
                 {p.id === myPlayerId && <span style={{ ...styles.badge, background: '#555' }}>you</span>}
-              </li>
+                </li>
             ))}
-          </ul>
-          <div style={{ color: '#aaa', fontSize: 13, marginBottom: 12 }}>
-            {lobby.players.length} / 4+ players{lobby.players.length < 4 && ` � need ${4 - lobby.players.length} more`}
-          </div>
-          {canStart && (
+            </ul>
+            <div style={{ color: '#aaa', fontSize: 13, marginBottom: 12 }}>
+            {lobby.players.length} / 4+ players{lobby.players.length < 4 && ` \u2014 need ${4 - lobby.players.length} more`}
+            </div>
+            {canStart && (
             <button style={{ ...styles.btn, background: '#5cb85c', fontSize: 16 }} onClick={onStart}>
-              Start Game
+                Start Game
             </button>
-          )}
+            )}
         </div>
-      )}
+        )}
 
-      {messages.length > 0 && (
+        {messages.length > 0 && (
         <div style={{ marginTop: 20 }}>
-          <h4 style={{ color: '#aaa' }}>Events</h4>
-          <ul style={{ color: '#ccc', fontSize: 13 }}>
+            <h4 style={{ color: '#aaa' }}>Events</h4>
+            <ul style={{ color: '#ccc', fontSize: 13 }}>
             {messages.map((m, i) => <li key={i}>{m}</li>)}
-          </ul>
+            </ul>
         </div>
-      )}
+        )}
     </div>
-  );
+    );
 }
 
 const styles = {

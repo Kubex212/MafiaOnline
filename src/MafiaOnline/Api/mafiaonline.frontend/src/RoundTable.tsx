@@ -65,7 +65,7 @@ export default function RoundTable({ seats, myPlayerId, myRole }: Props) {
             : { bg: '#1e1e2e', border: isMe ? '#f0c040' : '#555' };
 
           // Shorten nickname if needed
-          const label = seat.nickname.length > 10 ? seat.nickname.slice(0, 9) + '…' : seat.nickname;
+          const label = seat.nickname.length > 10 ? seat.nickname.slice(0, 9) + '\u2026' : seat.nickname;
 
           return (
             <g key={seat.id} transform={`translate(${px},${py})`}>

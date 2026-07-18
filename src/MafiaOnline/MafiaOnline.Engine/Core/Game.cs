@@ -16,15 +16,10 @@ public class Game
     }
 
     public Guid Id { get; }
-
     public GameConfig Config { get; }
-
     public IReadOnlyCollection<Player> Players => _players;
-
     internal List<Player> PlayersInternal => _players;
-
     public GameStatus Status { get; internal set; } = GameStatus.WaitingForPlayers;
-
     public GamePhase Phase { get; internal set; } = GamePhase.Lobby;
 
     /// <summary>
