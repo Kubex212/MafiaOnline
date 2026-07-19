@@ -113,7 +113,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             {!resolved && (
                 <div style={{ width: '100%', maxWidth: 460 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#aaa', marginBottom: 4 }}>
-                        <span>\u2600\uFE0F Day phase</span>
+                        <span>{'\u2600\uFE0F'} Day phase</span>
                         <span style={{ color: barColor, fontWeight: 700 }}>{timeLeft}s</span>
                     </div>
                     <div style={{ height: 6, background: '#222', borderRadius: 3, overflow: 'hidden' }}>
@@ -124,7 +124,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                     </div>
                     <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
                         {votes ? `${Object.keys(votes).length} / ${alivePlayers.length} voted` : ''}
-                        {hasVoted && <span style={{ color: '#5cb85c', marginLeft: 8 }}>\u2714\uFE0F You voted</span>}
+                        {hasVoted && <span style={{ color: '#5cb85c', marginLeft: 8 }}>{'\u2714\uFE0F'} You voted</span>}
                     </div>
                 </div>
             )}

@@ -48,7 +48,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setSubmitting(false);
             const who = seats.find(s => s.id === turn.activePlayerId);
             const isMe = turn.activePlayerId === myPlayerId;
-            setLog(l => [...l, `? ${isMe ? 'Your turn' : (who?.nickname ?? '?') + '\'s turn'}�`]);
+            setLog(l => [...l, `${isMe ? 'Your turn' : (who?.nickname ?? '?') + '\'s turn...'}`]);
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
                 setTimeLeft(t => {
@@ -72,10 +72,10 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 setNightInfo(info);
 
                 if (info?.type === "DetectiveClue") {
-                    setLog(l => [...l, `🕵️‍ Clue: ${info.data.subjectNickname} is ${info.data.isWerewolf ? 'a Werewolf' : 'innocent'}`]);
+                    setLog(l => [...l, `🕵️‍ Clue: ${info.data.SubjectNickname} is ${info.data.IsWerewolf ? 'a Werewolf' : 'innocent'}`]);
                 }
                 else if (info?.type === "DogTamerClue") {
-                    setLog(l => [...l, `🐕 Dog clue: ${info.data.didBark ? 'The dog barked' : 'The dog stayed quiet'}`]);
+                    setLog(l => [...l, `🐕 Dog clue: ${info.data.DidBark ? 'The dog barked' : 'The dog stayed quiet'}`]);
                 }
             } catch { /* no night info */ }
         },
@@ -91,7 +91,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         setSubmitting(true);
         try {
             await submitNightAction(lobbyCode, myPlayerId, selectedTarget);
-            setLog(l => [...l, '? Action submitted']);
+            setLog(l => [...l, 'Action submitted']);
         } catch (e) { alert(String(e)); setSubmitting(false); }
     }
 
@@ -100,7 +100,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         setSubmitting(true);
         try {
             await skipNightTurn(lobbyCode, myPlayerId);
-            setLog(l => [...l, '? Skipped']);
+            setLog(l => [...l, '⏳ Skipped']);
         } catch (e) { alert(String(e)); setSubmitting(false); }
     }
 
@@ -166,7 +166,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             {/* Round table */}
             <svg viewBox="0 0 500 500" style={{ width: '100%', maxWidth: 460, userSelect: 'none' }}>
                 <circle cx={cx} cy={cy} r={100} fill="#2c1a0e" stroke="#7a4a1e" strokeWidth={6} />
-                <text x={cx} y={cy + 6} textAnchor="middle" fill="#7a4a1e" fontSize={14} fontWeight={600}>?? Night</text>
+                <text x={cx} y={cy + 6} textAnchor="middle" fill="#7a4a1e" fontSize={14} fontWeight={600}>🌙 Night</text>
 
                 {seats.map((seat, i) => {
                     const angle = (2 * Math.PI * i) / seats.length - Math.PI / 2;
@@ -205,12 +205,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {activeTurn!.hasAbility && (
                         <button disabled={!selectedTarget || submitting} onClick={handleAction}
                             style={{ ...btnStyle, background: selectedTarget ? '#c0392b' : '#555', opacity: (!selectedTarget || submitting) ? 0.6 : 1 }}>
-                            {myRole.name === 'Werewolf' ? '?? Attack' : myRole.name === 'Guardian' ? '?? Protect' : 'Use Ability'}
+                            {myRole.name === 'Werewolf' ? '🐺 Attack' : myRole.name === 'Guardian' ? '🛡 Protect' : 'Use Ability'}
                         </button>
                     )}
                     <button disabled={submitting} onClick={handleSkip}
                         style={{ ...btnStyle, background: '#444', opacity: submitting ? 0.6 : 1 }}>
-                        ? Skip
+                        ⏳ Skip
                     </button>
                 </div>
             )}
@@ -218,26 +218,26 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             {/* Resolution panel */}
             {resolved && (
                 <div style={{ maxWidth: 460, width: '100%', borderRadius: 10, padding: '14px 20px', background: '#1a1a2e', border: '2px solid #333' }}>
-                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>?? Dawn breaks…</div>
+                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>🌞 Dawn breaks…</div>
                     {resolved.killed.length > 0
                         ? resolved.killed.map(n => <div key={n} style={{ color: '#d9534f' }}>?? <b>{n}</b> was killed in the night.</div>)
-                        : <div style={{ color: '#5cb85c' }}>?? Everyone survived the night.</div>
+                        : <div style={{ color: '#5cb85c' }}>🌜 Everyone survived the night.</div>
                     }
                     {resolved.attackBlocked && (
                         <div style={{ color: '#5bc0de', marginTop: 4 }}>🛡 An attack was blocked by the Guardian.</div>
                     )}
                     {nightInfo?.type === "DetectiveClue" && (
                         <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
-                            🕵️‍ Detective clue: <b style={{ color: '#ddd' }}>{String(nightInfo.data.subjectNickname)}</b> is{' '}
-                            <b style={{ color: nightInfo.data.isWerewolf ? '#d9534f' : '#5cb85c' }}>
-                                {nightInfo.data.isWerewolf ? '🐺 a Werewolf' : '👨‍🌾 innocent'}
+                            🕵️‍ Detective clue: <b style={{ color: '#ddd' }}>{String(nightInfo.data.SubjectNickname)}</b> is{' '}
+                            <b style={{ color: nightInfo.data.IsWerewolf ? '#d9534f' : '#5cb85c' }}>
+                                {nightInfo.data.IsWerewolf ? '🐺 a Werewolf' : '👨‍🌾 innocent'}
                             </b>
                         </div>
                     )}
 
                     {nightInfo?.type === "DogTamerClue" && (
                         <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
-                            🐕 Dog clue: {nightInfo.data.didBark ? 'The dog barked!' : 'The dog stayed quiet.'}
+                            🐕 Dog clue: {nightInfo.data.DidBark ? 'The dog barked!' : 'The dog stayed quiet.'}
                         </div>
                     )}
                 </div>

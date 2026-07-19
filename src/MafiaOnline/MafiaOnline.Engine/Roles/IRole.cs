@@ -7,7 +7,8 @@ public enum RoleType
     Villager,
     Werewolf,
     Guardian,
-    Detective
+    Detective,
+    DogTamer
 }
 
 public interface IRole

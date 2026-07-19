@@ -14,11 +14,8 @@ public class DogTamer : IRole, IHasNightAbility
         NightAbility = new DogTamerAbility(config ?? new DogTamerConfig());
     }
 
-    public RoleType Type => RoleType.Detective;
-    public string Name => "Detective";
+    public RoleType Type => RoleType.DogTamer;
+    public string Name => "Dog tamer";
     public int TeamId => 0;
-
     public NightAbility NightAbility { get; }
-
-    public NightEvent RelevantEvent => throw new NotImplementedException();
 }

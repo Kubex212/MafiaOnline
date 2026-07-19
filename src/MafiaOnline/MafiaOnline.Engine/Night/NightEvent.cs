@@ -28,7 +28,7 @@ public record AttackBlockedEvent(Guid VictimId, Guid GuardianId) : NightEvent;
 /// <summary>
 /// The Detective received a clue about a player's innocence/alignment.
 /// </summary>
-public record DetectiveClueEvent(Guid PlayerId, Guid SubjectId, bool IsWerewolf) : PlayerNightEvent(PlayerId)
+public record DetectiveClueEvent(Guid PlayerId, string SubjectNickname, bool IsWerewolf) : PlayerNightEvent(PlayerId)
 {
     public override PlayerNightInfo GetInfo()
     {
@@ -36,7 +36,7 @@ public record DetectiveClueEvent(Guid PlayerId, Guid SubjectId, bool IsWerewolf)
             "DetectiveClue",
             new Dictionary<string, object>
             {
-                ["SubjectId"] = SubjectId,
+                ["SubjectNickname"] = SubjectNickname,
                 ["IsWerewolf"] = IsWerewolf
             });
     }

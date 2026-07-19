@@ -76,7 +76,7 @@ public class NightResolver
             if (subject is null) continue;
 
             bool isWerewolf = subject.Role.TeamId != 0;
-            events.Add(new DetectiveClueEvent(detectiveId, subjectId, isWerewolf));
+            events.Add(new DetectiveClueEvent(detectiveId, subject.Nickname, isWerewolf));
         }
 
         foreach(var (dogTamerId, shouldBark) in context.DogTamerClues)
