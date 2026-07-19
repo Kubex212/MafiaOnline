@@ -79,6 +79,11 @@ public class NightResolver
             events.Add(new DetectiveClueEvent(detectiveId, subjectId, isWerewolf));
         }
 
+        foreach(var (dogTamerId, shouldBark) in context.DogTamerClues)
+        {
+            events.Add(new DogTamerClueEvent(dogTamerId, shouldBark));
+        }
+
         return new NightResult
         {
             Events = events,

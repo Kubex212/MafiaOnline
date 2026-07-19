@@ -1,0 +1,39 @@
+namespace MafiaOnline.Api.Models;
+
+/// <summary>
+/// Tracks votes cast during the day phase for one lobby.
+/// All alive players may vote (or abstain); the session closes either when
+/// everybody has voted or the timer fires.
+/// </summary>
+public class DaySession
+{
+    private readonly HashSet<Guid> _alivePlayers;
+    private readonly Dictionary<Guid, Guid> _votes = new();  // voter ? candidate
+
+    public DaySession(IEnumerable<LobbyPlayer> alivePlayers)
+    {
+        _alivePlayers = alivePlayers.Select(p => p.Id).ToHashSet();
+    }
+
+    public IReadOnlyDictionary<Guid, Guid> Votes => _votes;
+
+    public bool AllVoted => _alivePlayers.All(id => _votes.ContainsKey(id));
+
+    /// <summary>Cast or change a vote. Idempotent — the last submitted vote wins.</summary>
+    public void CastVote(Guid voterId, Guid candidateId)
+    {
+        if (!_alivePlayers.Contains(voterId))
+            throw new InvalidOperationException("Voter is not an alive player.");
+
+        if (!_alivePlayers.Contains(candidateId))
+            throw new InvalidOperationException("Candidate is not an alive player.");
+
+        if (voterId == candidateId)
+            throw new InvalidOperationException("Players cannot vote for themselves.");
+
+        _votes[voterId] = candidateId;
+    }
+
+    /// <summary>Returns whether a specific player has already voted.</summary>
+    public bool HasVoted(Guid voterId) => _votes.ContainsKey(voterId);
+}

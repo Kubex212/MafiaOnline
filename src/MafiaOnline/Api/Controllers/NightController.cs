@@ -48,7 +48,7 @@ public class NightController : ControllerBase
     /// Returns 204 if no clue (e.g. player is not detective or config blocked it).
     /// </summary>
     [HttpGet("clue/{playerId:guid}")]
-    public ActionResult<DetectiveClueResponse> GetClue(string code, Guid playerId)
+    public ActionResult<ClueResponse> GetClue(string code, Guid playerId)
     {
         var lobby = _repository.Get(code.ToUpperInvariant());
         if (lobby?.Game is null) return NotFound();
@@ -56,17 +56,19 @@ public class NightController : ControllerBase
         var result = lobby.Game.LastNightResult;
         if (result is null) return NoContent();
 
+        var player = lobby.Players.FirstOrDefault(p => p.Id == playerId);
         var clueEvent = result.Events
-            .OfType<DetectiveClueEvent>()
-            .FirstOrDefault(e => e.DetectiveId == playerId);
+            .OfType<PlayerNightEvent>()
+            .FirstOrDefault(x => x.PlayerId == playerId);
 
         if (clueEvent is null) return NoContent();
 
-        var subject = lobby.Players.FirstOrDefault(p => p.Id == clueEvent.SubjectId);
-        return Ok(new DetectiveClueResponse
+        var info = clueEvent.GetInfo();
+
+        return Ok(new ClueResponse
         {
-            SubjectNickname = subject?.Nickname ?? "?",
-            IsWerewolf = clueEvent.IsWerewolf
+            Type = info.Type,
+            Data = info.Data
         });
     }
 }

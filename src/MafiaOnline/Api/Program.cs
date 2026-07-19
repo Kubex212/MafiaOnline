@@ -17,7 +17,17 @@ namespace Api
 
             builder.Services.AddSingleton<ILobbyRepository, InMemoryLobbyRepository>();
             builder.Services.AddSingleton<ILobbyService, LobbyService>();
+
+            // NightService and DayService call each other; break the cycle with Lazy<T>
             builder.Services.AddSingleton<INightService, NightService>();
+            builder.Services.AddSingleton<IDayService, DayService>();
+
+            builder.Services.AddSingleton(sp =>
+                new Lazy<IDayService>(() => sp.GetRequiredService<IDayService>()));
+
+            builder.Services.AddSingleton(sp =>
+                new Lazy<INightService>(() => sp.GetRequiredService<INightService>()));
+
             builder.Services.AddSignalR();
 
             var app = builder.Build();

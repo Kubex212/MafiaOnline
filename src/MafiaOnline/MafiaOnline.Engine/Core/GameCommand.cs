@@ -91,3 +91,22 @@ public class ResolveNightCommand : GameCommand
         game.ResolveNightWithActions(Actions);
     }
 }
+
+/// <summary>
+/// Resolves the day voting phase with a final set of collected votes.
+/// </summary>
+public class ResolveDayCommand : GameCommand
+{
+    public ResolveDayCommand(IReadOnlyDictionary<Guid, Guid> votes)
+        : base(Guid.Empty)
+    {
+        Votes = votes;
+    }
+
+    public IReadOnlyDictionary<Guid, Guid> Votes { get; }
+
+    internal override void Execute(Game game)
+    {
+        game.ResolveDayVoting(Votes);
+    }
+}

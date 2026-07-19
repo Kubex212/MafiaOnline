@@ -2,7 +2,6 @@
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Engine.Night;
-using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
 
 namespace MafiaOnline.Api.Services;
@@ -16,18 +15,18 @@ public interface INightService
 
 public class NightService : INightService
 {
-    private const int TurnSeconds = 1000;
+    private const int TurnSeconds = 10;
 
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
-
-    // cancellation per lobby so a new turn cancels the previous timer
+    private readonly IDayService _dayService;
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
 
-    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub)
+    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService)
     {
         _repository = repository;
         _hub = hub;
+        _dayService = dayService;
     }
 
     public async Task BeginNightAsync(string lobbyCode)
@@ -69,16 +68,14 @@ public class NightService : INightService
         var active = lobby.NightSession.ActivePlayer!;
         bool hasAbility = lobby.ActivePlayerHasAbility();
 
-        // Tell all clients whose turn it is
         await _hub.Clients.Group(lobby.Code).SendAsync("NightTurnStarted", new
         {
-            activePlayerId   = active.Id,
-            activeSeatIndex  = active.SeatIndex,
+            activePlayerId  = active.Id,
+            activeSeatIndex = active.SeatIndex,
             hasAbility,
-            timeoutSeconds   = TurnSeconds
+            timeoutSeconds  = TurnSeconds
         });
 
-        // Start the countdown timer; auto-skip on expiry
         var cts = new CancellationTokenSource();
         lock (_timers) { _timers[lobby.Code] = cts; }
 
@@ -87,7 +84,6 @@ public class NightService : INightService
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(TurnSeconds), cts.Token);
-                // Timer fired — auto-skip this player
                 var current = GetLobby(lobby.Code);
                 if (current.NightSession?.ActivePlayer?.Id == active.Id)
                 {
@@ -105,7 +101,6 @@ public class NightService : INightService
         var result = lobby.ResolveNight();
         _repository.Update(lobby);
 
-        // Build public summary (no role leaks)
         var killedNames = result.Killed
             .Select(id => lobby.Players.FirstOrDefault(p => p.Id == id)?.Nickname ?? "?")
             .ToList();
@@ -117,6 +112,20 @@ public class NightService : INightService
             killed = killedNames,
             attackBlocked
         });
+
+        // Check game over
+        if (lobby.Game!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
+        {
+            await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
+            {
+                winner = lobby.Game.Winner.ToString()
+            });
+            return;
+        }
+
+        // Transition to day after a short pause so clients can show the night summary
+        await Task.Delay(4000);
+        await _dayService.BeginDayAsync(lobby.Code);
     }
 
     private void CancelTimer(string code)

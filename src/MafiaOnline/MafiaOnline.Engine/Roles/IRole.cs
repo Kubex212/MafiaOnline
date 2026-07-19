@@ -1,4 +1,6 @@
-﻿namespace MafiaOnline.Engine.Roles;
+﻿using MafiaOnline.Engine.Night;
+
+namespace MafiaOnline.Engine.Roles;
 
 public enum RoleType
 {

@@ -9,14 +9,25 @@ public class NightContext
 {
     // ---------- pending decisions (set by abilities) ----------
 
-    /// <summary>PlayerId ? targeted victim (by Werewolves).</summary>
+    /// <summary>
+    /// PlayerId -> targeted victim (by Werewolves).
+    /// </summary>
     internal Dictionary<Guid, Guid> WerewolfAttacks { get; } = new();
 
-    /// <summary>PlayerId (guardian) ? protected target.</summary>
+    /// <summary>
+    /// PlayerId (guardian) -> protected target.
+    /// </summary>
     internal Dictionary<Guid, Guid> GuardianProtections { get; } = new();
 
-    /// <summary>PlayerId (detective) ? the player pointed at them this night.</summary>
+    /// <summary>
+    /// PlayerId (detective) -> the player pointed at them this night.
+    /// </summary>
     internal Dictionary<Guid, Guid> DetectiveClues { get; } = new();
+
+    /// <summary>
+    /// PlayerId (dog tamer) -> whether the dog barked.
+    /// </summary>
+    internal Dictionary<Guid, bool> DogTamerClues { get; } = new();
 
     // ---------- finalised outcomes (populated by NightResolver) ----------
 

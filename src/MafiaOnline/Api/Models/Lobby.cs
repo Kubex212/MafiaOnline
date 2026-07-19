@@ -1,5 +1,6 @@
 ﻿using MafiaOnline.Engine;
 using MafiaOnline.Engine.Commands;
+using MafiaOnline.Engine.Day;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
 
@@ -20,7 +21,10 @@ public class Lobby
     public bool Started { get; private set; }
     public Game? Game { get; private set; }
     public NightSession? NightSession { get; private set; }
+    public DaySession? DaySession { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
+
+    // ── Lobby management ──────────────────────────────────────────────────
 
     public void AddPlayer(LobbyPlayer player)
     {
@@ -33,7 +37,6 @@ public class Lobby
         _players.Add(player);
     }
 
-    /// <summary>Move a player one position towards the top of the list (lower index).</summary>
     public void MovePlayerUp(Guid playerId)
     {
         AssertNotStarted();
@@ -42,7 +45,6 @@ public class Lobby
         (_players[idx], _players[idx - 1]) = (_players[idx - 1], _players[idx]);
     }
 
-    /// <summary>Move a player one position towards the bottom of the list (higher index).</summary>
     public void MovePlayerDown(Guid playerId)
     {
         AssertNotStarted();
@@ -51,7 +53,6 @@ public class Lobby
         (_players[idx], _players[idx + 1]) = (_players[idx + 1], _players[idx]);
     }
 
-    /// <summary>Randomly shuffle the current player order.</summary>
     public void ShufflePlayers()
     {
         AssertNotStarted();
@@ -82,7 +83,6 @@ public class Lobby
         foreach (var lp in _players)
             game.Execute(new AddPlayerCommand(lp.Id, lp.Nickname));
 
-        // Pass the current lobby order as the seat order
         var seatOrder = _players.Select(p => p.Id).ToList();
         game.Execute(new StartGameCommand(requestingPlayerId, seatOrder));
 
@@ -96,7 +96,8 @@ public class Lobby
         Started = true;
     }
 
-    /// <summary>Opens a new night session for all currently alive players.</summary>
+    // ── Night ──────────────────────────────────────────────────────────────
+
     public void BeginNightSession()
     {
         if (Game is null) throw new InvalidOperationException("Game not started.");
@@ -105,10 +106,6 @@ public class Lobby
         NightSession = new NightSession(alive);
     }
 
-    /// <summary>
-    /// Returns whether the active player has a non-automatic night ability
-    /// (i.e. they can choose a target rather than just skipping).
-    /// </summary>
     public bool ActivePlayerHasAbility()
     {
         if (Game is null || NightSession?.ActivePlayer is null) return false;
@@ -116,7 +113,6 @@ public class Lobby
         return ep?.Role is IHasNightAbility na && !na.NightAbility.IsAutomatic;
     }
 
-    /// <summary>Finalises the night: sends collected actions to the engine and returns the result.</summary>
     public NightResult ResolveNight()
     {
         if (Game is null) throw new InvalidOperationException("Game not started.");
@@ -127,8 +123,41 @@ public class Lobby
         return Game.LastNightResult!;
     }
 
+    // ── Day ────────────────────────────────────────────────────────────────
+
+    public void BeginDaySession()
+    {
+        if (Game is null) throw new InvalidOperationException("Game not started.");
+
+        var alive = _players.Where(p => Game.Players.First(ep => ep.Id == p.Id).IsAlive);
+        DaySession = new DaySession(alive);
+    }
+
+    /// <summary>
+    /// Cast a vote. Returns the updated vote map so the service can broadcast it.
+    /// When <see cref="DaySession.AllVoted"/> is true the caller should resolve immediately.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, Guid> CastVote(Guid voterId, Guid candidateId)
+    {
+        if (DaySession is null) throw new InvalidOperationException("No active day session.");
+        DaySession.CastVote(voterId, candidateId);
+        return DaySession.Votes;
+    }
+
+    public DayResult ResolveDay()
+    {
+        if (Game is null) throw new InvalidOperationException("Game not started.");
+        if (DaySession is null) throw new InvalidOperationException("No active day session.");
+
+        Game.Execute(new ResolveDayCommand(DaySession.Votes));
+        DaySession = null;
+        return Game.LastDayResult!;
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
     private void AssertNotStarted()
     {
-        if (Started) throw new InvalidOperationException("Cannot reorder players after the game has started.");
+        if (Started) throw new InvalidOperationException("Cannot modify lobby after the game has started.");
     }
 }

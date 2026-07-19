@@ -1,3 +1,5 @@
+using MafiaOnline.Engine.Config;
+
 namespace MafiaOnline.Engine.Config;
 
 /// <summary>
@@ -7,4 +9,6 @@ public class GameConfig
 {
     public GuardianConfig Guardian { get; set; } = new();
     public DetectiveConfig Detective { get; set; } = new();
+    public DogTamerConfig DogTamer { get; set; } = new();
+    public DayConfig Day { get; set; } = new();
 }

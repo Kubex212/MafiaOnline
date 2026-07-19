@@ -1,5 +1,6 @@
 ﻿namespace MafiaOnline.Engine;
 using global::MafiaOnline.Engine.Config;
+using global::MafiaOnline.Engine.Day;
 using global::MafiaOnline.Engine.Night;
 using global::MafiaOnline.Engine.Roles;
 using MafiaOnline.Engine.Commands;
@@ -21,21 +22,15 @@ public class Game
     internal List<Player> PlayersInternal => _players;
     public GameStatus Status { get; internal set; } = GameStatus.WaitingForPlayers;
     public GamePhase Phase { get; internal set; } = GamePhase.Lobby;
+    public GameWinner Winner { get; private set; } = GameWinner.None;
 
-    /// <summary>
-    /// The result of the most recently resolved night, or null if no night has been resolved.
-    /// </summary>
     public NightResult? LastNightResult { get; private set; }
+    public DayResult? LastDayResult { get; private set; }
 
-    public void Execute(GameCommand command)
-    {
-        command.Execute(this);
-    }
+    public void Execute(GameCommand command) => command.Execute(this);
 
-    /// <summary>
-    /// Resolves the night with a final set of collected actions.
-    /// Called by <see cref="Commands.ResolveNightCommand"/>.
-    /// </summary>
+    // ── Night ──────────────────────────────────────────────────────────────
+
     internal void ResolveNightWithActions(IReadOnlyDictionary<Guid, Guid> actions)
     {
         if (Phase != GamePhase.Night)
@@ -48,13 +43,60 @@ public class Game
         foreach (var killedId in LastNightResult.Killed)
             _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
 
-        Phase = GamePhase.DayDiscussion;
+        CheckWinCondition();
+
+        if (Phase != GamePhase.Finished)
+            Phase = GamePhase.DayDiscussion;
     }
 
+    // ── Day ────────────────────────────────────────────────────────────────
+
+    internal void ResolveDayVoting(IReadOnlyDictionary<Guid, Guid> votes)
+    {
+        if (Phase != GamePhase.DayDiscussion)
+            throw new InvalidOperationException("Not currently the day phase.");
+
+        var alivePlayers = _players.Where(p => p.IsAlive).Select(p => p.Id).ToList();
+        var resolver = new DayResolver();
+        LastDayResult = resolver.Resolve(votes, alivePlayers, Config.Day);
+
+        foreach (var banishedId in LastDayResult.Banished)
+            _players.FirstOrDefault(p => p.Id == banishedId)?.Kill();
+
+        CheckWinCondition();
+
+        if (Phase != GamePhase.Finished)
+            Phase = GamePhase.Night;
+    }
+
+    // ── Win condition ──────────────────────────────────────────────────────
+
     /// <summary>
-    /// Submit a night action for a player with a non-automatic night ability.
-    /// When all required actions are in, the night resolves automatically.
+    /// Villagers win when there are no werewolves left.
+    /// Werewolves win when they are at least as numerous as the remaining town players.
     /// </summary>
+    private void CheckWinCondition()
+    {
+        var alive = _players.Where(p => p.IsAlive).ToList();
+        int wolves = alive.Count(p => p.Role.TeamId == 1);
+        int town   = alive.Count(p => p.Role.TeamId == 0);
+
+        if (wolves == 0)
+        {
+            Winner = GameWinner.Villagers;
+            Phase  = GamePhase.Finished;
+            Status = GameStatus.Finished;
+        }
+        else if (wolves >= town)
+        {
+            Winner = GameWinner.Werewolves;
+            Phase  = GamePhase.Finished;
+            Status = GameStatus.Finished;
+        }
+    }
+
+    // ── Existing helpers (kept for completeness) ───────────────────────────
+
     internal void SubmitNightAction(Guid actorId, Guid targetId)
     {
         if (Phase != GamePhase.Night)
@@ -68,29 +110,22 @@ public class Game
 
         _pendingNightActions[actorId] = targetId;
 
-        if (AllNightActionsSubmitted())
-            ResolveNight();
+        if (AllNightActionsSubmitted()) ResolveNightLegacy();
     }
 
-    /// <summary>
-    /// Force-resolve the night phase (e.g. after a timeout).
-    /// Players who haven't submitted actions simply skip their ability.
-    /// </summary>
     internal void ForceResolveNight()
     {
         if (Phase != GamePhase.Night)
             throw new InvalidOperationException("Not currently the night phase.");
-        ResolveNight();
+        ResolveNightLegacy();
     }
 
-    private bool AllNightActionsSubmitted()
-    {
-        return _players
+    private bool AllNightActionsSubmitted() =>
+        _players
             .Where(p => p.IsAlive && p.Role is IHasNightAbility na && !na.NightAbility.IsAutomatic)
             .All(p => _pendingNightActions.ContainsKey(p.Id));
-    }
 
-    private void ResolveNight()
+    private void ResolveNightLegacy()
     {
         var alivePlayers = _players.Where(p => p.IsAlive).ToList();
         var resolver = new NightResolver();
@@ -105,18 +140,18 @@ public class Game
 
     internal void AssignRoles(IReadOnlyList<Guid>? orderedPlayerIds = null)
     {
+        // TODO: replace those hardcoded role counts with values based on the configuration
+        // TODO: also make it so adding roles is easier and doesnt require changing this method
+        var werewolfCount = 1;
+        var guardianCount = 1;
+        var detectiveCount = 1;
+
         List<Player> ordered;
 
         if (orderedPlayerIds is not null && orderedPlayerIds.Count == _players.Count)
-        {
-            // Use the explicitly supplied seat order
-            ordered = orderedPlayerIds
-                .Select(id => _players.First(p => p.Id == id))
-                .ToList();
-        }
+            ordered = orderedPlayerIds.Select(id => _players.First(p => p.Id == id)).ToList();
         else
         {
-            // Fall back to random shuffle
             var random = new Random();
             ordered = _players.OrderBy(_ => random.Next()).ToList();
         }
@@ -124,14 +159,31 @@ public class Game
         for (int i = 0; i < ordered.Count; i++)
             ordered[i].SeatIndex = i;
 
-        ordered[0].AssignRole(new Werewolf());
-        ordered[1].AssignRole(new Guardian(Config.Guardian));
-        ordered[2].AssignRole(new Detective(Config.Detective));
+        // TODO: replace this hardcoded role assignment with a dynamic assignment based on the counts in configuration
+        var specialRolesToAssign = new List<IRole>()
+        {
+            new Werewolf(),
+            new DogTamer(Config.DogTamer),
+            new Detective(Config.Detective)
+        };
 
-        foreach (var player in ordered.Skip(3))
-            player.AssignRole(new Villager());
+        var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
+
+        var shuffledIndices = Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
+        for(var i = 0; i < specialRolesToAssign.Count; i++)
+        {
+            var playerIndex = shuffledIndices[i];
+            var role = specialRolesToAssign[i];
+            ordered[playerIndex].AssignRole(role);
+            unassignedPlayers.Remove(playerIndex);
+        }
+
+        foreach (var playerIndex in unassignedPlayers)
+            ordered[playerIndex].AssignRole(new Villager());
     }
 }
+
+public record PlayerNightInfo(string Type, Dictionary<string, object> Data);
 
 public enum GamePhase
 {
@@ -148,4 +200,11 @@ public enum GameStatus
     WaitingForPlayers,
     InProgress,
     Finished
+}
+
+public enum GameWinner
+{
+    None,
+    Villagers,
+    Werewolves
 }
