@@ -64,3 +64,78 @@
 /src/MafiaOnline/Api/bin/Debug/net8.0/appsettings.json
 /src/MafiaOnline/Api/obj/Debug/net8.0/Api.csproj.FileListAbsolute.txt
 /src/MafiaOnline/Api/obj/Debug/net8.0/Api.genruntimeconfig.cache
+/src/MafiaOnline/Api/bin/Debug/net8.0/Newtonsoft.Json.dll
+/src/MafiaOnline/Api/Api.csproj
+/src/MafiaOnline/MafiaOnline.Engine/bin/Debug/net8.0/MafiaOnline.Engine.deps.json
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+wwwroot/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+packages/
+!**/packages/build/
+
+# Test results
+TestResults/
+*.trx
+
+# Publish
+publish/
+artifacts/
+
+# IIS Express
+.vs/config/
+
+# ASP.NET Core
+appsettings.Development.json
+
+# User secrets
+secrets.json
+
+# Frontend (Vite/React)
+**/node_modules/
+**/dist/
+**/.vite/
+
+# npm/yarn logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+coverage.*
+
+# Generated files
+*.cache
+*.tmp
+*.temp
+
+# JetBrains
+*.sln.iml

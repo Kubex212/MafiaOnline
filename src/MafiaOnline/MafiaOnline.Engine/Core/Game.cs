@@ -4,10 +4,12 @@ using global::MafiaOnline.Engine.Day;
 using global::MafiaOnline.Engine.Night;
 using global::MafiaOnline.Engine.Roles;
 using MafiaOnline.Engine.Commands;
+using Newtonsoft.Json;
 
 public class Game
 {
-    private readonly List<Player> _players = new();
+    [JsonProperty]
+    private List<Player> _players = new();
     private readonly Dictionary<Guid, Guid> _pendingNightActions = new();
 
     public Game(Guid id, GameConfig? config = null)
