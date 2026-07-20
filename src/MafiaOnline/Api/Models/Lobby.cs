@@ -3,17 +3,44 @@ using MafiaOnline.Engine.Commands;
 using MafiaOnline.Engine.Day;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
+using Newtonsoft.Json;
 
 namespace MafiaOnline.Api.Models;
 
 public class Lobby
 {
+    [JsonProperty]
     private readonly List<LobbyPlayer> _players = new();
 
-    public Lobby(string code)
+    [JsonConstructor]
+    public Lobby(
+        Guid id,
+        string code,
+        bool started,
+        Game? game,
+        NightSession? nightSession,
+        DaySession? daySession,
+        List<LobbyPlayer> players)
     {
-        Id = Guid.NewGuid();
+        Id = id;
         Code = code;
+        Started = started;
+        Game = game;
+        NightSession = nightSession;
+        DaySession = daySession;
+        _players = players;
+    }
+
+    public Lobby(string code)
+        : this(
+            Guid.NewGuid(),
+            code,
+            false,
+            null,
+            null,
+            null,
+            new List<LobbyPlayer>())
+    {
     }
 
     public Guid Id { get; }

@@ -1,12 +1,21 @@
-﻿namespace MafiaOnline.Api.Models;
+﻿using Newtonsoft.Json;
+
+namespace MafiaOnline.Api.Models;
 
 public class LobbyPlayer
 {
-    public LobbyPlayer(string nickname, bool isHost)
+    [JsonConstructor]
+    public LobbyPlayer(Guid id, string nickname, bool isHost, int seatIndex)
     {
-        Id = Guid.NewGuid();
+        Id = id;
         Nickname = nickname;
         IsHost = isHost;
+        SeatIndex = seatIndex;
+    }
+
+    public LobbyPlayer(string nickname, bool isHost)
+        : this(Guid.NewGuid(), nickname, isHost, -1)
+    {
     }
 
     public Guid Id { get; }
@@ -15,6 +24,5 @@ public class LobbyPlayer
 
     public bool IsHost { get; }
 
-    /// <summary>Set once the game has started; mirrors the engine Player's SeatIndex.</summary>
     public int SeatIndex { get; set; } = -1;
 }

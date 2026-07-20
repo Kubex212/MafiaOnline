@@ -9,6 +9,11 @@ namespace Api.Repositories;
 public class PostgresLobbyRepository : ILobbyRepository
 {
     private readonly MafiaDbContext _db;
+    private readonly JsonSerializerSettings _settings = new()
+    {
+        TypeNameHandling = TypeNameHandling.Auto
+    };
+
 
     public PostgresLobbyRepository(MafiaDbContext db)
     {
@@ -21,7 +26,7 @@ public class PostgresLobbyRepository : ILobbyRepository
         {
             Id = lobby.Id,
             Code = lobby.Code,
-            StateJson = JsonConvert.SerializeObject(lobby),
+            StateJson = JsonConvert.SerializeObject(lobby, _settings),
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow
         };
@@ -38,7 +43,8 @@ public class PostgresLobbyRepository : ILobbyRepository
         if (entity == null)
             return null;
 
-        return JsonConvert.DeserializeObject<Lobby>(entity.StateJson);
+        var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings);
+        return lobby;
     }
 
     public async Task Update(Lobby lobby)
@@ -49,7 +55,7 @@ public class PostgresLobbyRepository : ILobbyRepository
         if (entity == null)
             throw new InvalidOperationException("Lobby not found.");
 
-        entity.StateJson = JsonConvert.SerializeObject(lobby);
+        entity.StateJson = JsonConvert.SerializeObject(lobby, _settings);
         entity.UpdatedAtUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
