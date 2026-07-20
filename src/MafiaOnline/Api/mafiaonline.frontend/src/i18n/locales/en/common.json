@@ -1,0 +1,11 @@
+{
+  "join": "Join",
+  "leave": "Leave",
+  "startGame": "Start game",
+  "detectiveClue": "{{player}} is {{role}}",
+  "werewolf": "a Werewolf",
+  "innocent": "innocent",
+  "createLobby": "Create lobby",
+  "you": "you",
+  "mafiaTable": "Table"
+}

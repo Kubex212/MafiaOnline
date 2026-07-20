@@ -1,0 +1,11 @@
+{
+  "join": "Dołącz",
+  "leave": "Opuść",
+  "startGame": "Rozpocznij grę",
+  "detectiveClue": "{{player}} jest {{role}}",
+  "werewolf": "wilkołakiem",
+  "innocent": "niewinny",
+  "createLobby": "Utwórz lobby",
+  "you": "ty",
+  "mafiaTable": "Stół"
+}
