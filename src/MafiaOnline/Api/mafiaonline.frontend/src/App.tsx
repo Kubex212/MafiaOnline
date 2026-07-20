@@ -44,7 +44,7 @@ export default function App() {
         connRef.current = conn;
 
         conn.on('PlayerJoined', async (nick: string) => {
-            setMessages(m => [...m, `${nick} joined the lobby`]);
+            setMessages(m => [...m, t('playerJoined', { nick })]);
             const code = lobbyRef.current?.code;
             const lobby = await getLobby(code);
             console.log(lobby);
@@ -132,7 +132,7 @@ export default function App() {
             const me = res.players.find(p => p.isHost)!;
             setMyPlayerId(me.id);
             setLobby(res);
-            setMessages([`Lobby ${res.code} created`]);
+            setMessages([t('lobbyCreated', { code: res.code })]);
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
     }
@@ -143,7 +143,7 @@ export default function App() {
             const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
             setMyPlayerId(me.id);
             setLobby(res);
-            setMessages([`Joined lobby ${res.code}`]);
+            setMessages([t('joinedLobby', { code: res.code })]);
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
     }
@@ -193,13 +193,13 @@ export default function App() {
         return (
             <div style={{ ...styles.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                 <div style={{ fontSize: 14, color: '#aaa', letterSpacing: 3, textTransform: 'uppercase' }}>
-                    Your role is{'\u2026'}
+                    {t('yourRoleIs')}
                 </div>
                 <div style={{ fontSize: 48, fontWeight: 900, color: teamColor, textShadow: `0 0 40px ${teamColor}88` }}>
                     {myRole.name}
                 </div>
                 <div style={{ color: '#aaa', fontSize: 15 }}>Team: {myRole.team}</div>
-                <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>Night phase begins in a moment{'\u2026'}</div>
+                <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>{t('nightBeginsSoon')}</div>
             </div>
         );
     }
@@ -209,7 +209,7 @@ export default function App() {
         return (
             <div style={styles.page}>
                 <h2 style={{ color: '#aaa', margin: '0 0 16px', textAlign: 'center' }}>
-                    {'\uD83C\uDF19'} Night Phase {'\u2014'} Lobby{' '}
+                    {'\uD83C\uDF19'} {t('nightPhase')} {'\u2014'} Lobby{' '}
                     <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
                 </h2>
                 <NightPhase
@@ -228,7 +228,7 @@ export default function App() {
         return (
             <div style={styles.page}>
                 <h2 style={{ color: '#aaa', margin: '0 0 16px', textAlign: 'center' }}>
-                    {'\u2600\uFE0F'} Day Phase {'\u2014'} Lobby{' '}
+                    {'\u2600\uFE0F'} {t('dayPhase')} {'\u2014'} Lobby{' '}
                     <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
                 </h2>
                 <DayPhase
@@ -245,13 +245,13 @@ export default function App() {
     // ── LOBBY VIEW ─────────────────────────────────────────────────────────────
     return (
         <div style={styles.page}>
-            <h1 style={{ color: '#f0c040' }}>MafiaOnline</h1>
+            <h1 style={{ color: '#f0c040' }}>{t('appTitle')}</h1>
 
             {!lobby && (
                 <>
                     <div style={styles.row}>
                         <label style={styles.label}>
-                            Nickname:
+                            {t('nickname')}:
                             <input
                                 value={nickname}
                                 onChange={e => setNickname(e.target.value)}
@@ -261,14 +261,14 @@ export default function App() {
                     </div>
                     <div style={styles.row}>
                         <button style={styles.btn} onClick={onCreate}>{t('createLobby')}</button>
-                        <span style={{ color: '#aaa', margin: '0 12px' }}>or join:</span>
+                        <span style={{ color: '#aaa', margin: '0 12px' }}>{t('orJoin')}</span>
                         <input
                             value={codeToJoin}
-                            placeholder="Lobby code"
+                            placeholder={t('lobbyCodePlaceholder')}
                             onChange={e => setCodeToJoin(e.target.value.toUpperCase())}
                             style={{ ...styles.input, width: 100, textTransform: 'uppercase' }}
                         />
-                        <button style={{ ...styles.btn, marginLeft: 8 }} onClick={onJoin}>Join</button>
+                        <button style={{ ...styles.btn, marginLeft: 8 }} onClick={onJoin}>{t('join')}</button>
                     </div>
                 </>
             )}
@@ -277,20 +277,20 @@ export default function App() {
                 <div style={styles.card}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
                         <h3 style={{ margin: 0, color: '#f0c040' }}>
-                            Lobby <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span>
+                            {t('lobbyLabel')} <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span>
                         </h3>
                         <span style={{ color: '#aaa', fontSize: 13 }}>
-                            {hubStarted ? '\uD83D\uDFE2 connected' : '\uD83D\uDD34 connecting\u2026'}
+                            {hubStarted ? `\uD83D\uDFE2 ${t('connected')}` : `\uD83D\uDD34 ${t('connecting')}`}
                         </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                         <span style={{ fontSize: 12, color: '#666', textTransform: 'uppercase', letterSpacing: 1 }}>
-                            Seat order {isHost ? '' : '(set by host)'}
+                            {t('seatOrder')} {isHost ? '' : ` ${t('setByHost')}`}
                         </span>
                         {isHost && (
-                            <button onClick={onShuffle} style={styles.shuffleBtn} title="Shuffle randomly">
-                                {'\uD83C\uDFB2'} Shuffle
+                            <button onClick={onShuffle} style={styles.shuffleBtn} title={t('shuffle')}>
+                                {'\uD83C\uDFB2'} {t('shuffle')}
                             </button>
                         )}
                     </div>
@@ -310,21 +310,21 @@ export default function App() {
                                 }}>
                                     {p.nickname}
                                 </span>
-                                {p.isHost && <span style={styles.badge}>host</span>}
-                                {p.id === myPlayerId && <span style={{ ...styles.badge, background: '#444' }}>you</span>}
+                                {p.isHost && <span style={styles.badge}>{t('host')}</span>}
+                                {p.id === myPlayerId && <span style={{ ...styles.badge, background: '#444' }}>{t('you')}</span>}
                                 {isHost && !lobby.started && (
                                     <span style={{ display: 'flex', gap: 3, marginLeft: 6 }}>
                                         <button
                                             onClick={() => onMoveUp(p.id)}
                                             disabled={i === 0}
                                             style={{ ...styles.arrowBtn, opacity: i === 0 ? 0.25 : 1 }}
-                                            title="Move up"
+                                            title={t('moveUp')}
                                         >{'\u25B2'}</button>
                                         <button
                                             onClick={() => onMoveDown(p.id)}
                                             disabled={i === orderedPlayers.length - 1}
                                             style={{ ...styles.arrowBtn, opacity: i === orderedPlayers.length - 1 ? 0.25 : 1 }}
-                                            title="Move down"
+                                            title={t('moveDown')}
                                         >{'\u25BC'}</button>
                                     </span>
                                 )}
@@ -333,8 +333,8 @@ export default function App() {
                     </ul>
 
                     <div style={{ color: '#666', fontSize: 12, marginBottom: 12 }}>
-                        {lobby.players.length} / 4+ players
-                        {lobby.players.length < 4 && ` \u2014 need ${4 - lobby.players.length} more`}
+                        {t('playersCount', { count: lobby.players.length })}
+                        {lobby.players.length < 4 && ` \u2014 ${t('needMore', { n: 4 - lobby.players.length })}`}
                     </div>
 
                     {canStart && (
@@ -342,7 +342,7 @@ export default function App() {
                             style={{ ...styles.btn, background: '#5cb85c', fontSize: 15, width: '100%' }}
                             onClick={onStart}
                         >
-                            {t('startGame')}test
+                            {t('startGame')}
                         </button>
                     )}
                 </div>
@@ -350,7 +350,7 @@ export default function App() {
 
             {messages.length > 0 && (
                 <div style={{ marginTop: 20 }}>
-                    <h4 style={{ color: '#aaa' }}>Events</h4>
+                    <h4 style={{ color: '#aaa' }}>{t('events')}</h4>
                     <ul style={{ color: '#ccc', fontSize: 13 }}>
                         {messages.map((m, i) => <li key={i}>{m}</li>)}
                     </ul>

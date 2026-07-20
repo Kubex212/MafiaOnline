@@ -1,6 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, PlayerNightInfoResponse } from './api';
 import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
     lobbyCode: string;
@@ -31,13 +32,14 @@ const TEAM_COLORS: Record<string, string> = {
 const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     { lobbyCode, seats, myPlayerId, myRole }, ref
 ) {
+    const { t } = useTranslation();
     const [activeTurn, setActiveTurn] = useState<NightTurnStarted | null>(null);
     const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
     const [resolved, setResolved] = useState<NightResolvedPayload | null>(null);
     const [nightInfo, setNightInfo] = useState<PlayerNightInfoResponse | null>(null);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [log, setLog] = useState<string[]>(['Night falls…']);
+    const [log, setLog] = useState<string[]>([t('nightFalls')]);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -48,7 +50,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setSubmitting(false);
             const who = seats.find(s => s.id === turn.activePlayerId);
             const isMe = turn.activePlayerId === myPlayerId;
-            setLog(l => [...l, `${isMe ? 'Your turn' : (who?.nickname ?? '?') + '\'s turn...'}`]);
+            setLog(l => [...l, isMe ? t('yourTurn') : t('playerTurn', { nick: who?.nickname ?? '?' })]);
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
                 setTimeLeft(t => {
@@ -62,24 +64,24 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setActiveTurn(null);
             setResolved(payload);
             if (payload.killed.length > 0)
-                setLog(l => [...l, `🐺 Killed: ${payload.killed.join(', ')}`]);
+                setLog(l => [...l, t('killed', { list: payload.killed.join(', ') })]);
             else if (payload.attackBlocked)
-                setLog(l => [...l, 'The Guardian saved someone tonight!']);
+                setLog(l => [...l, t('attackBlocked')]);
             else
-                setLog(l => [...l, 'A quiet night 🌙 no one died.']);
+                setLog(l => [...l, t('quietNight')]);
             try {
                 const info = await getPlayerNightInfo(lobbyCode, myPlayerId);
                 setNightInfo(info);
 
                 if (info?.type === "DetectiveClue") {
-                    setLog(l => [...l, `🕵️‍ Clue: ${info.data.SubjectNickname} is ${info.data.IsWerewolf ? 'a Werewolf' : 'innocent'}`]);
+                    setLog(l => [...l, t('detectiveClueLong', { player: info.data.SubjectNickname, role: info.data.IsWerewolf ? t('werewolf') : t('innocent') })]);
                 }
                 else if (info?.type === "DogTamerClue") {
-                    setLog(l => [...l, `🐕 Dog clue: ${info.data.DidBark ? 'The dog barked' : 'The dog stayed quiet'}`]);
+                    setLog(l => [...l, t('dogClue', { barked: info.data.DidBark ? t('dogBarked') : t('dogQuiet') })]);
                 }
             } catch { /* no night info */ }
         },
-    }), [lobbyCode, myPlayerId, seats]);
+    }), [lobbyCode, myPlayerId, seats, t]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -91,7 +93,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         setSubmitting(true);
         try {
             await submitNightAction(lobbyCode, myPlayerId, selectedTarget);
-            setLog(l => [...l, 'Action submitted']);
+            setLog(l => [...l, t('actionSubmitted')]);
         } catch (e) { alert(String(e)); setSubmitting(false); }
     }
 
@@ -100,7 +102,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         setSubmitting(true);
         try {
             await skipNightTurn(lobbyCode, myPlayerId);
-            setLog(l => [...l, '⏳ Skipped']);
+            setLog(l => [...l, t('skipped')]);
         } catch (e) { alert(String(e)); setSubmitting(false); }
     }
 
@@ -115,7 +117,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 border: `2px solid ${TEAM_COLORS[myRole.team] ?? '#aaa'}`,
                 background: '#1a1a2e', textAlign: 'center',
             }}>
-                <span style={{ fontSize: 12, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>Your role </span>
+                <span style={{ fontSize: 12, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>{t('yourRole')}</span>
                 <span style={{ fontSize: 20, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff' }}>{myRole.name}</span>
             </div>
 
@@ -129,17 +131,17 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 }}>
                     <div>
                         {isMyTurn
-                            ? <span style={{ color: '#5cb85c', fontWeight: 700 }}>? Your turn!</span>
+                            ? <span style={{ color: '#5cb85c', fontWeight: 700 }}>{t('yourTurnBanner')}</span>
                             : <span style={{ color: '#aaa' }}>
-                                Waiting for <b style={{ color: '#f0c040' }}>
+                                {t('waitingFor')} <b style={{ color: '#f0c040' }}>
                                     {seats.find(s => s.id === activeTurn.activePlayerId)?.nickname ?? '?'}
                                 </b>…
                             </span>
                         }
                         <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
                             {isMyTurn && (activeTurn.hasAbility
-                                ? 'Pick a target, then confirm — or skip.'
-                                : 'No ability tonight. Press Skip.')}
+                                ? t('pickTargetConfirmOrSkip')
+                                : t('noAbilitySkip'))}
                         </div>
                     </div>
                     {/* Countdown ring */}
@@ -166,7 +168,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             {/* Round table */}
             <svg viewBox="0 0 500 500" style={{ width: '100%', maxWidth: 460, userSelect: 'none' }}>
                 <circle cx={cx} cy={cy} r={100} fill="#2c1a0e" stroke="#7a4a1e" strokeWidth={6} />
-                <text x={cx} y={cy + 6} textAnchor="middle" fill="#7a4a1e" fontSize={14} fontWeight={600}>🌙 Night</text>
+                <text x={cx} y={cy + 6} textAnchor="middle" fill="#7a4a1e" fontSize={14} fontWeight={600}>🌙 {t('night')}</text>
 
                 {seats.map((seat, i) => {
                     const angle = (2 * Math.PI * i) / seats.length - Math.PI / 2;
@@ -192,8 +194,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                             <text y={4} textAnchor="middle"
                                 fill={isMe ? '#f0c040' : isActive ? '#fff' : '#ddd'}
                                 fontSize={isMe ? 11 : 10} fontWeight={isMe || isActive ? 700 : 400}>{label}</text>
-                            {isMe && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9} fontStyle="italic">(you)</text>}
-                            {isSelected && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9}>? target</text>}
+                            {isMe && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9} fontStyle="italic">({t('you')})</text>}
+                            {isSelected && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9}>{t('target')}</text>}
                         </g>
                     );
                 })}
@@ -205,12 +207,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {activeTurn!.hasAbility && (
                         <button disabled={!selectedTarget || submitting} onClick={handleAction}
                             style={{ ...btnStyle, background: selectedTarget ? '#c0392b' : '#555', opacity: (!selectedTarget || submitting) ? 0.6 : 1 }}>
-                            {myRole.name === 'Werewolf' ? '🐺 Attack' : myRole.name === 'Guardian' ? '🛡 Protect' : 'Use Ability'}
+                            {myRole.name === 'Werewolf' ? t('attack') : myRole.name === 'Guardian' ? t('protect') : t('useAbility')}
                         </button>
                     )}
                     <button disabled={submitting} onClick={handleSkip}
                         style={{ ...btnStyle, background: '#444', opacity: submitting ? 0.6 : 1 }}>
-                        ⏳ Skip
+                        {t('skip')}
                     </button>
                 </div>
             )}
@@ -218,26 +220,23 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             {/* Resolution panel */}
             {resolved && (
                 <div style={{ maxWidth: 460, width: '100%', borderRadius: 10, padding: '14px 20px', background: '#1a1a2e', border: '2px solid #333' }}>
-                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>🌞 Dawn breaks…</div>
+                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>{t('dawn')}</div>
                     {resolved.killed.length > 0
-                        ? resolved.killed.map(n => <div key={n} style={{ color: '#d9534f' }}>?? <b>{n}</b> was killed in the night.</div>)
-                        : <div style={{ color: '#5cb85c' }}>🌜 Everyone survived the night.</div>
+                        ? resolved.killed.map(n => <div key={n} style={{ color: '#d9534f' }}>{t('wasKilled', { name: n })}</div>)
+                        : <div style={{ color: '#5cb85c' }}>{t('everyoneSurvived')}</div>
                     }
                     {resolved.attackBlocked && (
-                        <div style={{ color: '#5bc0de', marginTop: 4 }}>🛡 An attack was blocked by the Guardian.</div>
+                        <div style={{ color: '#5bc0de', marginTop: 4 }}>{t('attackBlocked')}</div>
                     )}
                     {nightInfo?.type === "DetectiveClue" && (
                         <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
-                            🕵️‍ Detective clue: <b style={{ color: '#ddd' }}>{String(nightInfo.data.SubjectNickname)}</b> is{' '}
-                            <b style={{ color: nightInfo.data.IsWerewolf ? '#d9534f' : '#5cb85c' }}>
-                                {nightInfo.data.IsWerewolf ? '🐺 a Werewolf' : '👨‍🌾 innocent'}
-                            </b>
+                            {t('detectiveClueShort')} <b style={{ color: '#ddd' }}>{String(nightInfo.data.SubjectNickname)}</b> {t('is')} <b style={{ color: nightInfo.data.IsWerewolf ? '#d9534f' : '#5cb85c' }}>{nightInfo.data.IsWerewolf ? t('werewolf') : t('innocent')}</b>
                         </div>
                     )}
 
                     {nightInfo?.type === "DogTamerClue" && (
                         <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
-                            🐕 Dog clue: {nightInfo.data.DidBark ? 'The dog barked!' : 'The dog stayed quiet.'}
+                            {t('dogClueShort')} {nightInfo.data.DidBark ? t('dogBarked') : t('dogQuiet')}.
                         </div>
                     )}
                 </div>

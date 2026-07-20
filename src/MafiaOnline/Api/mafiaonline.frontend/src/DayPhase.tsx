@@ -1,6 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import type { SeatInfo, RoleResponse, DayStartedPayload, VoteCastPayload, DayResolvedPayload } from './api';
 import { castVote } from './api';
+import { useTranslation } from 'react-i18next';
 
 export interface DayPhaseHandle {
     onDayStarted(payload: DayStartedPayload): void;
@@ -20,6 +21,7 @@ const TEAM_COLORS: Record<string, string> = { Werewolf: '#d9534f', Town: '#5cb85
 const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     { lobbyCode, allSeats, myPlayerId, myRole }, ref
 ) {
+    const { t } = useTranslation();
     const [alivePlayers, setAlivePlayers] = useState<SeatInfo[]>([]);
     const [duration, setDuration] = useState(180);
     const [showVoteTargets, setShowVoteTargets] = useState(false);
@@ -29,7 +31,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [resolved, setResolved] = useState<DayResolvedPayload | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-    const [log, setLog] = useState<string[]>(["\u2600\uFE0F Day breaks\u2026 discuss and vote! :)"]);
+    const [log, setLog] = useState<string[]>([t('dayBreaks')]);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -43,7 +45,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             setSelectedTarget(null);
             setResolved(null);
             setSubmitting(false);
-            setLog(["\u2600\uFE0F Day breaks\u2026 discuss and vote! :))"]);
+            setLog([t('dayBreaks')]);
 
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
@@ -57,20 +59,20 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         onVoteCast(payload: VoteCastPayload) {
             setVotes(prev => ({ ...prev, [payload.voterId]: payload.candidateId }));
             const voter = allSeats.find(s => s.id === payload.voterId);
-            setLog(l => [...l, `\u2714\uFE0F ${voter?.nickname ?? '?'} has voted`]);
+            setLog(l => [...l, t('playerVoted', { nick: voter?.nickname ?? '?' })]);
         },
 
         onDayResolved(payload: DayResolvedPayload) {
             if (timerRef.current) clearInterval(timerRef.current);
             setResolved(payload);
             if (payload.banished.length > 0)
-                setLog(l => [...l, `\uD83D\uDEAB Banished: ${payload.banished.join(', ')}`]);
+                setLog(l => [...l, t('banished', { list: payload.banished.join(', ') })]);
             else
                 setLog(l => [...l, payload.thresholdMet
-                    ? '\uD83E\uDD1D It was a draw \u2014 no one was banished.'
-                    : '\uD83E\uDD37 Not enough votes \u2014 no one was banished.']);
+                    ? t('drawNoOneBanished')
+                    : t('notEnoughVotes')]);
         },
-    }), [allSeats]);
+    }), [allSeats, t]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -83,12 +85,12 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         try {
             await castVote(lobbyCode, myPlayerId, selectedTarget);
             setMyVote(selectedTarget);
-            setLog(l => [...l, '\u2714\uFE0F Your vote was cast']);
+            setLog(l => [...l, t('yourVoteCast')]);
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
 
-    // ?? SVG table ?????????????????????????????????????????????????????????????
+    // ?? SVG table ????????????????????????????????????????????????????????????
 
     const cx = 250, cy = 250, r = 170;
     const seats = allSeats; // use all seats for stable layout; dead players shown greyed
@@ -105,7 +107,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                 border: `2px solid ${TEAM_COLORS[myRole.team] ?? '#aaa'}`,
                 background: '#1a1a2e', textAlign: 'center',
             }}>
-                <span style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>Your role </span>
+                <span style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>{t('yourRole')}</span>
                 <span style={{ fontSize: 18, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff' }}>{myRole.name}</span>
             </div>
 
@@ -113,7 +115,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             {!resolved && (
                 <div style={{ width: '100%', maxWidth: 460 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#aaa', marginBottom: 4 }}>
-                        <span>{'\u2600\uFE0F'} Day phase</span>
+                        <span>{t('dayPhase')}</span>
                         <span style={{ color: barColor, fontWeight: 700 }}>{timeLeft}s</span>
                     </div>
                     <div style={{ height: 6, background: '#222', borderRadius: 3, overflow: 'hidden' }}>
@@ -123,8 +125,8 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                         }} />
                     </div>
                     <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
-                        {votes ? `${Object.keys(votes).length} / ${alivePlayers.length} voted` : ''}
-                        {hasVoted && <span style={{ color: '#5cb85c', marginLeft: 8 }}>{'\u2714\uFE0F'} You voted</span>}
+                        {votes ? `${Object.keys(votes).length} / ${alivePlayers.length} ${t('voted')}` : ''}
+                        {hasVoted && <span style={{ color: '#5cb85c', marginLeft: 8 }}>{'\u2714\uFE0F'} {t('youVoted')}</span>}
                     </div>
                 </div>
             )}
@@ -134,7 +136,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                 {/* Table surface */}
                 <circle cx={cx} cy={cy} r={100} fill="#1e2e1e" stroke="#3a5a3a" strokeWidth={6} />
                 <text x={cx} y={cy + 6} textAnchor="middle" fill="#3a5a3a" fontSize={13} fontWeight={600}>
-                    {'\u2600\uFE0F'} Day test!!!
+                    {'\u2600\uFE0F'} {t('day')}
                 </text>
 
                 {seats.map((seat, i) => {
@@ -200,8 +202,8 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                                     <text y={4} textAnchor="middle" fill={textFill}
                                         fontSize={isMe ? 11 : 10} fontWeight={isMe ? 700 : 400}>{label}</text>
                                 )}
-                                {isMe && isAlive && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9} fontStyle="italic">(you)</text>}
-                                {isSelected && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9}>{'\u25CE'} target</text>}
+                                {isMe && isAlive && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9} fontStyle="italic">({t('you')})</text>}
+                                {isSelected && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9}>{t('target')}</text>}
                             </g>
                         </React.Fragment>
                     );
@@ -227,23 +229,23 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                         cursor: selectedTarget ? 'pointer' : 'default',
                         opacity: (!selectedTarget || submitting) ? 0.6 : 1,
                     }}>
-                    {'\uD83D\uDEAB'} Banish {selectedTarget ? (allSeats.find(s => s.id === selectedTarget)?.nickname ?? '?') : '\u2014'}
+                    {'\uD83D\uDEAB'} {t('banish')} {selectedTarget ? (allSeats.find(s => s.id === selectedTarget)?.nickname ?? '?') : '\u2014'}
                 </button>
             )}
 
             {/* Resolution panel */}
             {resolved && (
                 <div style={{ maxWidth: 460, width: '100%', borderRadius: 10, padding: '14px 20px', background: '#1a1a2e', border: '2px solid #333' }}>
-                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>{'\uD83C\uDF06'} Votes are in!</div>
+                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>{t('votesIn')}</div>
                     {resolved.banished.length > 0
                         ? resolved.banished.map(n => (
-                            <div key={n} style={{ color: '#d9534f' }}>{'\uD83D\uDEAB'} <b>{n}</b> has been banished from the village.</div>
+                            <div key={n} style={{ color: '#d9534f' }}>{'\uD83D\uDEAB'} <b>{n}</b> {t('hasBeenBanished')}</div>
                         ))
-                        : <div style={{ color: '#aaa' }}>{resolved.thresholdMet ? '\uD83E\uDD1D It was a draw \u2014 no one banished.' : '\uD83E\uDD37 Not enough votes \u2014 no one banished.'}</div>
+                        : <div style={{ color: '#aaa' }}>{resolved.thresholdMet ? t('drawNoOneBanished') : t('notEnoughVotes')}</div>
                     }
                     {resolved.tally.length > 0 && (
                         <div style={{ marginTop: 10 }}>
-                            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Vote tally:</div>
+                            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{t('voteTally')}:</div>
                             {resolved.tally
                                 .sort((a, b) => b.votes - a.votes)
                                 .map(t => {
@@ -260,7 +262,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                                 })}
                         </div>
                     )}
-                    <div style={{ color: '#555', fontSize: 12, marginTop: 10 }}>{'\uD83C\uDF19'} Night falls again soon{'\u2026'}</div>
+                    <div style={{ color: '#555', fontSize: 12, marginTop: 10 }}>{t('nightFallsSoon')}</div>
                 </div>
             )}
 
