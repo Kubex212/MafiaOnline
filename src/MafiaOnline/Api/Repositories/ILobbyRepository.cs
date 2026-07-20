@@ -4,9 +4,7 @@ namespace MafiaOnline.Api.Repositories;
 
 public interface ILobbyRepository
 {
-    void Create(Lobby lobby);
-
-    Lobby? Get(string code);
-
-    void Update(Lobby lobby);
+    Task Create(Lobby lobby);
+    Task<Lobby?> Get(string code);
+    Task Update(Lobby lobby);
 }

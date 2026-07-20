@@ -1,6 +1,9 @@
+using Api.Data;
+using Api.Repositories;
 using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Api.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api
 {
@@ -15,17 +18,20 @@ namespace Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            builder.Services.AddSingleton<ILobbyRepository, InMemoryLobbyRepository>();
-            builder.Services.AddSingleton<ILobbyService, LobbyService>();
+            builder.Services.AddDbContext<MafiaDbContext>(options =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("MafiaDb")));
+
+            builder.Services.AddScoped<ILobbyRepository, PostgresLobbyRepository>();
+            builder.Services.AddScoped<ILobbyService, LobbyService>();
 
             // NightService and DayService call each other; break the cycle with Lazy<T>
-            builder.Services.AddSingleton<INightService, NightService>();
-            builder.Services.AddSingleton<IDayService, DayService>();
+            builder.Services.AddScoped<INightService, NightService>();
+            builder.Services.AddScoped<IDayService, DayService>();
 
-            builder.Services.AddSingleton(sp =>
+            builder.Services.AddScoped(sp =>
                 new Lazy<IDayService>(() => sp.GetRequiredService<IDayService>()));
 
-            builder.Services.AddSingleton(sp =>
+            builder.Services.AddScoped(sp =>
                 new Lazy<INightService>(() => sp.GetRequiredService<INightService>()));
 
             builder.Services.AddSignalR();

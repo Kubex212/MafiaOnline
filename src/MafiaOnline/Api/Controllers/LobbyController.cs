@@ -16,9 +16,9 @@ public class LobbiesController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<LobbyResponse> Create(CreateLobbyRequest request)
+    public async Task<ActionResult<LobbyResponse>> Create(CreateLobbyRequest request)
     {
-        var lobby = _lobbyService.CreateLobby(request.Nickname);
+        var lobby = await _lobbyService.CreateLobby(request.Nickname);
 
         return Ok(LobbyResponse.FromLobby(lobby));
     }
@@ -34,9 +34,9 @@ public class LobbiesController : ControllerBase
     }
 
     [HttpGet("{code}")]
-    public ActionResult<LobbyResponse> Get(string code)
+    public async Task<ActionResult<LobbyResponse>> Get(string code)
     {
-        var lobby = _lobbyService.GetLobby(code);
+        var lobby = await _lobbyService.GetLobby(code);
 
         return Ok(LobbyResponse.FromLobby(lobby));
     }
@@ -50,9 +50,9 @@ public class LobbiesController : ControllerBase
     }
 
     [HttpGet("{code}/role/{playerId:guid}")]
-    public ActionResult<RoleResponse> GetRole(string code, Guid playerId)
+    public async Task<ActionResult<RoleResponse>> GetRole(string code, Guid playerId)
     {
-        var roleName = _lobbyService.GetPlayerRole(code, playerId);
+        var roleName = await _lobbyService.GetPlayerRole(code, playerId);
         var team = roleName is "Werewolf" ? "Werewolf" : "Town";
 
         return Ok(new RoleResponse { Name = roleName, Team = team });

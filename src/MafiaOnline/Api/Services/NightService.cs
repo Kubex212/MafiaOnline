@@ -31,26 +31,26 @@ public class NightService : INightService
 
     public async Task BeginNightAsync(string lobbyCode)
     {
-        var lobby = GetLobby(lobbyCode);
+        var lobby = await GetLobby(lobbyCode);
         lobby.BeginNightSession();
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
         await AdvanceTurnAsync(lobby);
     }
 
     public async Task SubmitActionAsync(string lobbyCode, Guid actorId, Guid targetId)
     {
-        var lobby = GetLobby(lobbyCode);
+        var lobby = await GetLobby(lobbyCode);
         lobby.NightSession!.SubmitAction(actorId, targetId);
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
         CancelTimer(lobbyCode);
         await AdvanceTurnAsync(lobby);
     }
 
     public async Task SkipTurnAsync(string lobbyCode, Guid actorId)
     {
-        var lobby = GetLobby(lobbyCode);
+        var lobby = await GetLobby(lobbyCode);
         lobby.NightSession!.Skip(actorId);
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
         CancelTimer(lobbyCode);
         await AdvanceTurnAsync(lobby);
     }
@@ -84,11 +84,11 @@ public class NightService : INightService
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(TurnSeconds), cts.Token);
-                var current = GetLobby(lobby.Code);
+                var current = await GetLobby(lobby.Code);
                 if (current.NightSession?.ActivePlayer?.Id == active.Id)
                 {
                     current.NightSession.ForceAdvance();
-                    _repository.Update(current);
+                    await _repository.Update(current);
                     await AdvanceTurnAsync(current);
                 }
             }
@@ -99,7 +99,7 @@ public class NightService : INightService
     private async Task ResolveNightAsync(Lobby lobby)
     {
         var result = lobby.ResolveNight();
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         var killedNames = result.Killed
             .Select(id => lobby.Players.FirstOrDefault(p => p.Id == id)?.Nickname ?? "?")
@@ -140,7 +140,7 @@ public class NightService : INightService
         }
     }
 
-    private Lobby GetLobby(string code)
-        => _repository.Get(code.ToUpperInvariant())
+    private async Task<Lobby> GetLobby(string code)
+        => await _repository.Get(code.ToUpperInvariant())
            ?? throw new InvalidOperationException("Lobby not found.");
 }

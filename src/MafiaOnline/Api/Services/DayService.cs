@@ -27,9 +27,9 @@ public class DayService : IDayService
 
     public async Task BeginDayAsync(string lobbyCode)
     {
-        var lobby = GetLobby(lobbyCode);
+        var lobby = await GetLobby(lobbyCode);
         lobby.BeginDaySession();
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         int duration = lobby.Game!.Config.Day.DurationSeconds;
         bool showTargets = lobby.Game.Config.Day.ShowVoteTargets;
@@ -64,14 +64,14 @@ public class DayService : IDayService
 
     public async Task CastVoteAsync(string lobbyCode, Guid voterId, Guid candidateId)
     {
-        var lobby = GetLobby(lobbyCode);
+        var lobby = await GetLobby(lobbyCode);
 
         if (lobby.DaySession is null)
             throw new InvalidOperationException("No active day session.");
 
         bool alreadyVoted = lobby.DaySession.HasVoted(voterId);
         var votes = lobby.CastVote(voterId, candidateId);
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         bool showTargets = lobby.Game!.Config.Day.ShowVoteTargets;
 
@@ -95,12 +95,12 @@ public class DayService : IDayService
 
     private async Task ResolveDayAsync(string lobbyCode)
     {
-        var lobby = GetLobby(lobbyCode);
+        var lobby = await GetLobby(lobbyCode);
 
         if (lobby.DaySession is null) return; // already resolved (timer race)
 
         var result = lobby.ResolveDay();
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         var banishedNames = result.Banished
             .Select(id => lobby.Players.FirstOrDefault(p => p.Id == id)?.Nickname ?? "?")
@@ -145,7 +145,7 @@ public class DayService : IDayService
         }
     }
 
-    private Lobby GetLobby(string code)
-        => _repository.Get(code.ToUpperInvariant())
+    private async Task<Lobby> GetLobby(string code)
+        => await _repository.Get(code.ToUpperInvariant())
            ?? throw new InvalidOperationException("Lobby not found.");
 }

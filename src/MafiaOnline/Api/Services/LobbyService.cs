@@ -19,7 +19,7 @@ public class LobbyService : ILobbyService
         _nightService = nightService;
     }
 
-    public Lobby CreateLobby(string hostNickname)
+    public async Task<Lobby> CreateLobby(string hostNickname)
     {
         if (string.IsNullOrWhiteSpace(hostNickname))
             throw new ArgumentException("Nickname is required.", nameof(hostNickname));
@@ -31,11 +31,11 @@ public class LobbyService : ILobbyService
             var code = LobbyCodeGenerator.Generate();
             lobby = new Lobby(code);
         }
-        while (_repository.Get(lobby.Code) != null);
+        while (await _repository.Get(lobby.Code) != null);
 
         lobby.AddPlayer(new LobbyPlayer(hostNickname.Trim(), true));
 
-        _repository.Create(lobby);
+        await _repository.Create(lobby);
 
         return lobby;
     }
@@ -48,7 +48,7 @@ public class LobbyService : ILobbyService
         if (string.IsNullOrWhiteSpace(nickname))
             throw new ArgumentException("Nickname is required.", nameof(nickname));
 
-        var lobby = _repository.Get(code.Trim().ToUpperInvariant())
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
         lobby.AddPlayer(new LobbyPlayer(nickname.Trim(), false));
@@ -57,17 +57,17 @@ public class LobbyService : ILobbyService
             .Group(lobby.Code)
             .SendAsync("PlayerJoined", nickname);
 
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         return lobby;
     }
 
-    public Lobby GetLobby(string code)
+    public async Task<Lobby> GetLobby(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
 
-        return _repository.Get(code.Trim().ToUpperInvariant())
+        return await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
     }
 
@@ -76,11 +76,11 @@ public class LobbyService : ILobbyService
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
 
-        var lobby = _repository.Get(code.Trim().ToUpperInvariant())
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
         lobby.Start(requestingPlayerId);
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         // Broadcast seat list (no roles) to all players in the group
         var seats = lobby.Players
@@ -102,9 +102,9 @@ public class LobbyService : ILobbyService
         return lobby;
     }
 
-    public string GetPlayerRole(string code, Guid playerId)
+    public async Task<string> GetPlayerRole(string code, Guid playerId)
     {
-        var lobby = _repository.Get(code.Trim().ToUpperInvariant())
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
         if (!lobby.Started || lobby.Game is null)
@@ -127,7 +127,7 @@ public class LobbyService : ILobbyService
 
     private async Task<Lobby> MutateOrderAsync(string code, Guid requestingPlayerId, Action<Lobby> mutation)
     {
-        var lobby = _repository.Get(code.Trim().ToUpperInvariant())
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
         var requester = lobby.Players.FirstOrDefault(p => p.Id == requestingPlayerId)
@@ -137,7 +137,7 @@ public class LobbyService : ILobbyService
             throw new InvalidOperationException("Only the host can reorder players.");
 
         mutation(lobby);
-        _repository.Update(lobby);
+        await _repository.Update(lobby);
 
         // Broadcast the new order to everyone in the lobby
         var orderedPlayers = lobby.Players

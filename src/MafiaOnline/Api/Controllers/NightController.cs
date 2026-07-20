@@ -48,9 +48,9 @@ public class NightController : ControllerBase
     /// Returns 204 if no clue (e.g. player is not detective or config blocked it).
     /// </summary>
     [HttpGet("clue/{playerId:guid}")]
-    public ActionResult<ClueResponse> GetClue(string code, Guid playerId)
+    public async Task<ActionResult<ClueResponse>> GetClue(string code, Guid playerId)
     {
-        var lobby = _repository.Get(code.ToUpperInvariant());
+        var lobby = await _repository.Get(code.ToUpperInvariant());
         if (lobby?.Game is null) return NotFound();
 
         var result = lobby.Game.LastNightResult;
