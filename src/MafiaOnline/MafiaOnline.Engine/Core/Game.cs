@@ -12,22 +12,41 @@ public class Game
     private List<Player> _players = new();
     private readonly Dictionary<Guid, Guid> _pendingNightActions = new();
 
+    [JsonConstructor]
     public Game(Guid id, GameConfig? config = null)
     {
         Id = id;
-        Config = config ?? new GameConfig();
+        _config = config ?? new GameConfig();
     }
 
     public Guid Id { get; }
-    public GameConfig Config { get; }
+
+    [JsonProperty]
+    private GameConfig _config = new GameConfig();
+    public GameConfig Config { get => _config; internal set => _config = value; }
+
     public IReadOnlyCollection<Player> Players => _players;
     internal List<Player> PlayersInternal => _players;
-    public GameStatus Status { get; internal set; } = GameStatus.WaitingForPlayers;
-    public GamePhase Phase { get; internal set; } = GamePhase.Lobby;
-    public GameWinner Winner { get; private set; } = GameWinner.None;
 
-    public NightResult? LastNightResult { get; private set; }
-    public DayResult? LastDayResult { get; private set; }
+    [JsonProperty]
+    private GameStatus _status = GameStatus.WaitingForPlayers;
+    public GameStatus Status { get => _status; internal set => _status = value; }
+
+    [JsonProperty]
+    private GamePhase _phase = GamePhase.Lobby;
+    public GamePhase Phase { get => _phase; internal set => _phase = value; }
+
+    [JsonProperty]
+    private GameWinner _winner = GameWinner.None;
+    public GameWinner Winner { get => _winner; internal set => _winner = value; }
+
+    [JsonProperty]
+    private NightResult? _lastNightResult;
+    public NightResult? LastNightResult { get => _lastNightResult; internal set => _lastNightResult = value; }
+
+    [JsonProperty]
+    private DayResult? _lastDayResult;
+    public DayResult? LastDayResult { get => _lastDayResult; internal set => _lastDayResult = value; }
 
     public void Execute(GameCommand command) => command.Execute(this);
 

@@ -11,12 +11,16 @@ public class LobbyService : ILobbyService
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hubContext;
     private readonly INightService _nightService;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<LobbyService> _logger;
 
-    public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService)
+    public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService, IServiceScopeFactory scopeFactory, ILogger<LobbyService> logger)
     {
         _repository = repository;
         _hubContext = hubContext;
         _nightService = nightService;
+        _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     public async Task<Lobby> CreateLobby(string hostNickname)
@@ -93,11 +97,17 @@ public class LobbyService : ILobbyService
             .SendAsync("GameStarted", seats);
 
         // Give clients a moment to render before the first turn fires
-        _ = Task.Run(async () =>
+        try
         {
             await Task.Delay(2000);
-            await _nightService.BeginNightAsync(lobby.Code);
-        });
+            using var scope = _scopeFactory.CreateScope();
+            var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
+            await nightService.BeginNightAsync(lobby.Code);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error starting night phase for lobby {LobbyCode}", lobby.Code);
+        }
 
         return lobby;
     }

@@ -10,7 +10,7 @@ namespace MafiaOnline.Api.Models;
 public class Lobby
 {
     [JsonProperty]
-    private readonly List<LobbyPlayer> _players = new();
+    private List<LobbyPlayer> _players = new();
 
     [JsonConstructor]
     public Lobby(
@@ -28,7 +28,7 @@ public class Lobby
         Game = game;
         NightSession = nightSession;
         DaySession = daySession;
-        _players = players;
+        _players = players ?? new List<LobbyPlayer>();
     }
 
     public Lobby(string code)
@@ -181,7 +181,7 @@ public class Lobby
         return Game.LastDayResult!;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────
 
     private void AssertNotStarted()
     {

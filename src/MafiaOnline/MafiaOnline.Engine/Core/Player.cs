@@ -8,17 +8,19 @@ public class Player(Guid id, string nickname)
 
     public string Nickname { get; } = nickname;
 
-    public bool IsAlive { get; private set; } = true;
+    // Allow JSON to set the alive flag when restoring state
+    public bool IsAlive { get; set; } = true;
 
     public bool IsConnected { get; set; } = true;
 
-    public IRole Role { get; private set; } = null!;
+    // Allow JSON to restore the assigned role
+    public IRole Role { get; set; } = null!;
 
     /// <summary>
     /// The player's position around the table, assigned once at the start of the game.
     /// Night abilities with equal priority are resolved in ascending seat order.
     /// </summary>
-    public int SeatIndex { get; internal set; }
+    public int SeatIndex { get; set; }
 
     public void AssignRole(IRole role)
     {

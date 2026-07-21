@@ -7,8 +7,18 @@ namespace MafiaOnline.Api.Models;
 /// </summary>
 public class DaySession
 {
-    private readonly HashSet<Guid> _alivePlayers;
-    private readonly Dictionary<Guid, Guid> _votes = new();  // voter ? candidate
+    [Newtonsoft.Json.JsonProperty]
+    private HashSet<Guid> _alivePlayers;
+
+    [Newtonsoft.Json.JsonProperty]
+    private Dictionary<Guid, Guid> _votes = new();  // voter ? candidate
+
+    [Newtonsoft.Json.JsonConstructor]
+    public DaySession()
+    {
+        _alivePlayers = new HashSet<Guid>();
+        _votes = new Dictionary<Guid, Guid>();
+    }
 
     public DaySession(IEnumerable<LobbyPlayer> alivePlayers)
     {

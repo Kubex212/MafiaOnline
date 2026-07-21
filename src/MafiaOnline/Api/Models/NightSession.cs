@@ -6,8 +6,24 @@ namespace MafiaOnline.Api.Models;
 /// </summary>
 public class NightSession
 {
-    private readonly List<LobbyPlayer> _turnOrder;
+    [Newtonsoft.Json.JsonProperty]
+    private List<LobbyPlayer> _turnOrder;
+
+    [Newtonsoft.Json.JsonProperty]
     private readonly Dictionary<Guid, Guid> _submittedActions = new();
+
+    [Newtonsoft.Json.JsonConstructor]
+    public NightSession(List<LobbyPlayer> turnOrder, Dictionary<Guid, Guid>? submittedActions, int currentTurnIndex)
+    {
+        _turnOrder = turnOrder ?? new List<LobbyPlayer>();
+        if (submittedActions is not null)
+        {
+            foreach (var kv in submittedActions)
+                _submittedActions[kv.Key] = kv.Value;
+        }
+
+        CurrentTurnIndex = currentTurnIndex;
+    }
 
     public NightSession(IEnumerable<LobbyPlayer> alivePlayers)
     {
