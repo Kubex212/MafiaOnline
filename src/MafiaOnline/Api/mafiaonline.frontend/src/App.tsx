@@ -27,6 +27,7 @@ export default function App() {
     const [myRole, setMyRole] = useState<RoleResponse | null>(null);
     const [view, setView] = useState<GameView>('lobby');
     const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
+    const [creating, setCreating] = useState(false);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -133,6 +134,7 @@ export default function App() {
 
     async function onCreate() {
         try {
+            setCreating(true);
             const res = await createLobby(nickname);
             const me = res.players.find(p => p.isHost)!;
             setMyPlayerId(me.id);
@@ -140,6 +142,7 @@ export default function App() {
             setMessages([t('lobbyCreated', { code: res.code })]);
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
+        finally { setCreating(false); }
     }
 
     async function onJoin() {
@@ -260,12 +263,27 @@ export default function App() {
                             <input
                                 value={nickname}
                                 onChange={e => setNickname(e.target.value)}
+                                disabled={creating}
                                 style={styles.input}
                             />
                         </label>
                     </div>
                     <div style={styles.row}>
-                        <button style={styles.btn} onClick={onCreate}>{t('createLobby')}</button>
+                        <button style={styles.btn} onClick={onCreate} disabled={creating}>
+                            {creating ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                    <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                        <g fill="none" stroke="#fff" strokeWidth="2">
+                                            <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
+                                            <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round">
+                                                <animateTransform attributeName="transform" type="rotate" from="0 8 8" to="360 8 8" dur="0.9s" repeatCount="indefinite" />
+                                            </path>
+                                        </g>
+                                    </svg>
+                                    <span>{t('creating')}</span>
+                                </span>
+                            ) : t('createLobby')}
+                        </button>
                         <span style={{ color: '#aaa', margin: '0 12px' }}>{t('orJoin')}</span>
                         <input
                             value={codeToJoin}
