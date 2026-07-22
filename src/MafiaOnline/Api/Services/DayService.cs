@@ -100,6 +100,8 @@ public class DayService : IDayService
         if (lobby.DaySession is null) return; // already resolved (timer race)
 
         var result = lobby.ResolveDay();
+        if (lobby.DaySession != null)
+            lobby.DaySession.Resolved = true;
         await _repository.Update(lobby);
 
         var banishedNames = result.Banished

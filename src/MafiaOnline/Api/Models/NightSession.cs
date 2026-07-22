@@ -36,6 +36,8 @@ public class NightSession
 
     public bool IsFinished => CurrentTurnIndex >= _turnOrder.Count;
 
+    public bool Resolved { get; set; }
+
     public LobbyPlayer? ActivePlayer => IsFinished ? null : _turnOrder[CurrentTurnIndex];
 
     public IReadOnlyDictionary<Guid, Guid> SubmittedActions => _submittedActions;

@@ -6,7 +6,7 @@ import type {
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
-    startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers,
+    startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -53,15 +53,16 @@ export default function App() {
         });
 
         conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
-            setLobby(prev => {
-                if (!prev) return prev;
-                const byId = new Map(prev.players.map(p => [p.id, p]));
-                const newPlayers = ordered.map(o => ({
-                    ...(byId.get(o.id) ?? { id: o.id, nickname: o.nickname, isHost: o.isHost, seatIndex: -1 }),
-                    lobbyPosition: o.lobbyPosition,
-                }));
-                return { ...prev, players: newPlayers };
-            });
+            const prev = lobbyRef.current;
+            if (!prev) return;
+            const newPlayers = ordered.map(o => ({
+                id: o.id,
+                nickname: o.nickname,
+                isHost: o.isHost,
+                seatIndex: -1,
+                lobbyPosition: o.lobbyPosition,
+            }));
+            setLobby({ code: prev.code, started: prev.started, players: newPlayers });
         });
 
         conn.on('GameStarted', async (seatList: SeatInfo[]) => {
@@ -118,7 +119,63 @@ export default function App() {
         });
 
         conn.start()
-            .then(() => setHubStarted(true))
+            .then(async () => {
+                setHubStarted(true);
+                // After connection is established, attempt reconnection if we have stored data
+                const storedUserId = sessionStorage.getItem('userId');
+                const storedLobbyCode = sessionStorage.getItem('lobbyCode');
+
+                if (storedUserId && storedLobbyCode) {
+                    try {
+                        const data = await reconnect(storedUserId, storedLobbyCode);
+                        setLobby(data.lobby);
+                        setMyPlayerId(storedUserId);
+                        setSeats(data.seats);
+                        setMyRole(data.myRole);
+                        setView(data.gamePhase);
+                        setMessages([t('reconnected')]);
+                        // Join the hub group to receive real-time events
+                        await conn.invoke('JoinLobby', storedLobbyCode);
+
+                        if (data.gamePhase === 'day' && data.day) {
+                            setView('day');
+                            setSeats(data.day.alivePlayers);
+                            setTimeout(() => {
+                                dayRef.current?.onDayStarted({
+                                    durationSeconds: data.day.durationSeconds,
+                                    showVoteTargets: data.day.showVoteTargets,
+                                    alivePlayers: data.day.alivePlayers,
+                                });
+                                // restore votes if any
+                                if (data.day.votes) {
+                                    Object.entries(data.day.votes).forEach(([voterId, candidateId]) => {
+                                        dayRef.current?.onVoteCast({ voterId, candidateId, totalVotesCast: Object.keys(data.day.votes!).length });
+                                    });
+                                }
+                            }, 0);
+                        }
+                        if (data.gamePhase === 'night' && data.night) {
+                            setView('night');
+                            setSeats(data.seats);
+                            setTimeout(() => {
+                                nightRef.current?.onTurnStarted({
+                                    activePlayerId: data.night.activePlayerId ?? '',
+                                    activeSeatIndex: data.night.activeSeatIndex,
+                                    hasAbility: data.night.hasAbility,
+                                    timeoutSeconds: data.night.remainingSeconds ?? TURN_SECONDS,
+                                });
+                                // restore submitted actions if any (no explicit handler but we keep seats updated)
+                            }, 0);
+                        }
+
+                    } catch (e) {
+                        // Reconnection failed, clear storage and start fresh
+                        sessionStorage.removeItem('userId');
+                        sessionStorage.removeItem('lobbyCode');
+                        console.error('Reconnection failed:', e);
+                    }
+                }
+            })
             .catch(err => console.error('Hub start error', err));
 
         return () => { conn.stop().catch(() => { }); connRef.current = null; };
@@ -139,6 +196,8 @@ export default function App() {
             const me = res.players.find(p => p.isHost)!;
             setMyPlayerId(me.id);
             setLobby(res);
+            sessionStorage.setItem('userId', me.id);
+            sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('lobbyCreated', { code: res.code })]);
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
@@ -151,6 +210,8 @@ export default function App() {
             const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
             setMyPlayerId(me.id);
             setLobby(res);
+            sessionStorage.setItem('userId', me.id);
+            sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('joinedLobby', { code: res.code })]);
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
@@ -180,6 +241,11 @@ export default function App() {
         catch (e) { alert(String(e)); }
     }
 
+    function clearSession() {
+        sessionStorage.removeItem('userId');
+        sessionStorage.removeItem('lobbyCode');
+    }
+
     const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
     const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
     const orderedPlayers = lobby
@@ -188,6 +254,7 @@ export default function App() {
 
     // ── GAME OVER ──────────────────────────────────────────────────────────────
     if (view === 'gameover' && gameOver && myRole) {
+        clearSession();
         return (
             <div style={styles.page}>
                 <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} />
@@ -299,8 +366,8 @@ export default function App() {
             {lobby && (
                 <div style={styles.card}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
-                        <h3 style={{ margin: 0, color: '#f0c040' }}>
-                            {t('lobbyLabel')} <span style={{ fontFamily: 'monospace' }}>{lobby.code}</span>
+                        <h3 style={{ margin: 5, color: '#f0c040' }}>
+                            {t('lobbyLabel')} <span style={{ fontFamily: 'monospace', marginLeft: 8 }}>{lobby.code}</span>
                         </h3>
                         <span style={{ color: '#aaa', fontSize: 13 }}>
                             {hubStarted ? `\uD83D\uDFE2 ${t('connected')}` : `\uD83D\uDD34 ${t('connecting')}`}

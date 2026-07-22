@@ -7,6 +7,7 @@ export interface DayPhaseHandle {
     onDayStarted(payload: DayStartedPayload): void;
     onVoteCast(payload: VoteCastPayload): void;
     onDayResolved(payload: DayResolvedPayload): void;
+    onRestoreState?(state: { remainingSeconds: number; votes?: Record<string, string | null> }): void;
 }
 
 interface Props {
@@ -72,7 +73,25 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                     ? t('drawNoOneBanished')
                     : t('notEnoughVotes')]);
         },
-    }), [allSeats, t]);
+
+        onRestoreState(state: { remainingSeconds: number; votes?: Record<string, string | null> }) {
+            // adjust remaining time
+            if (timerRef.current) clearInterval(timerRef.current);
+            setTimeLeft(state.remainingSeconds);
+            timerRef.current = setInterval(() => {
+                setTimeLeft(t => {
+                    if (t <= 1) { clearInterval(timerRef.current!); return 0; }
+                    return t - 1;
+                });
+            }, 1000);
+
+            if (state.votes) {
+                setVotes(state.votes);
+                // set myVote if present
+                if (state.votes[myPlayerId!] !== undefined) setMyVote(state.votes[myPlayerId!] as string | null);
+            }
+        }
+    }), [allSeats, t, myPlayerId]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -236,7 +255,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             {/* Resolution panel */}
             {resolved && (
                 <div style={{ maxWidth: 460, width: '100%', borderRadius: 10, padding: '14px 20px', background: '#1a1a2e', border: '2px solid #333' }}>
-                    <div style={{ fontWeight: 700, color: '#f0c040', marginBottom: 8 }}>{t('votesIn')}</div>
+                    <div style={{ fontWeight: 700, color: '#f0c040', marginTop: 0, marginBottom: 8 }}>{t('votesIn')}</div>
                     {resolved.banished.length > 0
                         ? resolved.banished.map(n => (
                             <div key={n} style={{ color: '#d9534f' }}>{'\uD83D\uDEAB'} <b>{n}</b> {t('hasBeenBanished')}</div>

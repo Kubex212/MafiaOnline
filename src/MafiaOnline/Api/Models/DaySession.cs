@@ -29,7 +29,9 @@ public class DaySession
 
     public bool AllVoted => _alivePlayers.All(id => _votes.ContainsKey(id));
 
-    /// <summary>Cast or change a vote. Idempotent — the last submitted vote wins.</summary>
+    public bool Resolved { get; set; }
+
+    /// <summary>Cast or change a vote. Idempotent – the last submitted vote wins.</summary>
     public void CastVote(Guid voterId, Guid candidateId)
     {
         if (!_alivePlayers.Contains(voterId))

@@ -1,4 +1,5 @@
 ﻿using MafiaOnline.Api.Models;
+using MafiaOnline.Api.Dtos;
 
 namespace MafiaOnline.Api.Services;
 
@@ -16,4 +17,5 @@ public interface ILobbyService
     Task<Lobby> MovePlayerUpAsync(string code, Guid requestingPlayerId, Guid targetPlayerId);
     Task<Lobby> MovePlayerDownAsync(string code, Guid requestingPlayerId, Guid targetPlayerId);
     Task<Lobby> ShufflePlayersAsync(string code, Guid requestingPlayerId);
+    Task<ReconnectResponse> ReconnectPlayerAsync(string code, Guid playerId);
 }

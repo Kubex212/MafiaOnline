@@ -99,6 +99,8 @@ public class NightService : INightService
     private async Task ResolveNightAsync(Lobby lobby)
     {
         var result = lobby.ResolveNight();
+        if (lobby.NightSession != null)
+            lobby.NightSession.Resolved = true;
         await _repository.Update(lobby);
 
         var killedNames = result.Killed

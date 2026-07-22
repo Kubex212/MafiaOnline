@@ -28,6 +28,7 @@
   "playerJoined": "{{nick}} joined the lobby",
   "lobbyCreated": "Lobby {{code}} created",
   "joinedLobby": "Joined lobby {{code}}",
+  "reconnected": "Reconnected to game",
   "yourRoleIs": "Your role is…",
   "nightBeginsSoon": "Night phase begins in a moment…",
   "nightPhase": "Night Phase",

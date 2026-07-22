@@ -78,4 +78,11 @@ public class LobbiesController : ControllerBase
         var lobby = await _lobbyService.ShufflePlayersAsync(code, request.RequestingPlayerId);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
+
+    [HttpPost("{code}/reconnect")]
+    public async Task<ActionResult<ReconnectResponse>> Reconnect(string code, ReconnectRequest request)
+    {
+        var response = await _lobbyService.ReconnectPlayerAsync(code, request.UserId);
+        return Ok(response);
+    }
 }

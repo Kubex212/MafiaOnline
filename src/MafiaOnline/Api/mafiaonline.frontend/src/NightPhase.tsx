@@ -45,7 +45,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     useImperativeHandle(ref, () => ({
         onTurnStarted(turn: NightTurnStarted) {
             setActiveTurn(turn);
-            setTimeLeft(TURN_SECONDS);
+            // respect the timeoutSeconds provided by the server (use fallback TURN_SECONDS)
+            setTimeLeft(turn.timeoutSeconds ?? TURN_SECONDS);
             setSelectedTarget(null);
             setSubmitting(false);
             const who = seats.find(s => s.id === turn.activePlayerId);

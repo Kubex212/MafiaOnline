@@ -182,3 +182,35 @@ export async function castVote(code: string, voterId: string, candidateId: strin
     });
     if (!res.ok) throw new Error('Vote failed: ' + res.statusText);
 }
+
+export type ReconnectResponse = {
+    lobby: LobbyResponse;
+    gamePhase: 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
+    myRole: RoleResponse | null;
+    seats: SeatInfo[] | null;
+    day?: {
+        durationSeconds: number;
+        remainingSeconds: number;
+        showVoteTargets: boolean;
+        alivePlayers: SeatInfo[];
+        votes?: Record<string, string>;
+    };
+    night?: {
+        activePlayerId?: string | null;
+        activeSeatIndex: number;
+        hasAbility: boolean;
+        remainingSeconds: number;
+        submittedActions?: Record<string, string>;
+    };
+};
+
+export async function reconnect(userId: string, lobbyCode: string): Promise<ReconnectResponse> {
+    const res = await fetch(`/api/lobbies/${encodeURIComponent(lobbyCode)}/reconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+    });
+    if (res.status === 404) throw new Error('Lobby or player not found');
+    if (!res.ok) throw new Error('Reconnect failed: ' + res.statusText);
+    return res.json();
+}

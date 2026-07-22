@@ -2,7 +2,10 @@
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Api.Utils;
+using MafiaOnline.Api.Dtos;
+using MafiaOnline.Engine;
 using Microsoft.AspNetCore.SignalR;
+using static MafiaOnline.Engine.Game;
 
 namespace MafiaOnline.Api.Services;
 
@@ -159,5 +162,88 @@ public class LobbyService : ILobbyService
             .SendAsync("LobbyOrderChanged", orderedPlayers);
 
         return lobby;
+    }
+
+    public async Task<ReconnectResponse> ReconnectPlayerAsync(string code, Guid playerId)
+    {
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        var player = lobby.Players.FirstOrDefault(p => p.Id == playerId)
+            ?? throw new InvalidOperationException("Player not found in lobby.");
+
+        var response = new ReconnectResponse
+        {
+            Lobby = LobbyResponse.FromLobby(lobby),
+            GamePhase = "lobby"
+        };
+
+        if (!lobby.Started)
+        {
+            return response;
+        }
+
+        // Game has started - determine current phase and provide game state
+        if (lobby.Game != null)
+        {
+            var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == playerId);
+            if (enginePlayer != null)
+            {
+                response.MyRole = new RoleResponse
+                {
+                    Name = enginePlayer.Role.Name,
+                    Team = enginePlayer.Role.Name is "Werewolf" ? "Werewolf" : "Town"
+                };
+            }
+
+            // Map players to seat info for the frontend
+            response.Seats = lobby.Players
+                .OrderBy(p => p.SeatIndex)
+                .Select(p => new SeatInfoResponse
+                {
+                    Id = p.Id,
+                    Nickname = p.Nickname,
+                    SeatIndex = p.SeatIndex
+                })
+                .ToList();
+        }
+
+        // Determine current game phase
+        if (lobby.NightSession != null && !lobby.NightSession.Resolved)
+        {
+            response.GamePhase = "night";
+
+            response.Night = new NightState
+            {
+                ActivePlayerId = lobby.NightSession.ActivePlayer?.Id.ToString(),
+                ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
+                HasAbility = lobby.ActivePlayerHasAbility(),
+                RemainingSeconds = 0,
+                SubmittedActions = lobby.NightSession.SubmittedActions.ToDictionary(k => k.Key, v => v.Value)
+            };
+        }
+        else if (lobby.DaySession != null && !lobby.DaySession.Resolved)
+        {
+            response.GamePhase = "day";
+
+            response.Day = new DayState
+            {
+                DurationSeconds = lobby.Game?.Config.Day.DurationSeconds ?? 180,
+                RemainingSeconds = 0,
+                ShowVoteTargets = lobby.Game?.Config.Day.ShowVoteTargets ?? false,
+                AlivePlayers = lobby.Players.Where(p => lobby.Game.Players.First(ep => ep.Id == p.Id).IsAlive)
+                    .OrderBy(p => p.SeatIndex)
+                    .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
+                    .ToList(),
+
+                Votes = lobby.DaySession.Votes.ToDictionary(k => k.Key, v => v.Value)
+            };
+        }
+        else if (lobby.Game?.Phase == GamePhase.Finished)
+        {
+            response.GamePhase = "gameover";
+        }
+
+        return response;
     }
 }
