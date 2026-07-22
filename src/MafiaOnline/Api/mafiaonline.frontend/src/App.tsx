@@ -78,9 +78,14 @@ export default function App() {
             }
         });
 
+        // TODO: fix it properly instead of using timeout (nightRef.current is null because NightPhase component is not rendered yet)
         conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
             setView('night');
-            nightRef.current?.onTurnStarted(turn);
+            
+            setTimeout(() => {
+                console.log(dayRef.current);
+                nightRef.current?.onTurnStarted(turn);
+            }, 0);
         });
 
         conn.on('NightResolved', (payload: NightResolvedPayload) => {
@@ -182,7 +187,7 @@ export default function App() {
     if (view === 'gameover' && gameOver && myRole) {
         return (
             <div style={styles.page}>
-                <GameOver payload={gameOver} myRole={myRole.name} />
+                <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} />
             </div>
         );
     }
@@ -196,7 +201,7 @@ export default function App() {
                     {t('yourRoleIs')}
                 </div>
                 <div style={{ fontSize: 48, fontWeight: 900, color: teamColor, textShadow: `0 0 40px ${teamColor}88` }}>
-                    {myRole.name}
+                    {t(myRole.name)}
                 </div>
                 <div style={{ color: '#aaa', fontSize: 15 }}>Team: {myRole.team}</div>
                 <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>{t('nightBeginsSoon')}</div>

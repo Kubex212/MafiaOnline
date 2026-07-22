@@ -108,7 +108,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                 background: '#1a1a2e', textAlign: 'center',
             }}>
                 <span style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>{t('yourRole')}</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff' }}>{myRole.name}</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff' }}>{t(myRole.name)}</span>
             </div>
 
             {/* Timer bar */}

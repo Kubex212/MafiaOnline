@@ -74,5 +74,14 @@
   "nightFallsSoon": "Night falls again soon…",
   "playerVoted": "{{nick}} has voted",
   "banished": "Banished: {{list}}",
-  "yourVoteCast": "Your vote was cast"
+  "yourVoteCast": "Your vote was cast",
+  "youWon": "Congratulations! You won!",
+  "youLost": "You lost this time!",
+  "teamWins": "win!",
+
+  "Werewolf": "Werewolf",
+  "Villager": "Villager",
+  "Guardian": "Guardian",
+  "Detective": "Detective",
+  "DogTamer": "Dog Tamer"
 }

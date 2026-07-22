@@ -74,5 +74,13 @@
   "playerVoted": "{{nick}} oddał głos",
   "banished": "Wyrzucono: {{list}}",
   "yourVoteCast": "Twój głos został oddany",
-  "startGame": "Rozpocznij grę"
+  "youWon": "Gratulacje! Wygrałeś!",
+  "youLost": "Niestety, tym razem przegrałeś!",
+  "teamWins":  "wygrywają!",
+
+  "Werewolf": "Wilkołak",
+  "Villager": "Wieśniak",
+  "Guardian": "Strażnik",
+  "Detective": "Detektyw",
+  "DogTamer": "Treser psa"
 }

@@ -15,7 +15,7 @@ public interface INightService
 
 public class NightService : INightService
 {
-    private const int TurnSeconds = 10;
+    private const int TurnSeconds = 1000;
 
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
