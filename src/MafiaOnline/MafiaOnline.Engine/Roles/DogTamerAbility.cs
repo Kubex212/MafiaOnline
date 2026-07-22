@@ -13,15 +13,22 @@ public class DogTamerAbility(DogTamerConfig config) : NightAbility(30)
 
     public override void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
-        // neighbors: alive players other than the dog tamer himself, within the range
-        var candidates = alivePlayers
-            .Where(p => p.Id != actor.Id)
-            .Where(p => Math.Abs(p.SeatIndex - actor.SeatIndex) <= config.Range)
-            .ToList();
+        var orderedPlayers = alivePlayers.OrderBy(p => p.SeatIndex).ToList();
 
-        if (candidates.Count == 0) return;
+        var actorIndex = orderedPlayers.FindIndex(p => p.Id == actor.Id);
+        if (actorIndex < 0)
+            return;
 
-        // Count the number of werewolves in range
+        var candidateIndices = new HashSet<int>();
+
+        for (var offset = 1; offset <= config.Range; offset++)
+        {
+            candidateIndices.Add((actorIndex - offset + orderedPlayers.Count) % orderedPlayers.Count);
+            candidateIndices.Add((actorIndex + offset) % orderedPlayers.Count);
+        }
+
+        var candidates = candidateIndices.Select(i => orderedPlayers[i]).ToList();
+
         var numWerewolvesInRange = candidates.Count(p => p.Role.TeamId == 1);
         var shouldBark = numWerewolvesInRange == config.NumWerewolves;
 

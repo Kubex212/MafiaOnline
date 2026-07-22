@@ -139,3 +139,4 @@ coverage.*
 
 # JetBrains
 *.sln.iml
+/src/MafiaOnline/Api/wwwroot/index.html

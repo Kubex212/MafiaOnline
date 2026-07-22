@@ -67,8 +67,8 @@
   "banish": "Wyrzuć",
   "votesIn": "Głosy są zliczone!",
   "hasBeenBanished": "został wyrzucony z wioski.",
-  "drawNoOneBanished": "Remis — nikt nie został wyrzucony.",
-  "notEnoughVotes": "Za mało głosów — nikt nie został wyrzucony.",
+  "drawNoOneBanished": "Remis - nikt nie został wyrzucony.",
+  "notEnoughVotes": "Za mało głosów - nikt nie został wyrzucony.",
   "voteTally": "Wynik głosowania",
   "nightFallsSoon": "Wkrótce zapadnie noc…",
   "playerVoted": "{{nick}} oddał głos",
@@ -77,10 +77,9 @@
   "youWon": "Gratulacje! Wygrałeś!",
   "youLost": "Niestety, tym razem przegrałeś!",
   "teamWins":  "wygrywają!",
-
   "Werewolf": "Wilkołak",
   "Villager": "Wieśniak",
   "Guardian": "Strażnik",
   "Detective": "Detektyw",
-  "DogTamer": "Treser psa"
+  "Dog Tamer": "Treser"
 }
