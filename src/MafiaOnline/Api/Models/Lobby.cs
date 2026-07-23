@@ -150,7 +150,7 @@ public class Lobby
         return Game.LastNightResult!;
     }
 
-    // ── Day ────────────────────────────────────────────────────────────────
+    // ── Day ───────────────────────────────────────────────────────────────
 
     public void BeginDaySession()
     {

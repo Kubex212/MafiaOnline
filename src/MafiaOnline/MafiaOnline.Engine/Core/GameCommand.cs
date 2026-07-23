@@ -1,4 +1,6 @@
-﻿namespace MafiaOnline.Engine.Commands;
+﻿using MafiaOnline.Engine.Night;
+
+namespace MafiaOnline.Engine.Commands;
 
 public abstract class GameCommand
 {
@@ -78,13 +80,13 @@ public class NightActionCommand : GameCommand
 /// </summary>
 public class ResolveNightCommand : GameCommand
 {
-    public ResolveNightCommand(IReadOnlyDictionary<Guid, Guid> actions)
+    public ResolveNightCommand(IReadOnlyDictionary<Guid, NightAction> actions)
         : base(Guid.Empty)
     {
         Actions = actions;
     }
 
-    public IReadOnlyDictionary<Guid, Guid> Actions { get; }
+    public IReadOnlyDictionary<Guid, NightAction> Actions { get; }
 
     internal override void Execute(Game game)
     {

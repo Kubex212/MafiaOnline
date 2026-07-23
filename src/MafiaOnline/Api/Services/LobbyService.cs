@@ -6,6 +6,7 @@ using MafiaOnline.Api.Dtos;
 using MafiaOnline.Engine;
 using Microsoft.AspNetCore.SignalR;
 using static MafiaOnline.Engine.Game;
+using MafiaOnline.Engine.Roles;
 
 namespace MafiaOnline.Api.Services;
 
@@ -115,7 +116,7 @@ public class LobbyService : ILobbyService
         return lobby;
     }
 
-    public async Task<string> GetPlayerRole(string code, Guid playerId)
+    public async Task<RoleResponse> GetPlayerRole(string code, Guid playerId)
     {
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
@@ -126,7 +127,7 @@ public class LobbyService : ILobbyService
         var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == playerId)
             ?? throw new InvalidOperationException("Player not found.");
 
-        return enginePlayer.Role.Name;
+        return new RoleResponse() { Name = enginePlayer.Role.Name, TeamId = enginePlayer.Role.TeamId };
     }
 
     public async Task<Lobby> MovePlayerUpAsync(string code, Guid requestingPlayerId, Guid targetPlayerId)
@@ -192,7 +193,8 @@ public class LobbyService : ILobbyService
                 response.MyRole = new RoleResponse
                 {
                     Name = enginePlayer.Role.Name,
-                    Team = enginePlayer.Role.Name is "Werewolf" ? "Werewolf" : "Town"
+                    Team = enginePlayer.Role.Name is "Werewolf" ? "Werewolf" : "Town",
+                    TeamId = enginePlayer.Role.TeamId
                 };
             }
 
@@ -219,7 +221,9 @@ public class LobbyService : ILobbyService
                 ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
                 HasAbility = lobby.ActivePlayerHasAbility(),
                 RemainingSeconds = 0,
-                SubmittedActions = lobby.NightSession.SubmittedActions.ToDictionary(k => k.Key, v => v.Value)
+                SubmittedActions = lobby.NightSession.SubmittedActions
+                    .Where(kv => kv.Value != null && kv.Value.Targets.Any())
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.Targets.First())
             };
         }
         else if (lobby.DaySession != null && !lobby.DaySession.Resolved)

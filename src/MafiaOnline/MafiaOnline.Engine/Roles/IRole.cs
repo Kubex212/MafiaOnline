@@ -11,6 +11,13 @@ public enum RoleType
     DogTamer
 }
 
+public enum Team
+{
+    Town = 0,
+    Werewolves = 1,
+    Neutral = 2
+}
+
 public interface IRole
 {
     RoleType Type { get; }
@@ -21,4 +28,9 @@ public interface IRole
     /// 0 = Town, 1 = Werewolves.
     /// </summary>
     int TeamId { get; }
+
+    // New convenience property exposing a Team enum while remaining
+    // backward-compatible with existing TeamId usages. Default
+    // implementation converts TeamId to Team.
+    Team Team => (Team)TeamId;
 }

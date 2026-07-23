@@ -10,13 +10,20 @@ public class WerewolfAttackAbility() : NightAbility(20)
 {
     public override bool IsAutomatic => false;
 
-    public override void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
+    public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
-        if (targetId is null) return;
+        if (action is null || action.Targets.Count == 0) return;
+        var targetId = action.Targets[0];
         // Only allow attacking living players who are not werewolves
         var target = alivePlayers.FirstOrDefault(p => p.Id == targetId && p.Role.TeamId != actor.Role.TeamId);
         if (target is null) return;
 
-        context.WerewolfAttacks[actor.Id] = targetId.Value;
+        context.WerewolfAttacks[actor.Id] = targetId;
+    }
+
+    // Keep override of older signature for compatibility if any subclass used it
+    public override void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
+    {
+        base.Apply(actor, targetId, context, alivePlayers);
     }
 }

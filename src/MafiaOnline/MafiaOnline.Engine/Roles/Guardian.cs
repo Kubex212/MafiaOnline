@@ -13,7 +13,7 @@ public class Guardian : IRole, IHasNightAbility
     public Guardian(GuardianConfig? config = null)
     {
         _config = config ?? new GuardianConfig();
-        NightAbility = new GuardianProtectAbility(_config, null!);
+        NightAbility = new GuardianProtectAbility(_config);
     }
 
     public RoleType Type => RoleType.Guardian;

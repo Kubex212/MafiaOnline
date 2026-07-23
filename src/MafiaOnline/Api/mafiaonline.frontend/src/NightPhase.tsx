@@ -37,7 +37,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
     const [resolved, setResolved] = useState<NightResolvedPayload | null>(null);
     const [nightInfo, setNightInfo] = useState<PlayerNightInfoResponse | null>(null);
-    const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+    const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [log, setLog] = useState<string[]>([t('nightFalls')]);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -47,7 +47,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setActiveTurn(turn);
             // respect the timeoutSeconds provided by the server (use fallback TURN_SECONDS)
             setTimeLeft(turn.timeoutSeconds ?? TURN_SECONDS);
-            setSelectedTarget(null);
+            setSelectedTargets([]);
             setSubmitting(false);
             const who = seats.find(s => s.id === turn.activePlayerId);
             const isMe = turn.activePlayerId === myPlayerId;
@@ -80,6 +80,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 else if (info?.type === "DogTamerClue") {
                     setLog(l => [...l, t('dogClue', { barked: info.data.DidBark ? t('dogBarked') : t('dogQuiet') })]);
                 }
+                else if (info?.type === "SeerClue") {
+                    const aName = String(info.data.SubjectAName);
+                    const bName = String(info.data.SubjectBName);
+                    const same = String(info.data.SameTeam) === 'true';
+                    setLog(l => [...l, t('seerClueLong', { a: aName, b: bName, relation: same ? t('sameTeam') : t('differentTeams') })]);
+                }
             } catch { /* no night info */ }
         },
     }), [lobbyCode, myPlayerId, seats, t]);
@@ -87,13 +93,24 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
     const isMyTurn = activeTurn?.activePlayerId === myPlayerId;
+    const minTargets = activeTurn?.minTargets ?? 0;
+    const maxTargets = activeTurn?.maxTargets ?? 1;
     const canAct = isMyTurn && !!activeTurn?.hasAbility && !submitting;
 
+    function toggleTarget(id: string) {
+        setSelectedTargets(prev => {
+            if (prev.includes(id)) return prev.filter(x => x !== id);
+            // enforce maxTargets
+            if (prev.length >= maxTargets) return prev;
+            return [...prev, id];
+        });
+    }
+
     async function handleAction() {
-        if (!selectedTarget || !isMyTurn) return;
+        if (selectedTargets.length < minTargets || !isMyTurn) return;
         setSubmitting(true);
         try {
-            await submitNightAction(lobbyCode, myPlayerId, selectedTarget);
+            await submitNightAction(lobbyCode, myPlayerId, selectedTargets);
             setLog(l => [...l, t('actionSubmitted')]);
         } catch (e) { alert(String(e)); setSubmitting(false); }
     }
@@ -118,7 +135,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 border: `2px solid ${TEAM_COLORS[myRole.team] ?? '#aaa'}`,
                 background: '#1a1a2e', textAlign: 'center',
             }}>
-                <span style={{ fontSize: 12, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>{t('yourRole')}</span>
+                <span style={{ fontSize: 12, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2, marginRight: 12 }}>{t('yourRole')}</span>
                 <span style={{ fontSize: 20, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff' }}>{t(myRole.name)}</span>
             </div>
 
@@ -141,7 +158,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                         }
                         <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>
                             {isMyTurn && (activeTurn.hasAbility
-                                ? t('pickTargetConfirmOrSkip')
+                                ? (minTargets > 1 ? t('pickTargetsConfirmOrSkip') : t('pickTargetConfirmOrSkip'))
                                 : t('noAbilitySkip'))}
                         </div>
                     </div>
@@ -177,7 +194,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     const py = cy + r * Math.sin(angle);
                     const isMe = seat.id === myPlayerId;
                     const isActive = seat.id === activeTurn?.activePlayerId && !resolved;
-                    const isSelected = seat.id === selectedTarget;
+                    const isSelected = selectedTargets.includes(seat.id);
                     const isTargetable = canAct && !isMe && !resolved;
                     const colors = isMe ? (ROLE_COLORS[myRole.name] ?? ROLE_COLORS['Villager']) : { bg: '#1e1e2e', border: '#555' };
                     const borderColor = isSelected ? '#f0c040' : isActive ? '#fff' : colors.border;
@@ -186,7 +203,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     return (
                         <g key={seat.id} transform={`translate(${px},${py})`}
                             style={{ cursor: isTargetable ? 'pointer' : 'default' }}
-                            onClick={() => { if (isTargetable) setSelectedTarget(seat.id); }}
+                            onClick={() => { if (isTargetable) toggleTarget(seat.id); }}
                         >
                             {isActive && <circle r={40} fill="none" stroke="#fff" strokeWidth={2} opacity={0.2} />}
                             <circle r={34} fill={colors.bg} stroke={borderColor} strokeWidth={isMe || isSelected || isActive ? 3 : 2} />
@@ -206,8 +223,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             {isMyTurn && !resolved && (
                 <div style={{ display: 'flex', gap: 12 }}>
                     {activeTurn!.hasAbility && (
-                        <button disabled={!selectedTarget || submitting} onClick={handleAction}
-                            style={{ ...btnStyle, background: selectedTarget ? '#c0392b' : '#555', opacity: (!selectedTarget || submitting) ? 0.6 : 1 }}>
+                        <button disabled={selectedTargets.length < minTargets || submitting} onClick={handleAction}
+                            style={{ ...btnStyle, background: selectedTargets.length >= minTargets ? '#c0392b' : '#555', opacity: (selectedTargets.length < minTargets || submitting) ? 0.6 : 1 }}>
                             {myRole.name === 'Werewolf' ? t('attack') : myRole.name === 'Guardian' ? t('protect') : t('useAbility')}
                         </button>
                     )}
@@ -238,6 +255,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {nightInfo?.type === "DogTamerClue" && (
                         <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
                             {t('dogClueShort')} {nightInfo.data.DidBark ? t('dogBarked') : t('dogQuiet')}.
+                        </div>
+                    )}
+
+                    {nightInfo?.type === "SeerClue" && (
+                        <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
+                            {t('seerClueShort')} {String(nightInfo.data.SubjectAName)} & {String(nightInfo.data.SubjectBName)} — {String(nightInfo.data.SameTeam) === 'true' ? t('sameTeam') : t('differentTeams')}
                         </div>
                     )}
                 </div>

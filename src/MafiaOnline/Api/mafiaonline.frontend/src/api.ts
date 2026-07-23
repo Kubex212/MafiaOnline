@@ -16,7 +16,8 @@ export type LobbyResponse = {
 
 export type RoleResponse = {
     name: string;
-    team: string;
+    teamName: string;
+    teamId: number;
 };
 
 export type SeatInfo = {
@@ -30,16 +31,32 @@ export type NightTurnStarted = {
     activeSeatIndex: number;
     hasAbility: boolean;
     timeoutSeconds: number;
+    minTargets?: number;
+    maxTargets?: number;
 };
 
 export type NightResolvedPayload = {
     killed: string[];
     attackBlocked: boolean;
 };
-export interface PlayerNightInfoResponse {
-    type: string;
-    data: Record<string, unknown>;
-}
+
+
+export type DetectiveNightInfo = {
+    type: 'DetectiveClue';
+    data: { SubjectNickname: string; IsWerewolf: boolean };
+};
+
+export type DogTamerNightInfo = {
+    type: 'DogTamerClue';
+    data: { DidBark: boolean };
+};
+
+export type SeerNightInfo = {
+    type: 'SeerClue';
+    data: { SubjectA: string; SubjectB: string; SubjectAName: string; SubjectBName: string; SameTeam: boolean };
+};
+
+export type PlayerNightInfoResponse = DetectiveNightInfo | DogTamerNightInfo | SeerNightInfo;
 
 export type LobbyOrderChangedPayload = {
     id: string;
@@ -67,7 +84,7 @@ export type DayResolvedPayload = {
 };
 
 export type GameOverPayload = {
-    winner: 'Villagers' | 'Werewolves';
+    winner: 'Villagers' | 'Werewolves' | 'Fool';
 };
 
 export async function createLobby(nickname: string): Promise<LobbyResponse> {
@@ -119,11 +136,12 @@ export function createHubConnection(): HubConnection {
         .build();
 }
 
-export async function submitNightAction(code: string, actorId: string, targetId: string): Promise<void> {
+export async function submitNightAction(code: string, actorId: string, targetIdOrTargets: string | string[]): Promise<void> {
+    const targets = Array.isArray(targetIdOrTargets) ? targetIdOrTargets : [targetIdOrTargets];
     const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actorId, targetId })
+        body: JSON.stringify({ actorId, targets })
     });
     if (!res.ok) throw new Error('Action failed: ' + res.statusText);
 }

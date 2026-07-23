@@ -2,6 +2,7 @@
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Engine.Night;
+using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
 
 namespace MafiaOnline.Api.Services;
@@ -9,7 +10,7 @@ namespace MafiaOnline.Api.Services;
 public interface INightService
 {
     Task BeginNightAsync(string lobbyCode);
-    Task SubmitActionAsync(string lobbyCode, Guid actorId, Guid targetId);
+    Task SubmitActionAsync(string lobbyCode, Guid actorId, NightAction action);
     Task SkipTurnAsync(string lobbyCode, Guid actorId);
 }
 
@@ -37,10 +38,10 @@ public class NightService : INightService
         await AdvanceTurnAsync(lobby);
     }
 
-    public async Task SubmitActionAsync(string lobbyCode, Guid actorId, Guid targetId)
+    public async Task SubmitActionAsync(string lobbyCode, Guid actorId, NightAction action)
     {
         var lobby = await GetLobby(lobbyCode);
-        lobby.NightSession!.SubmitAction(actorId, targetId);
+        lobby.NightSession!.SubmitAction(actorId, action);
         await _repository.Update(lobby);
         CancelTimer(lobbyCode);
         await AdvanceTurnAsync(lobby);
@@ -68,12 +69,27 @@ public class NightService : INightService
         var active = lobby.NightSession.ActivePlayer!;
         bool hasAbility = lobby.ActivePlayerHasAbility();
 
+        int minTargets = 0;
+        int maxTargets = 1;
+
+        if (hasAbility && lobby.Game != null)
+        {
+            var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == active.Id);
+            if (enginePlayer?.Role is IHasNightAbility na)
+            {
+                minTargets = na.NightAbility.MinTargets;
+                maxTargets = na.NightAbility.MaxTargets;
+            }
+        }
+
         await _hub.Clients.Group(lobby.Code).SendAsync("NightTurnStarted", new
         {
             activePlayerId  = active.Id,
             activeSeatIndex = active.SeatIndex,
             hasAbility,
-            timeoutSeconds  = TurnSeconds
+            timeoutSeconds  = TurnSeconds,
+            minTargets,
+            maxTargets
         });
 
         var cts = new CancellationTokenSource();
@@ -126,7 +142,7 @@ public class NightService : INightService
         }
 
         // Transition to day after a short pause so clients can show the night summary
-        await Task.Delay(4000);
+        await Task.Delay(7000);
         await _dayService.BeginDayAsync(lobby.Code);
     }
 

@@ -83,5 +83,11 @@
   "Villager": "Wieśniak",
   "Guardian": "Strażnik",
   "Detective": "Detektyw",
-  "Dog Tamer": "Treser"
+  "Dog Tamer": "Treser",
+  "Seer": "Wyrocznia",
+  "Fool": "Głupiec",
+  "seerClueShort": "Wskazówka wyroczni:",
+  "seerClueLong": "Wskazówka wyroczni: {{a}} & {{b}} — {{relation}}",
+  "sameTeam": "są w tej samej drużynie",
+  "differentTeams": "są w innych drużynach"
 }

@@ -13,11 +13,11 @@ public class NightResolver
     /// <param name="alivePlayers">Players still alive at the start of the night, in seat order.</param>
     /// <param name="submittedActions">
     /// Actions submitted by players who have non-automatic abilities.
-    /// Key = acting player id, Value = chosen target id.
+    /// Key = acting player id, Value = chosen NightAction.
     /// </param>
     public NightResult Resolve(
         IReadOnlyList<Player> alivePlayers,
-        IReadOnlyDictionary<Guid, Guid> submittedActions)
+        IReadOnlyDictionary<Guid, NightAction> submittedActions)
     {
         var context = new NightContext();
 
@@ -30,17 +30,28 @@ public class NightResolver
 
         foreach (var (player, ability) in abilitySlots)
         {
-            Guid? targetId = ability.IsAutomatic
-                ? null
-                : submittedActions.TryGetValue(player.Id, out var tid) ? tid : null;
+            NightAction? action = null;
+            if (!ability.IsAutomatic)
+            {
+                if (submittedActions.TryGetValue(player.Id, out var a)) action = a;
+            }
 
             // Skip non-automatic abilities for which no action was submitted
-            if (!ability.IsAutomatic && targetId is null) continue;
+            if (!ability.IsAutomatic && action is null) continue;
 
-            ability.Apply(player, targetId, context, alivePlayers);
+            ability.Apply(player, action, context, alivePlayers);
         }
 
         return BuildResult(context, alivePlayers);
+    }
+
+    // Legacy adapter for existing code passing Guid->Guid mapping
+    public NightResult Resolve(
+        IReadOnlyList<Player> alivePlayers,
+        IReadOnlyDictionary<Guid, Guid> submittedActions)
+    {
+        var adapted = submittedActions.ToDictionary(kvp => kvp.Key, kvp => new NightAction(new[] { kvp.Value } as IEnumerable<Guid>));
+        return Resolve(alivePlayers, adapted);
     }
 
     private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> alivePlayers)
@@ -83,6 +94,9 @@ public class NightResolver
         {
             events.Add(new DogTamerClueEvent(dogTamerId, shouldBark));
         }
+
+        // Include any events directly registered in context
+        events.AddRange(context.Events);
 
         return new NightResult
         {

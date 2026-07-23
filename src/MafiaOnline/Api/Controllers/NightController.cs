@@ -31,7 +31,9 @@ public class NightController : ControllerBase
     [HttpPost("action")]
     public async Task<IActionResult> Action(string code, [FromBody] NightActionRequest request)
     {
-        await _nightService.SubmitActionAsync(code, request.ActorId, request.TargetId);
+        // adapt to engine NightAction
+        var action = new NightAction(request.Targets);
+        await _nightService.SubmitActionAsync(code, request.ActorId, action);
         return Ok();
     }
 
@@ -44,8 +46,8 @@ public class NightController : ControllerBase
     }
 
     /// <summary>
-    /// Private: detective fetches their clue after NightResolved fires.
-    /// Returns 204 if no clue (e.g. player is not detective or config blocked it).
+    /// Private: detective/seer/dog-tamer fetches their clue after NightResolved fires.
+    /// Returns 204 if no clue (e.g. player has no clue or config blocked it).
     /// </summary>
     [HttpGet("clue/{playerId:guid}")]
     public async Task<ActionResult<ClueResponse>> GetClue(string code, Guid playerId)
@@ -56,19 +58,56 @@ public class NightController : ControllerBase
         var result = lobby.Game.LastNightResult;
         if (result is null) return NoContent();
 
-        var player = lobby.Players.FirstOrDefault(p => p.Id == playerId);
-        var clueEvent = result.Events
-            .OfType<PlayerNightEvent>()
-            .FirstOrDefault(x => x.PlayerId == playerId);
-
-        if (clueEvent is null) return NoContent();
-
-        var info = clueEvent.GetInfo();
-
-        return Ok(new ClueResponse
+        // Detective clue
+        var detectiveEvent = result.Events.OfType<DetectiveClueEvent>().FirstOrDefault(e => e.DetectiveId == playerId);
+        if (detectiveEvent is not null)
         {
-            Type = info.Type,
-            Data = info.Data
-        });
+            return Ok(new ClueResponse
+            {
+                Type = "DetectiveClue",
+                Data = new Dictionary<string, object>
+                {
+                    ["SubjectNickname"] = detectiveEvent.SubjectNickname,
+                    ["IsWerewolf"] = detectiveEvent.IsWerewolf
+                }
+            });
+        }
+
+        // Dog tamer clue
+        var dogEvent = result.Events.OfType<DogTamerClueEvent>().FirstOrDefault(e => e.DogTamerId == playerId);
+        if (dogEvent is not null)
+        {
+            return Ok(new ClueResponse
+            {
+                Type = "DogTamerClue",
+                Data = new Dictionary<string, object>
+                {
+                    ["DidBark"] = dogEvent.DidBark
+                }
+            });
+        }
+
+        // Seer clue
+        var seerEvent = result.Events.OfType<SeerClueEvent>().FirstOrDefault(e => e.SeerId == playerId);
+        if (seerEvent is not null)
+        {
+            // resolve nicknames for subjects if possible
+            var subjAName = lobby.Players.FirstOrDefault(p => p.Id == seerEvent.SubjectA)?.Nickname ?? "?";
+            var subjBName = lobby.Players.FirstOrDefault(p => p.Id == seerEvent.SubjectB)?.Nickname ?? "?";
+            return Ok(new ClueResponse
+            {
+                Type = "SeerClue",
+                Data = new Dictionary<string, object>
+                {
+                    ["SubjectA"] = seerEvent.SubjectA,
+                    ["SubjectB"] = seerEvent.SubjectB,
+                    ["SubjectAName"] = subjAName,
+                    ["SubjectBName"] = subjBName,
+                    ["SameTeam"] = seerEvent.SameTeam
+                }
+            });
+        }
+
+        return NoContent();
     }
 }

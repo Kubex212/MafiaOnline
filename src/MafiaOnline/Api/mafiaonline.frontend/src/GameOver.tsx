@@ -9,11 +9,19 @@ interface Props {
 }
 
 export default function GameOver({ payload, myRoleLabel, myRole }: Props) {
-    const won = (payload.winner === 'Villagers' && myRole !== 'Werewolf')
-        || (payload.winner === 'Werewolves' && myRole === 'Werewolf');
-    const color = payload.winner === 'Villagers' ? '#5cb85c' : '#d9534f';
-    const icon = payload.winner === 'Villagers' ? '\uD83C\uDF3E' : '\uD83D\uDC3A';
     const { t } = useTranslation();
+
+    // Determine win state: if Fool won, only Fool "wins"; for UI we treat others as lost.
+    let won = false;
+    if (payload.winner === 'Fool') {
+        won = myRole === 'Fool';
+    } else {
+        won = (payload.winner === 'Villagers' && myRole !== 'Werewolf')
+            || (payload.winner === 'Werewolves' && myRole === 'Werewolf');
+    }
+
+    const color = payload.winner === 'Villagers' ? '#5cb85c' : payload.winner === 'Werewolves' ? '#d9534f' : '#f0c040';
+    const icon = payload.winner === 'Villagers' ? '\uD83C\uDF3E' : payload.winner === 'Werewolves' ? '\uD83D\uDC3A' : '\u2600';
 
     return (
         <div style={{

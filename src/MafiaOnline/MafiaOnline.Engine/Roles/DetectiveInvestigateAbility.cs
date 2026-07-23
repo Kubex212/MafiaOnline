@@ -13,7 +13,7 @@ public class DetectiveInvestigateAbility(DetectiveConfig config) : NightAbility(
 {
     public override bool IsAutomatic => true;
 
-    public override void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
+    public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
         // Candidates: alive players other than the detective himself
         var candidates = alivePlayers

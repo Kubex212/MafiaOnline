@@ -10,10 +10,10 @@ public class NightSession
     private List<LobbyPlayer> _turnOrder;
 
     [Newtonsoft.Json.JsonProperty]
-    private readonly Dictionary<Guid, Guid> _submittedActions = new();
+    private readonly Dictionary<Guid, Engine.Night.NightAction> _submittedActions = new();
 
     [Newtonsoft.Json.JsonConstructor]
-    public NightSession(List<LobbyPlayer> turnOrder, Dictionary<Guid, Guid>? submittedActions, int currentTurnIndex)
+    public NightSession(List<LobbyPlayer> turnOrder, Dictionary<Guid, Engine.Night.NightAction>? submittedActions, int currentTurnIndex)
     {
         _turnOrder = turnOrder ?? new List<LobbyPlayer>();
         if (submittedActions is not null)
@@ -40,14 +40,20 @@ public class NightSession
 
     public LobbyPlayer? ActivePlayer => IsFinished ? null : _turnOrder[CurrentTurnIndex];
 
-    public IReadOnlyDictionary<Guid, Guid> SubmittedActions => _submittedActions;
+    public IReadOnlyDictionary<Guid, Engine.Night.NightAction> SubmittedActions => _submittedActions;
 
     /// <summary>Record a targeted action for the current player, then advance the turn.</summary>
-    public void SubmitAction(Guid actorId, Guid targetId)
+    public void SubmitAction(Guid actorId, Engine.Night.NightAction action)
     {
         AssertIsActivePlayer(actorId);
-        _submittedActions[actorId] = targetId;
+        _submittedActions[actorId] = action;
         Advance();
+    }
+
+    /// <summary>Legacy single-target overload kept for compatibility.</summary>
+    public void SubmitAction(Guid actorId, Guid targetId)
+    {
+        SubmitAction(actorId, new Engine.Night.NightAction(new[] { targetId }));
     }
 
     /// <summary>Skip the current player's turn (no action recorded), then advance.</summary>

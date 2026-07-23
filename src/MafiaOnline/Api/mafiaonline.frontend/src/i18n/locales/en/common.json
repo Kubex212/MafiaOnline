@@ -84,5 +84,11 @@
   "Villager": "Villager",
   "Guardian": "Guardian",
   "Detective": "Detective",
-  "Dog Tamer": "Dog Tamer"
+  "Dog Tamer": "Dog Tamer",
+  "Seer": "Seer",
+  "Fool": "Fool",
+  "seerClueShort": "Seer clue:",
+  "seerClueLong": "Seer: {{a}} & {{b}} — {{relation}}",
+  "sameTeam": "same team",
+  "differentTeams": "different teams"
 }

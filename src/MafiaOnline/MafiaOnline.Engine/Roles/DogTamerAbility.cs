@@ -7,31 +7,28 @@ namespace MafiaOnline.Engine.Roles;
 /// Dog tamer as a dog that will bark if there are exactly N werewolves in range.
 /// The dog tamer will investigate the player and their neighbors, up to this range (range is per direction).
 /// </summary>
-public class DogTamerAbility(DogTamerConfig config) : NightAbility(30)
+public class DogTamerAbility(DogTamerConfig config) : NightAbility(25)
 {
     public override bool IsAutomatic => true;
 
-    public override void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
+    public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
-        var orderedPlayers = alivePlayers.OrderBy(p => p.SeatIndex).ToList();
+        // Dog Tamer examines up to 'Range' neighbors around a chosen target.
+        // Historically this ability ignored explicit targets and used the actor's seat index
+        // to pick a subject, so preserve that behaviour for now.
 
-        var actorIndex = orderedPlayers.FindIndex(p => p.Id == actor.Id);
-        if (actorIndex < 0)
-            return;
+        var numWerewolves = 0;
+        var range = config.Range;
+        var seat = actor.SeatIndex;
 
-        var candidateIndices = new HashSet<int>();
-
-        for (var offset = 1; offset <= config.Range; offset++)
+        for (int offset = -range; offset <= range; offset++)
         {
-            candidateIndices.Add((actorIndex - offset + orderedPlayers.Count) % orderedPlayers.Count);
-            candidateIndices.Add((actorIndex + offset) % orderedPlayers.Count);
+            var idx = seat + offset;
+            if (idx < 0 || idx >= alivePlayers.Count) continue;
+            var p = alivePlayers[idx];
+            if (p.Role.TeamId != 0) numWerewolves++;
         }
 
-        var candidates = candidateIndices.Select(i => orderedPlayers[i]).ToList();
-
-        var numWerewolvesInRange = candidates.Count(p => p.Role.TeamId == 1);
-        var shouldBark = numWerewolvesInRange == config.NumWerewolves;
-
-        context.DogTamerClues[actor.Id] = shouldBark;
+        context.DogTamerClues[actor.Id] = (numWerewolves == config.NumWerewolves);
     }
 }

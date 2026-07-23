@@ -10,7 +10,7 @@ public class Game
 {
     [JsonProperty]
     private List<Player> _players = new();
-    private readonly Dictionary<Guid, Guid> _pendingNightActions = new();
+    private readonly Dictionary<Guid, NightAction> _pendingNightActions = new();
 
     [JsonConstructor]
     public Game(Guid id, GameConfig? config = null)
@@ -59,6 +59,27 @@ public class Game
 
         var alivePlayers = _players.Where(p => p.IsAlive).ToList();
         var resolver = new NightResolver();
+        // adapt legacy actions
+        var adapted = actions.ToDictionary(kvp => kvp.Key, kvp => new NightAction(new[] { kvp.Value } as IEnumerable<Guid>));
+        LastNightResult = resolver.Resolve(alivePlayers, adapted);
+
+        foreach (var killedId in LastNightResult.Killed)
+            _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
+
+        CheckWinCondition();
+
+        if (Phase != GamePhase.Finished)
+            Phase = GamePhase.DayDiscussion;
+    }
+
+    // New overload accepting NightAction payloads
+    internal void ResolveNightWithActions(IReadOnlyDictionary<Guid, NightAction> actions)
+    {
+        if (Phase != GamePhase.Night)
+            throw new InvalidOperationException("Not currently the night phase.");
+
+        var alivePlayers = _players.Where(p => p.IsAlive).ToList();
+        var resolver = new NightResolver();
         LastNightResult = resolver.Resolve(alivePlayers, actions);
 
         foreach (var killedId in LastNightResult.Killed)
@@ -95,6 +116,7 @@ public class Game
     /// <summary>
     /// Villagers win when there are no werewolves left.
     /// Werewolves win when they are at least as numerous as the remaining town players.
+    /// Roles implementing IWinCondition can also trigger role-specific victories.
     /// </summary>
     private void CheckWinCondition()
     {
@@ -107,12 +129,30 @@ public class Game
             Winner = GameWinner.Villagers;
             Phase  = GamePhase.Finished;
             Status = GameStatus.Finished;
+            return;
         }
         else if (wolves >= town)
         {
             Winner = GameWinner.Werewolves;
             Phase  = GamePhase.Finished;
             Status = GameStatus.Finished;
+            return;
+        }
+
+        // Evaluate role-specific win conditions (e.g. Fool)
+        // Include players who were just banished (in LastDayResult) because some win conditions
+        // (like Fool) trigger when they are banished rather than when alive.
+        var candidates = _players.Where(p => p.IsAlive || (LastDayResult?.Banished.Contains(p.Id) ?? false)).ToList();
+        foreach (var p in candidates)
+        {
+            if (p.Role is IWinCondition wc && wc.Evaluate(this, p))
+            {
+                // Fool or other role-specific winner: record a neutral/role winner
+                Winner = GameWinner.Fool;
+                Phase = GamePhase.Finished;
+                Status = GameStatus.Finished;
+                return;
+            }
         }
     }
 
@@ -129,7 +169,24 @@ public class Game
         if (actor.Role is not IHasNightAbility nightRole || nightRole.NightAbility.IsAutomatic)
             throw new InvalidOperationException("This player has no submittable night action.");
 
-        _pendingNightActions[actorId] = targetId;
+        _pendingNightActions[actorId] = new NightAction(new[] { targetId } as IEnumerable<Guid>);
+
+        if (AllNightActionsSubmitted()) ResolveNightLegacy();
+    }
+
+    // New submission allowing multiple targets
+    internal void SubmitNightAction(Guid actorId, NightAction action)
+    {
+        if (Phase != GamePhase.Night)
+            throw new InvalidOperationException("Not currently the night phase.");
+
+        var actor = _players.FirstOrDefault(p => p.Id == actorId && p.IsAlive)
+            ?? throw new InvalidOperationException("Player not found or not alive.");
+
+        if (actor.Role is not IHasNightAbility nightRole || nightRole.NightAbility.IsAutomatic)
+            throw new InvalidOperationException("This player has no submittable night action.");
+
+        _pendingNightActions[actorId] = action;
 
         if (AllNightActionsSubmitted()) ResolveNightLegacy();
     }
@@ -185,7 +242,8 @@ public class Game
         {
             new Werewolf(),
             new DogTamer(Config.DogTamer),
-            new Detective(Config.Detective)
+            new Seer(),
+            new Fool()
         };
 
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
@@ -227,5 +285,6 @@ public enum GameWinner
 {
     None,
     Villagers,
-    Werewolves
+    Werewolves,
+    Fool
 }

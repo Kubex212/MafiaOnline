@@ -15,15 +15,40 @@ public abstract class NightAbility(int priority)
 
     /// <summary>
     /// When true, the ability is applied automatically without waiting for player input.
-    /// When false, the game waits for the player to submit a <see cref="NightActionCommand"/>
+    /// When false, the game waits for the player to submit a <see cref="NightAction"/>
     /// before this ability's slot can be resolved.
     /// </summary>
     public abstract bool IsAutomatic { get; }
 
     /// <summary>
-    /// Execute the ability for <paramref name="actor"/> using the already-submitted
-    /// <paramref name="targetId"/> (may be <c>null</c> for automatic abilities that
-    /// choose their own target).
+    /// Minimum number of targets this ability expects (for validation or UI hints).
     /// </summary>
-    public abstract void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers);
+    public virtual int MinTargets => 0;
+
+    /// <summary>
+    /// Maximum number of targets this ability accepts. Zero means no targets.
+    /// Use int.MaxValue for unlimited.
+    /// </summary>
+    public virtual int MaxTargets => 1;
+
+    /// <summary>
+    /// Whether the ability can target the acting player.
+    /// </summary>
+    public virtual bool CanTargetSelf => false;
+
+    /// <summary>
+    /// Execute the ability for <paramref name="actor"/> using the already-submitted
+    /// <paramref name="action"/> (may be <c>null</c> for automatic abilities that
+    /// choose their own target(s)).
+    /// </summary>
+    public abstract void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers);
+
+    // Backwards-compatible helper: if an ability was implemented with the older
+    // single-target signature, derived classes can override this instead.
+    public virtual void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
+    {
+        // Default behavior: wrap single target into a NightAction and call new Apply.
+        NightAction? action = targetId is null ? null : new NightAction(new[] { targetId.Value }, new Dictionary<string, object>());
+        Apply(actor, action, context, alivePlayers);
+    }
 }

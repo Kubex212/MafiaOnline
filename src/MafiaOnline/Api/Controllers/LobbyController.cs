@@ -52,10 +52,16 @@ public class LobbiesController : ControllerBase
     [HttpGet("{code}/role/{playerId:guid}")]
     public async Task<ActionResult<RoleResponse>> GetRole(string code, Guid playerId)
     {
-        var roleName = await _lobbyService.GetPlayerRole(code, playerId);
-        var team = roleName is "Werewolf" ? "Werewolf" : "Town";
+        var role = await _lobbyService.GetPlayerRole(code, playerId);
+        // map team based on role name / engine TeamId
+        var teamName = role.TeamId switch
+        {
+            1 => "Werewolf",
+            2 => "Neutral",
+            _ => "Town"
+        };
 
-        return Ok(new RoleResponse { Name = roleName, Team = team });
+        return Ok(new RoleResponse { Name = role.Name, Team = teamName, TeamId = role.TeamId });
     }
 
     [HttpPost("{code}/order/move-up")]

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
@@ -162,7 +162,7 @@ export default function App() {
                                     activePlayerId: data.night.activePlayerId ?? '',
                                     activeSeatIndex: data.night.activeSeatIndex,
                                     hasAbility: data.night.hasAbility,
-                                    timeoutSeconds: data.night.remainingSeconds ?? TURN_SECONDS,
+                                    timeoutSeconds: data.night.remainingSeconds ?? 1000,
                                 });
                                 // restore submitted actions if any (no explicit handler but we keep seats updated)
                             }, 0);
@@ -264,7 +264,13 @@ export default function App() {
 
     // ── ROLE REVEAL ────────────────────────────────────────────────────────────
     if (view === 'role-reveal' && myRole) {
-        const teamColor = myRole.team === 'Werewolf' ? '#d9534f' : '#5cb85c';
+        const teamColors: Record<number, string> = {
+            0: '#5cb85c', // Villagers
+            1: '#d9534f', // Werewolves
+            2: '#f0c040', // Neutral
+        };
+
+        const teamColor = teamColors[myRole.teamId] ?? '#5cb85c';
         return (
             <div style={{ ...styles.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                 <div style={{ fontSize: 14, color: '#aaa', letterSpacing: 3, textTransform: 'uppercase' }}>
@@ -420,6 +426,12 @@ export default function App() {
                                 )}
                             </li>
                         ))}
+
+                        {orderedPlayers.length === 0 && (
+                            <li style={{ color: '#999', textAlign: 'center', padding: '10px' }}>
+                                {t('noPlayersYet')}
+                            </li>
+                        )}
                     </ul>
 
                     <div style={{ color: '#666', fontSize: 12, marginBottom: 12 }}>
@@ -434,6 +446,12 @@ export default function App() {
                         >
                             {t('startGame')}
                         </button>
+                    )}
+
+                    {hubStarted && (
+                        <div style={{ color: '#4caf50', fontSize: 12, marginTop: 10 }}>
+                            {t('connectedToHub')}
+                        </div>
                     )}
                 </div>
             )}

@@ -34,15 +34,15 @@ export default function RoundTable({ seats, myPlayerId, myRole }: Props) {
                 <div style={{
                     padding: '12px 32px',
                     borderRadius: 12,
-                    border: `2px solid ${TEAM_COLORS[myRole.team] ?? '#aaa'}`,
+                    border: `2px solid ${TEAM_COLORS[myRole.teamName] ?? '#aaa'}`,
                     background: '#1a1a2e',
                     textAlign: 'center',
                 }}>
                     <div style={{ fontSize: 12, color: '#aaa', letterSpacing: 2, textTransform: 'uppercase' }}>Your role</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff', marginTop: 4 }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: TEAM_COLORS[myRole.teamName] ?? '#fff', marginTop: 4 }}>
                         {myRole.name}
                     </div>
-                    <div style={{ fontSize: 13, color: '#ccc', marginTop: 2 }}>Team: {myRole.team}</div>
+                    <div style={{ fontSize: 13, color: '#ccc', marginTop: 2 }}>Team: {myRole.teamName}</div>
                 </div>
             )}
 

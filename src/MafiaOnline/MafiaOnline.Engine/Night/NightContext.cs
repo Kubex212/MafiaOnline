@@ -32,4 +32,9 @@ public class NightContext
     // ---------- finalised outcomes (populated by NightResolver) ----------
 
     internal List<NightEvent> Events { get; } = new();
+
+    /// <summary>
+    /// Add a custom NightEvent produced by an ability.
+    /// </summary>
+    public void AddEvent(NightEvent ev) => Events.Add(ev);
 }
