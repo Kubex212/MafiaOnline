@@ -11,4 +11,5 @@ public class GameConfig
     public DetectiveConfig Detective { get; set; } = new();
     public DogTamerConfig DogTamer { get; set; } = new();
     public DayConfig Day { get; set; } = new();
+    public PoacherConfig Poacher { get; set; } = new();
 }

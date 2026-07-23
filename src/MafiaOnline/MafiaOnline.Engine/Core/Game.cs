@@ -241,8 +241,8 @@ public class Game
         var specialRolesToAssign = new List<IRole>()
         {
             new Werewolf(),
-            new DogTamer(Config.DogTamer),
-            new Seer(),
+            new Poacher(Config.Poacher),
+            new Trailer(),
             new Fool()
         };
 

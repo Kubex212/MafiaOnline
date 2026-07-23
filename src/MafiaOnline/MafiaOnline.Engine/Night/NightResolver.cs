@@ -80,6 +80,36 @@ public class NightResolver
             }
         }
 
+        // After initial kills, resolve poacher traps: if a trapped player was killed by werewolves,
+        // one of the attacking werewolves (or any living werewolf) also dies.
+        foreach (var (poacherId, trappedId) in context.PoacherTraps)
+        {
+            if (!killed.Contains(trappedId)) continue;
+
+            // Find attacking werewolves who targeted this victim
+            var attackers = context.WerewolfAttacks.Where(kvp => kvp.Value == trappedId).Select(kvp => kvp.Key).ToList();
+            Guid? werewolfToDie = null;
+
+            if (attackers.Count > 0)
+            {
+                // pick random attacker
+                var rnd = new Random();
+                werewolfToDie = attackers[rnd.Next(attackers.Count)];
+            }
+            else
+            {
+                // no direct attacker (edge case) — pick any alive werewolf
+                var anyWerewolf = alivePlayers.FirstOrDefault(p => p.Role.TeamId == 1);
+                if (anyWerewolf is not null) werewolfToDie = anyWerewolf.Id;
+            }
+
+            if (werewolfToDie.HasValue && !killed.Contains(werewolfToDie.Value))
+            {
+                killed.Add(werewolfToDie.Value);
+                events.Add(new PoacherTriggeredEvent(poacherId, trappedId, werewolfToDie.Value));
+            }
+        }
+
         // Resolve detective clues — fire after kill resolution so subject's alive state is accurate
         foreach (var (detectiveId, subjectId) in context.DetectiveClues)
         {
@@ -93,6 +123,12 @@ public class NightResolver
         foreach(var (dogTamerId, shouldBark) in context.DogTamerClues)
         {
             events.Add(new DogTamerClueEvent(dogTamerId, shouldBark));
+        }
+
+        // Trailer clues
+        foreach (var (trailerId, dir) in context.TrailerClues)
+        {
+            events.Add(new TrailerClueEvent(trailerId, dir));
         }
 
         // Include any events directly registered in context

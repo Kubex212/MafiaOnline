@@ -269,6 +269,7 @@ export default function App() {
             1: '#d9534f', // Werewolves
             2: '#f0c040', // Neutral
         };
+        document.title = `${nickname}: ${t(myRole.name)} - ${t('appTitle')}`;
 
         const teamColor = teamColors[myRole.teamId] ?? '#5cb85c';
         return (

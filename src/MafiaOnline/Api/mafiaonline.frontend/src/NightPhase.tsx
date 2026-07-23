@@ -263,6 +263,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                             {t('seerClueShort')} {String(nightInfo.data.SubjectAName)} & {String(nightInfo.data.SubjectBName)} — {String(nightInfo.data.SameTeam) === 'true' ? t('sameTeam') : t('differentTeams')}
                         </div>
                     )}
+
+                    {nightInfo?.type === "TrailerClue" && (
+                        <div style={{ marginTop: 8, color: '#aaa', borderTop: '1px solid #2a2a3e', paddingTop: 8 }}>
+                            {t('trailerClueLong', { dir: t(nightInfo.data.Direction) } )}.
+                        </div>
+                    )}
                 </div>
             )}
 

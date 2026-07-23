@@ -56,7 +56,12 @@ export type SeerNightInfo = {
     data: { SubjectA: string; SubjectB: string; SubjectAName: string; SubjectBName: string; SameTeam: boolean };
 };
 
-export type PlayerNightInfoResponse = DetectiveNightInfo | DogTamerNightInfo | SeerNightInfo;
+export type TrailerNightInfo = {
+    type: 'TrailerClue';
+    data: { Direction: 'Left' | 'Right' | 'None' };
+};
+
+export type PlayerNightInfoResponse = DetectiveNightInfo | DogTamerNightInfo | SeerNightInfo | TrailerNightInfo;
 
 export type LobbyOrderChangedPayload = {
     id: string;

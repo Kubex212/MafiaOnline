@@ -8,7 +8,9 @@ public enum RoleType
     Werewolf,
     Guardian,
     Detective,
-    DogTamer
+    DogTamer,
+    Poacher,
+    Trailer
 }
 
 public enum Team

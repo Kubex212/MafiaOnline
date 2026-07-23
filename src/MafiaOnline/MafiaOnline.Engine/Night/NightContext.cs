@@ -29,6 +29,16 @@ public class NightContext
     /// </summary>
     internal Dictionary<Guid, bool> DogTamerClues { get; } = new();
 
+    /// <summary>
+    /// PlayerId (poacher) -> trapped target this night.
+    /// </summary>
+    internal Dictionary<Guid, Guid> PoacherTraps { get; } = new();
+
+    /// <summary>
+    /// PlayerId (trailer) -> direction clue ("Left"/"Right").
+    /// </summary>
+    internal Dictionary<Guid, string> TrailerClues { get; } = new();
+
     // ---------- finalised outcomes (populated by NightResolver) ----------
 
     internal List<NightEvent> Events { get; } = new();

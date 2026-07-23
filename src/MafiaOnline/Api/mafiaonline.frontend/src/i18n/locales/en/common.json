@@ -87,8 +87,15 @@
   "Dog Tamer": "Dog Tamer",
   "Seer": "Seer",
   "Fool": "Fool",
+  "Trailer": "Trailer",
+  "Poacher": "Poacher",
   "seerClueShort": "Seer clue:",
   "seerClueLong": "Seer: {{a}} & {{b}} — {{relation}}",
   "sameTeam": "same team",
-  "differentTeams": "different teams"
+  "differentTeams": "different teams",
+  "trailerClueLong": "Trailer clue: the nearest werewolf is to the {{dir}}",
+  "Left": "left",
+  "Right": "right",
+  "poacherTrapPlaced": "You set a trap on {{target}}",
+  "poacherTriggered": "Trap triggered! A werewolf also died (target: {{target}})"
 }

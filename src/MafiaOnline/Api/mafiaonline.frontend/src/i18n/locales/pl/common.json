@@ -30,10 +30,10 @@
   "joinedLobby": "Dołączono do lobby {{code}}",
   "reconnected": "Ponownie połączono z grą",
   "yourRoleIs": "Twoja rola to…",
-  "nightBeginsSoon": "Faza nocna zaczyna się wkrótce…",
-  "nightPhase": "Faza nocna",
+  "nightBeginsSoon": "Noc zaczyna się wkrótce…",
+  "nightPhase": "Noc",
   "night": "noc",
-  "dayPhase": "Faza dzienna",
+  "dayPhase": "Dzień",
   "day": "Dzień",
   "yourRole": "Twoja rola",
   "nightFalls": "🌙 Zapada noc…",
@@ -89,5 +89,12 @@
   "seerClueShort": "Wskazówka wyroczni:",
   "seerClueLong": "Wskazówka wyroczni: {{a}} & {{b}} — {{relation}}",
   "sameTeam": "są w tej samej drużynie",
-  "differentTeams": "są w innych drużynach"
+  "differentTeams": "są w innych drużynach",
+  "Trailer": "Tropiciel",
+  "Poacher": "Kłusownik",
+  "trailerClueLong": "Wskazówka tropiciela: najbliższy wilkołak jest po {{dir}}",
+  "Left": "lewej",
+  "Right": "prawej",
+  "poacherTrapPlaced": "Ustawiłeś pułapkę na {{target}}",
+  "poacherTriggered": "Pułapka uruchomiona! Wilkołak również zginął (cel: {{target}})"
 }

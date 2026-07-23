@@ -108,6 +108,20 @@ public class NightController : ControllerBase
             });
         }
 
+        // Trailer clue
+        var trailerEvent = result.Events.OfType<TrailerClueEvent>().FirstOrDefault(e => e.TrailerId == playerId);
+        if (trailerEvent is not null)
+        {
+            return Ok(new ClueResponse
+            {
+                Type = "TrailerClue",
+                Data = new Dictionary<string, object>
+                {
+                    ["Direction"] = trailerEvent.Direction
+                }
+            });
+        }
+
         return NoContent();
     }
 }

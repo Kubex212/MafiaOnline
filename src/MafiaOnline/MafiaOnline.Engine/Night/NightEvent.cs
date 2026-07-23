@@ -38,3 +38,18 @@ public sealed class SeerClueEvent : NightEvent
     public bool SameTeam { get; }
     public SeerClueEvent(Guid seerId, Guid subjectA, Guid subjectB, bool sameTeam) => (SeerId, SubjectA, SubjectB, SameTeam) = (seerId, subjectA, subjectB, sameTeam);
 }
+
+public sealed class PoacherTriggeredEvent : NightEvent
+{
+    public Guid PoacherId { get; }
+    public Guid VictimId { get; }
+    public Guid WerewolfId { get; }
+    public PoacherTriggeredEvent(Guid poacherId, Guid victimId, Guid werewolfId) => (PoacherId, VictimId, WerewolfId) = (poacherId, victimId, werewolfId);
+}
+
+public sealed class TrailerClueEvent : NightEvent
+{
+    public Guid TrailerId { get; }
+    public string Direction { get; }
+    public TrailerClueEvent(Guid trailerId, string direction) => (TrailerId, Direction) = (trailerId, direction);
+}

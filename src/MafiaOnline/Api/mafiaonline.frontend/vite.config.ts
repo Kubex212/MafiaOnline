@@ -17,5 +17,6 @@ export default defineConfig({
                 ws: true,
             },
         },
+        allowedHosts: ['happiest-siding-satiable.ngrok-free.dev'],
     },
 });
