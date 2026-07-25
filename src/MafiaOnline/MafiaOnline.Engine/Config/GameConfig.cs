@@ -7,6 +7,9 @@ namespace MafiaOnline.Engine.Config;
 /// </summary>
 public class GameConfig
 {
+    public RoleSelectionConfig Roles { get; set; } = new();
+    public int WerewolfCount { get; set; } = 1;
+    public int TurnDurationSeconds { get; set; } = 30;
     public GuardianConfig Guardian { get; set; } = new();
     public DetectiveConfig Detective { get; set; } = new();
     public DogTamerConfig DogTamer { get; set; } = new();

@@ -10,6 +10,8 @@ public class LobbyResponse
 
     public List<PlayerResponse> Players { get; set; } = [];
 
+    public GameConfigDto Config { get; set; } = new();
+
     public static LobbyResponse FromLobby(Lobby lobby)
     {
         return new LobbyResponse
@@ -26,7 +28,8 @@ public class LobbyResponse
                     LobbyPosition = i,
                     SeatIndex = x.SeatIndex
                 })
-                .ToList()
+                .ToList(),
+            Config = GameConfigDto.FromConfig(lobby.Config)
         };
     }
 }

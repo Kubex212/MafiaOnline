@@ -1,17 +1,20 @@
-﻿import { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
     DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload,
+    GameConfig,
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
+    updateConfig,
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
 import DayPhase, { type DayPhaseHandle } from './DayPhase';
 import GameOver from './GameOver';
+import GameConfigPanel from './GameConfigPanel';
 import { useTranslation } from "react-i18next";
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
@@ -62,7 +65,13 @@ export default function App() {
                 seatIndex: -1,
                 lobbyPosition: o.lobbyPosition,
             }));
-            setLobby({ code: prev.code, started: prev.started, players: newPlayers });
+            setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
+        });
+
+        conn.on('ConfigUpdated', (cfg: GameConfig) => {
+            const prev = lobbyRef.current;
+            if (!prev) return;
+            setLobby({ ...prev, config: cfg });
         });
 
         conn.on('GameStarted', async (seatList: SeatInfo[]) => {
@@ -238,6 +247,12 @@ export default function App() {
     async function onShuffle() {
         if (!lobby || !myPlayerId) return;
         try { setLobby(await shufflePlayers(lobby.code, myPlayerId)); }
+        catch (e) { alert(String(e)); }
+    }
+
+    async function onConfigChange(config: GameConfig) {
+        if (!lobby || !myPlayerId) return;
+        try { await updateConfig(lobby.code, myPlayerId, config); }
         catch (e) { alert(String(e)); }
     }
 
@@ -440,9 +455,13 @@ export default function App() {
                         {lobby.players.length < 4 && ` \u2014 ${t('needMore', { n: 4 - lobby.players.length })}`}
                     </div>
 
+                    {isHost && !lobby.started && (
+                        <GameConfigPanel config={lobby.config} onChange={onConfigChange} />
+                    )}
+
                     {canStart && (
                         <button
-                            style={{ ...styles.btn, background: '#5cb85c', fontSize: 15, width: '100%' }}
+                            style={{ ...styles.btn, background: '#5cb85c', fontSize: 15, width: '100%', marginTop: 16 }}
                             onClick={onStart}
                         >
                             {t('startGame')}

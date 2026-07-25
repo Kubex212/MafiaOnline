@@ -82,12 +82,14 @@ public class NightService : INightService
             }
         }
 
+        int turnSeconds = lobby.Game?.Config.TurnDurationSeconds ?? TurnSeconds;
+
         await _hub.Clients.Group(lobby.Code).SendAsync("NightTurnStarted", new
         {
             activePlayerId  = active.Id,
             activeSeatIndex = active.SeatIndex,
             hasAbility,
-            timeoutSeconds  = TurnSeconds,
+            timeoutSeconds  = turnSeconds,
             minTargets,
             maxTargets
         });
@@ -99,7 +101,7 @@ public class NightService : INightService
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(TurnSeconds), cts.Token);
+                await Task.Delay(TimeSpan.FromSeconds(turnSeconds), cts.Token);
                 var current = await GetLobby(lobby.Code);
                 if (current.NightSession?.ActivePlayer?.Id == active.Id)
                 {

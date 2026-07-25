@@ -8,10 +8,58 @@ export type PlayerResponse = {
     seatIndex: number;
 };
 
+export type RoleSelection = {
+    guardian: boolean;
+    detective: boolean;
+    dogTamer: boolean;
+    poacher: boolean;
+    trailer: boolean;
+    seer: boolean;
+    fool: boolean;
+};
+
+export type DayConfig = {
+    durationSeconds: number;
+    votesRequiredFraction: number;
+    drawResolution: 'KickNone' | 'KickRandom' | 'KickAll';
+    showVoteTargets: boolean;
+};
+
+export type GuardianConfig = {
+    canProtectSelf: boolean;
+    canProtectSamePlayerConsecutively: boolean;
+};
+
+export type DetectiveConfig = {
+    canRevealWerewolves: boolean;
+};
+
+export type DogTamerConfig = {
+    range: number;
+    numWerewolves: number;
+};
+
+export type PoacherConfig = {
+    allowSelfTarget: boolean;
+    mustAlternate: boolean;
+};
+
+export type GameConfig = {
+    roles: RoleSelection;
+    werewolfCount: number;
+    turnDurationSeconds: number;
+    guardian: GuardianConfig;
+    detective: DetectiveConfig;
+    dogTamer: DogTamerConfig;
+    day: DayConfig;
+    poacher: PoacherConfig;
+};
+
 export type LobbyResponse = {
     code: string;
     started: boolean;
     players: PlayerResponse[];
+    config: GameConfig;
 };
 
 export type RoleResponse = {
@@ -235,5 +283,15 @@ export async function reconnect(userId: string, lobbyCode: string): Promise<Reco
     });
     if (res.status === 404) throw new Error('Lobby or player not found');
     if (!res.ok) throw new Error('Reconnect failed: ' + res.statusText);
+    return res.json();
+}
+
+export async function updateConfig(code: string, requestingPlayerId: string, config: GameConfig): Promise<LobbyResponse> {
+    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestingPlayerId, config })
+    });
+    if (!res.ok) throw new Error('Update config failed: ' + res.statusText);
     return res.json();
 }

@@ -91,4 +91,11 @@ public class LobbiesController : ControllerBase
         var response = await _lobbyService.ReconnectPlayerAsync(code, request.UserId);
         return Ok(response);
     }
+
+    [HttpPost("{code}/config")]
+    public async Task<ActionResult<LobbyResponse>> UpdateConfig(string code, UpdateConfigRequest request)
+    {
+        var lobby = await _lobbyService.UpdateConfigAsync(code, request.RequestingPlayerId, request.Config);
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
 }

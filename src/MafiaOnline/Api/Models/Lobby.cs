@@ -1,5 +1,6 @@
 ﻿using MafiaOnline.Engine;
 using MafiaOnline.Engine.Commands;
+using MafiaOnline.Engine.Config;
 using MafiaOnline.Engine.Day;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
@@ -20,7 +21,8 @@ public class Lobby
         Game? game,
         NightSession? nightSession,
         DaySession? daySession,
-        List<LobbyPlayer> players)
+        List<LobbyPlayer> players,
+        GameConfig? config = null)
     {
         Id = id;
         Code = code;
@@ -29,6 +31,7 @@ public class Lobby
         NightSession = nightSession;
         DaySession = daySession;
         _players = players ?? new List<LobbyPlayer>();
+        Config = config ?? new GameConfig();
     }
 
     public Lobby(string code)
@@ -39,7 +42,8 @@ public class Lobby
             null,
             null,
             null,
-            new List<LobbyPlayer>())
+            new List<LobbyPlayer>(),
+            new GameConfig())
     {
     }
 
@@ -49,6 +53,7 @@ public class Lobby
     public Game? Game { get; private set; }
     public NightSession? NightSession { get; private set; }
     public DaySession? DaySession { get; private set; }
+    public GameConfig Config { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
 
     // ── Lobby management ──────────────────────────────────────────────────
@@ -91,6 +96,12 @@ public class Lobby
         }
     }
 
+    public void UpdateConfig(GameConfig config)
+    {
+        AssertNotStarted();
+        Config = config;
+    }
+
     public void Start(Guid requestingPlayerId)
     {
         var requesting = _players.FirstOrDefault(p => p.Id == requestingPlayerId)
@@ -105,7 +116,7 @@ public class Lobby
         if (Started)
             throw new InvalidOperationException("Lobby already started.");
 
-        var game = new Game(Id);
+        var game = new Game(Id, Config);
 
         foreach (var lp in _players)
             game.Execute(new AddPlayerCommand(lp.Id, lp.Nickname));

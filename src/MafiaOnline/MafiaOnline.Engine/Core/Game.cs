@@ -218,12 +218,6 @@ public class Game
 
     internal void AssignRoles(IReadOnlyList<Guid>? orderedPlayerIds = null)
     {
-        // TODO: replace those hardcoded role counts with values based on the configuration
-        // TODO: also make it so adding roles is easier and doesnt require changing this method
-        var werewolfCount = 1;
-        var guardianCount = 1;
-        var detectiveCount = 1;
-
         List<Player> ordered;
 
         if (orderedPlayerIds is not null && orderedPlayerIds.Count == _players.Count)
@@ -237,19 +231,24 @@ public class Game
         for (int i = 0; i < ordered.Count; i++)
             ordered[i].SeatIndex = i;
 
-        // TODO: replace this hardcoded role assignment with a dynamic assignment based on the counts in configuration
-        var specialRolesToAssign = new List<IRole>()
-        {
-            new Werewolf(),
-            new Poacher(Config.Poacher),
-            new Trailer(),
-            new Fool()
-        };
+        var specialRolesToAssign = new List<IRole>();
+
+        for (int i = 0; i < Config.WerewolfCount; i++)
+            specialRolesToAssign.Add(new Werewolf());
+
+        if (Config.Roles.Guardian) specialRolesToAssign.Add(new Guardian(Config.Guardian));
+        if (Config.Roles.Detective) specialRolesToAssign.Add(new Detective(Config.Detective));
+        if (Config.Roles.DogTamer) specialRolesToAssign.Add(new DogTamer(Config.DogTamer));
+        if (Config.Roles.Poacher) specialRolesToAssign.Add(new Poacher(Config.Poacher));
+        if (Config.Roles.Trailer) specialRolesToAssign.Add(new Trailer());
+        if (Config.Roles.Seer) specialRolesToAssign.Add(new Seer());
+        if (Config.Roles.Fool) specialRolesToAssign.Add(new Fool());
 
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
 
         var shuffledIndices = Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
-        for(var i = 0; i < specialRolesToAssign.Count; i++)
+        var playerCount = ordered.Count;
+        for (var i = 0; i < Math.Min(specialRolesToAssign.Count, playerCount); i++)
         {
             var playerIndex = shuffledIndices[i];
             var role = specialRolesToAssign[i];

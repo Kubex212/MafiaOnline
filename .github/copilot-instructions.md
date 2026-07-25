@@ -13,7 +13,7 @@
 - Do not use any unless necessary
 
 ## General
-- Before making changes, explain the plan
 - Do not modify unrelated files
 - Prefer minimal changes
 - Ask before introducing new dependencies
+- Don't yap

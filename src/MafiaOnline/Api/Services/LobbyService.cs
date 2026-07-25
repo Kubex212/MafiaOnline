@@ -250,4 +250,28 @@ public class LobbyService : ILobbyService
 
         return response;
     }
+
+    public async Task<Lobby> UpdateConfigAsync(string code, Guid requestingPlayerId, GameConfigDto configDto)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Code is required.", nameof(code));
+
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        var requester = lobby.Players.FirstOrDefault(p => p.Id == requestingPlayerId)
+            ?? throw new InvalidOperationException("Player not found in lobby.");
+
+        if (!requester.IsHost)
+            throw new InvalidOperationException("Only the host can change game configuration.");
+
+        lobby.UpdateConfig(configDto.ToConfig());
+        await _repository.Update(lobby);
+
+        await _hubContext.Clients
+            .Group(lobby.Code)
+            .SendAsync("ConfigUpdated", configDto);
+
+        return lobby;
+    }
 }
