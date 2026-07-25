@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
@@ -15,9 +15,24 @@ import NightPhase, { type NightPhaseHandle } from './NightPhase';
 import DayPhase, { type DayPhaseHandle } from './DayPhase';
 import GameOver from './GameOver';
 import GameConfigPanel from './GameConfigPanel';
-import { useTranslation } from "react-i18next";
+import { useTranslation } from 'react-i18next';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
+
+/**
+ * Fill the roleName/team fields the frontend expects from the various
+ * shapes the backend returns (some endpoints omit `team` / `teamName`).
+ */
+function normalizeRole(r: RoleResponse): RoleResponse {
+    if (r.team && r.teamName) return r;
+    const derived = r.name === 'Werewolf' ? 'Werewolf' : 'Town';
+    return { ...r, team: r.team ?? derived, teamName: r.teamName ?? derived };
+}
+
+// Defer a callback until AFTER the pending React commit lands — this is how
+// we hand off initial NightTurnStarted / DayStarted payloads to phase
+// components that are just now being mounted for the first time.
+const runAfterCommit = (cb: () => void) => queueMicrotask(() => setTimeout(cb, 0));
 
 export default function App() {
     const [nickname, setNickname] = useState('Player' + Math.floor(Math.random() * 1000));
@@ -31,6 +46,7 @@ export default function App() {
     const [view, setView] = useState<GameView>('lobby');
     const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
     const [creating, setCreating] = useState(false);
+    const [codeCopied, setCodeCopied] = useState(false);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -43,6 +59,21 @@ export default function App() {
     useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
     useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
 
+    // Update document title reactively based on state instead of during render.
+    useEffect(() => {
+        if (view === 'role-reveal' && myRole) {
+            document.title = `${nickname}: ${t(myRole.name)} — ${t('appTitle')}`;
+        } else {
+            document.title = t('appTitle');
+        }
+    }, [view, myRole, nickname, t]);
+
+    // Reflect current phase on <html> so the theme retunes atmospherically.
+    useEffect(() => {
+        document.documentElement.setAttribute('data-phase', view);
+    }, [view]);
+
+    // ── SignalR wiring ────────────────────────────────────────────────────
     useEffect(() => {
         const conn = createHubConnection();
         connRef.current = conn;
@@ -50,20 +81,17 @@ export default function App() {
         conn.on('PlayerJoined', async (nick: string) => {
             setMessages(m => [...m, t('playerJoined', { nick })]);
             const code = lobbyRef.current?.code;
-            const lobby = await getLobby(code);
-            console.log(lobby);
-            if (code) { try { setLobby(lobby); } catch { /* ignore */ } }
+            if (code) {
+                try { setLobby(await getLobby(code)); } catch { /* ignore */ }
+            }
         });
 
         conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
             const prev = lobbyRef.current;
             if (!prev) return;
             const newPlayers = ordered.map(o => ({
-                id: o.id,
-                nickname: o.nickname,
-                isHost: o.isHost,
-                seatIndex: -1,
-                lobbyPosition: o.lobbyPosition,
+                id: o.id, nickname: o.nickname, isHost: o.isHost,
+                seatIndex: -1, lobbyPosition: o.lobbyPosition,
             }));
             setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
         });
@@ -81,37 +109,25 @@ export default function App() {
             const pid = myPlayerIdRef.current;
             if (code && pid) {
                 try {
-                    const role = await getMyRole(code, pid);
-                    setMyRole(role);
+                    setMyRole(normalizeRole(await getMyRole(code, pid)));
                     setView('role-reveal');
                     setTimeout(() => setView('night'), 3000);
                 } catch { /* ignore */ }
             }
         });
 
-        // TODO: fix it properly instead of using timeout (nightRef.current is null because NightPhase component is not rendered yet)
         conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
             setView('night');
-            
-            setTimeout(() => {
-                console.log(dayRef.current);
-                nightRef.current?.onTurnStarted(turn);
-            }, 0);
+            runAfterCommit(() => nightRef.current?.onTurnStarted(turn));
         });
 
         conn.on('NightResolved', (payload: NightResolvedPayload) => {
             nightRef.current?.onNightResolved(payload);
         });
 
-
-        // TODO: fix it properly instead of using timeout (dayRef.current is null because DayPhase component is not rendered yet)
         conn.on('DayStarted', (payload: DayStartedPayload) => {
             setView('day');
-
-            setTimeout(() => {
-                console.log(dayRef.current);
-                dayRef.current?.onDayStarted(payload);
-            }, 0);
+            runAfterCommit(() => dayRef.current?.onDayStarted(payload));
         });
 
         conn.on('VoteCast', (payload: VoteCastPayload) => {
@@ -130,59 +146,51 @@ export default function App() {
         conn.start()
             .then(async () => {
                 setHubStarted(true);
-                // After connection is established, attempt reconnection if we have stored data
                 const storedUserId = sessionStorage.getItem('userId');
                 const storedLobbyCode = sessionStorage.getItem('lobbyCode');
+                if (!storedUserId || !storedLobbyCode) return;
 
-                if (storedUserId && storedLobbyCode) {
-                    try {
-                        const data = await reconnect(storedUserId, storedLobbyCode);
-                        setLobby(data.lobby);
-                        setMyPlayerId(storedUserId);
-                        setSeats(data.seats);
-                        setMyRole(data.myRole);
-                        setView(data.gamePhase);
-                        setMessages([t('reconnected')]);
-                        // Join the hub group to receive real-time events
-                        await conn.invoke('JoinLobby', storedLobbyCode);
+                try {
+                    const data = await reconnect(storedUserId, storedLobbyCode);
+                    setLobby(data.lobby);
+                    setMyPlayerId(storedUserId);
+                    setSeats(data.seats);
+                    setMyRole(data.myRole ? normalizeRole(data.myRole) : null);
+                    setView(data.gamePhase);
+                    setMessages([t('reconnected')]);
+                    await conn.invoke('JoinLobby', storedLobbyCode);
 
-                        if (data.gamePhase === 'day' && data.day) {
-                            setView('day');
-                            setSeats(data.day.alivePlayers);
-                            setTimeout(() => {
-                                dayRef.current?.onDayStarted({
-                                    durationSeconds: data.day.durationSeconds,
-                                    showVoteTargets: data.day.showVoteTargets,
-                                    alivePlayers: data.day.alivePlayers,
-                                });
-                                // restore votes if any
-                                if (data.day.votes) {
-                                    Object.entries(data.day.votes).forEach(([voterId, candidateId]) => {
-                                        dayRef.current?.onVoteCast({ voterId, candidateId, totalVotesCast: Object.keys(data.day.votes!).length });
+                    if (data.gamePhase === 'day' && data.day) {
+                        setSeats(data.day.alivePlayers);
+                        runAfterCommit(() => {
+                            dayRef.current?.onDayStarted({
+                                durationSeconds: data.day!.durationSeconds,
+                                showVoteTargets: data.day!.showVoteTargets,
+                                alivePlayers: data.day!.alivePlayers,
+                            });
+                            if (data.day!.votes) {
+                                Object.entries(data.day!.votes).forEach(([voterId, candidateId]) => {
+                                    dayRef.current?.onVoteCast({
+                                        voterId, candidateId,
+                                        totalVotesCast: Object.keys(data.day!.votes!).length,
                                     });
-                                }
-                            }, 0);
-                        }
-                        if (data.gamePhase === 'night' && data.night) {
-                            setView('night');
-                            setSeats(data.seats);
-                            setTimeout(() => {
-                                nightRef.current?.onTurnStarted({
-                                    activePlayerId: data.night.activePlayerId ?? '',
-                                    activeSeatIndex: data.night.activeSeatIndex,
-                                    hasAbility: data.night.hasAbility,
-                                    timeoutSeconds: data.night.remainingSeconds ?? 1000,
                                 });
-                                // restore submitted actions if any (no explicit handler but we keep seats updated)
-                            }, 0);
-                        }
-
-                    } catch (e) {
-                        // Reconnection failed, clear storage and start fresh
-                        sessionStorage.removeItem('userId');
-                        sessionStorage.removeItem('lobbyCode');
-                        console.error('Reconnection failed:', e);
+                            }
+                        });
+                    } else if (data.gamePhase === 'night' && data.night) {
+                        runAfterCommit(() => {
+                            nightRef.current?.onTurnStarted({
+                                activePlayerId: data.night!.activePlayerId ?? '',
+                                activeSeatIndex: data.night!.activeSeatIndex,
+                                hasAbility: data.night!.hasAbility,
+                                timeoutSeconds: data.night!.remainingSeconds ?? 1000,
+                            });
+                        });
                     }
+                } catch (e) {
+                    sessionStorage.removeItem('userId');
+                    sessionStorage.removeItem('lobbyCode');
+                    console.error('Reconnection failed:', e);
                 }
             })
             .catch(err => console.error('Hub start error', err));
@@ -232,21 +240,9 @@ export default function App() {
         catch (e) { alert(String(e)); }
     }
 
-    async function onMoveUp(targetId: string) {
+    async function withLobby(fn: (code: string, pid: string) => Promise<LobbyResponse>) {
         if (!lobby || !myPlayerId) return;
-        try { setLobby(await movePlayerUp(lobby.code, myPlayerId, targetId)); }
-        catch (e) { alert(String(e)); }
-    }
-
-    async function onMoveDown(targetId: string) {
-        if (!lobby || !myPlayerId) return;
-        try { setLobby(await movePlayerDown(lobby.code, myPlayerId, targetId)); }
-        catch (e) { alert(String(e)); }
-    }
-
-    async function onShuffle() {
-        if (!lobby || !myPlayerId) return;
-        try { setLobby(await shufflePlayers(lobby.code, myPlayerId)); }
+        try { setLobby(await fn(lobby.code, myPlayerId)); }
         catch (e) { alert(String(e)); }
     }
 
@@ -254,6 +250,15 @@ export default function App() {
         if (!lobby || !myPlayerId) return;
         try { await updateConfig(lobby.code, myPlayerId, config); }
         catch (e) { alert(String(e)); }
+    }
+
+    async function copyCode() {
+        if (!lobby) return;
+        try {
+            await navigator.clipboard.writeText(lobby.code);
+            setCodeCopied(true);
+            setTimeout(() => setCodeCopied(false), 1500);
+        } catch { /* ignore */ }
     }
 
     function clearSession() {
@@ -267,269 +272,225 @@ export default function App() {
         ? [...lobby.players].sort((a, b) => a.lobbyPosition - b.lobbyPosition)
         : [];
 
-    // ── GAME OVER ──────────────────────────────────────────────────────────────
+    // ── GAME OVER ────────────────────────────────────────────────────────
     if (view === 'gameover' && gameOver && myRole) {
         clearSession();
         return (
-            <div style={styles.page}>
+            <div className="phase"><div className="phase__inner">
                 <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} />
-            </div>
+            </div></div>
         );
     }
 
-    // ── ROLE REVEAL ────────────────────────────────────────────────────────────
+    // ── ROLE REVEAL ──────────────────────────────────────────────────────
     if (view === 'role-reveal' && myRole) {
-        const teamColors: Record<number, string> = {
-            0: '#5cb85c', // Villagers
-            1: '#d9534f', // Werewolves
-            2: '#f0c040', // Neutral
-        };
-        document.title = `${nickname}: ${t(myRole.name)} - ${t('appTitle')}`;
-
-        const teamColor = teamColors[myRole.teamId] ?? '#5cb85c';
+        const teamColorVar = myRole.teamId === 1 ? 'var(--wolf)'
+            : myRole.teamId === 2 ? 'var(--neutral)'
+            : 'var(--town-2)';
+        const sigil = myRole.name === 'Werewolf' ? '🐺'
+            : myRole.name === 'Guardian' ? '🛡'
+            : myRole.name === 'Detective' ? '🔍'
+            : myRole.name === 'Seer' ? '🔮'
+            : myRole.name === 'Fool' ? '🃏'
+            : myRole.name === 'Dog Tamer' ? '🐕'
+            : myRole.name === 'Poacher' ? '🪤'
+            : myRole.name === 'Trailer' ? '🐾'
+            : '🌾';
         return (
-            <div style={{ ...styles.page, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-                <div style={{ fontSize: 14, color: '#aaa', letterSpacing: 3, textTransform: 'uppercase' }}>
-                    {t('yourRoleIs')}
-                </div>
-                <div style={{ fontSize: 48, fontWeight: 900, color: teamColor, textShadow: `0 0 40px ${teamColor}88` }}>
+            <div className="phase"><div className="phase__inner reveal">
+                <div className="reveal__eyebrow">{t('yourRoleIs')}</div>
+                <div className="reveal__sigil" style={{ color: teamColorVar }}>{sigil}</div>
+                <div className="reveal__role" style={{ color: teamColorVar, textShadow: `0 0 40px ${teamColorVar}` }}>
                     {t(myRole.name)}
                 </div>
-                <div style={{ color: '#aaa', fontSize: 15 }}>Team: {myRole.team}</div>
-                <div style={{ color: '#555', fontSize: 13, marginTop: 12 }}>{t('nightBeginsSoon')}</div>
-            </div>
+                <div className="reveal__team">{myRole.teamName ?? myRole.team}</div>
+                <div style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 12, fontStyle: 'italic' }}>
+                    {t('nightBeginsSoon')}
+                </div>
+            </div></div>
         );
     }
 
-    // ── NIGHT PHASE ────────────────────────────────────────────────────────────
+    // ── NIGHT PHASE ──────────────────────────────────────────────────────
     if (view === 'night' && seats && myPlayerId && myRole) {
         return (
-            <div style={styles.page}>
-                <h2 style={{ color: '#aaa', margin: '0 0 16px', textAlign: 'center' }}>
-                    {'\uD83C\uDF19'} {t('nightPhase')} {'\u2014'} Lobby{' '}
-                    <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
+            <div className="phase"><div className="phase__inner">
+                <h2 className="phase__title">
+                    🌙 {t('nightPhase')}
+                    <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
                 </h2>
-                <NightPhase
-                    ref={nightRef}
+                <NightPhase ref={nightRef}
                     lobbyCode={lobby!.code}
                     seats={seats}
                     myPlayerId={myPlayerId}
-                    myRole={myRole}
-                />
-            </div>
+                    myRole={myRole} />
+            </div></div>
         );
     }
 
-    // ── DAY PHASE ──────────────────────────────────────────────────────────────
+    // ── DAY PHASE ────────────────────────────────────────────────────────
     if (view === 'day' && seats && myPlayerId && myRole) {
         return (
-            <div style={styles.page}>
-                <h2 style={{ color: '#aaa', margin: '0 0 16px', textAlign: 'center' }}>
-                    {'\u2600\uFE0F'} {t('dayPhase')} {'\u2014'} Lobby{' '}
-                    <span style={{ fontFamily: 'monospace', color: '#f0c040' }}>{lobby?.code}</span>
+            <div className="phase"><div className="phase__inner">
+                <h2 className="phase__title">
+                    ☀ {t('dayPhase')}
+                    <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
                 </h2>
-                <DayPhase
-                    ref={dayRef}
+                <DayPhase ref={dayRef}
                     lobbyCode={lobby!.code}
                     allSeats={seats}
                     myPlayerId={myPlayerId}
-                    myRole={myRole}
-                />
-            </div>
+                    myRole={myRole} />
+            </div></div>
         );
     }
 
-    // ── LOBBY VIEW ─────────────────────────────────────────────────────────────
+    // ── LOBBY VIEW ───────────────────────────────────────────────────────
     return (
-        <div style={styles.page}>
-            <h1 style={{ color: '#f0c040' }}>{t('appTitle')}</h1>
+        <div className="phase">
+            <div className="phase__inner">
+                {!lobby && (
+                    <>
+                        <header className="lobby-hero">
+                            <div className="lobby-hero__eyebrow">◆ {t('villageOfSecrets')} ◆</div>
+                            <h1 className="lobby-hero__title">{t('appTitle')}</h1>
+                            <p className="lobby-hero__tagline">{t('tagline')}</p>
+                        </header>
 
-            {!lobby && (
-                <>
-                    <div style={styles.row}>
-                        <label style={styles.label}>
-                            {t('nickname')}:
-                            <input
-                                value={nickname}
-                                onChange={e => setNickname(e.target.value)}
-                                disabled={creating}
-                                style={styles.input}
-                            />
-                        </label>
-                    </div>
-                    <div style={styles.row}>
-                        <button style={styles.btn} onClick={onCreate} disabled={creating}>
-                            {creating ? (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                                    <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                        <g fill="none" stroke="#fff" strokeWidth="2">
-                                            <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
-                                            <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round">
-                                                <animateTransform attributeName="transform" type="rotate" from="0 8 8" to="360 8 8" dur="0.9s" repeatCount="indefinite" />
-                                            </path>
-                                        </g>
-                                    </svg>
-                                    <span>{t('creating')}</span>
+                        <div className="join-form">
+                            <label className="field">
+                                <span className="field__label">{t('nickname')}</span>
+                                <input className="input" value={nickname}
+                                    onChange={e => setNickname(e.target.value)}
+                                    disabled={creating}
+                                    maxLength={16} />
+                            </label>
+
+                            <button className="btn btn--primary btn--block"
+                                onClick={onCreate} disabled={creating || !nickname.trim()}>
+                                {creating ? (
+                                    <>
+                                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+                                            <g fill="none" stroke="currentColor" strokeWidth="2">
+                                                <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
+                                                <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round">
+                                                    <animateTransform attributeName="transform" type="rotate"
+                                                        from="0 8 8" to="360 8 8" dur="0.9s" repeatCount="indefinite" />
+                                                </path>
+                                            </g>
+                                        </svg>
+                                        {t('creating')}
+                                    </>
+                                ) : t('createLobby')}
+                            </button>
+
+                            <div className="join-form__divider">{t('orJoin')}</div>
+
+                            <div className="join-form__row">
+                                <input className="input input--code"
+                                    value={codeToJoin}
+                                    placeholder="XXXXXX"
+                                    maxLength={8}
+                                    onChange={e => setCodeToJoin(e.target.value.toUpperCase())} />
+                                <button className="btn" onClick={onJoin}
+                                    disabled={!codeToJoin.trim() || !nickname.trim()}>
+                                    {t('join')}
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {lobby && (
+                    <div className="lobby-room">
+                        <div className="lobby-room__header">
+                            <div>
+                                <button className="lobby-room__code" onClick={copyCode}
+                                    title={t('copyCode')}>
+                                    {lobby.code}
+                                </button>
+                                <div className="lobby-room__code-hint">
+                                    {codeCopied ? '✓ ' + t('codeCopied') : t('tapToCopy')}
+                                </div>
+                            </div>
+                            <div className={`status-dot ${hubStarted ? '' : 'status-dot--off'}`}>
+                                {hubStarted ? t('connected') : t('connecting')}
+                            </div>
+                        </div>
+
+                        <div className="card card--parchment">
+                            <div style={{ display: 'flex', justifyContent: 'space-between',
+                                alignItems: 'center', marginBottom: 10 }}>
+                                <span className="field__label">
+                                    {t('seatOrder')} {!isHost && `— ${t('setByHost')}`}
                                 </span>
-                            ) : t('createLobby')}
-                        </button>
-                        <span style={{ color: '#aaa', margin: '0 12px' }}>{t('orJoin')}</span>
-                        <input
-                            value={codeToJoin}
-                            placeholder={t('lobbyCodePlaceholder')}
-                            onChange={e => setCodeToJoin(e.target.value.toUpperCase())}
-                            style={{ ...styles.input, width: 100, textTransform: 'uppercase' }}
-                        />
-                        <button style={{ ...styles.btn, marginLeft: 8 }} onClick={onJoin}>{t('join')}</button>
-                    </div>
-                </>
-            )}
+                                {isHost && (
+                                    <button className="icon-btn"
+                                        onClick={() => withLobby((c, p) => shufflePlayers(c, p))}
+                                        title={t('shuffle')}>
+                                        🎲 {t('shuffle')}
+                                    </button>
+                                )}
+                            </div>
 
-            {lobby && (
-                <div style={styles.card}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
-                        <h3 style={{ margin: 5, color: '#f0c040' }}>
-                            {t('lobbyLabel')} <span style={{ fontFamily: 'monospace', marginLeft: 8 }}>{lobby.code}</span>
-                        </h3>
-                        <span style={{ color: '#aaa', fontSize: 13 }}>
-                            {hubStarted ? `\uD83D\uDFE2 ${t('connected')}` : `\uD83D\uDD34 ${t('connecting')}`}
-                        </span>
-                    </div>
+                            <ul className="player-list">
+                                {orderedPlayers.map((p, i) => (
+                                    <li key={p.id}
+                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''}`}>
+                                        <span className="seat-num">{i + 1}</span>
+                                        <span className="player-name">{p.nickname}</span>
+                                        {p.isHost && <span className="tag">{t('host')}</span>}
+                                        {p.id === myPlayerId && <span className="tag tag--you">{t('you')}</span>}
+                                        {isHost && !lobby.started && (
+                                            <span style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+                                                <button className="icon-btn"
+                                                    disabled={i === 0}
+                                                    onClick={() => withLobby((c, pid) => movePlayerUp(c, pid, p.id))}
+                                                    title={t('moveUp')}>▲</button>
+                                                <button className="icon-btn"
+                                                    disabled={i === orderedPlayers.length - 1}
+                                                    onClick={() => withLobby((c, pid) => movePlayerDown(c, pid, p.id))}
+                                                    title={t('moveDown')}>▼</button>
+                                            </span>
+                                        )}
+                                    </li>
+                                ))}
+                                {orderedPlayers.length === 0 && (
+                                    <li style={{ color: 'var(--text-dim)', textAlign: 'center', padding: 12 }}>
+                                        {t('noPlayersYet')}
+                                    </li>
+                                )}
+                            </ul>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, color: '#666', textTransform: 'uppercase', letterSpacing: 1 }}>
-                            {t('seatOrder')} {isHost ? '' : ` ${t('setByHost')}`}
-                        </span>
-                        {isHost && (
-                            <button onClick={onShuffle} style={styles.shuffleBtn} title={t('shuffle')}>
-                                {'\uD83C\uDFB2'} {t('shuffle')}
+                            <div style={{ color: 'var(--text-dim)', fontSize: 12,
+                                fontStyle: 'italic', textAlign: 'center', marginBottom: 6 }}>
+                                {t('playersCount', { count: lobby.players.length })}
+                                {lobby.players.length < 4 && ` — ${t('needMore', { n: 4 - lobby.players.length })}`}
+                            </div>
+                        </div>
+
+                        {isHost && !lobby.started && (
+                            <GameConfigPanel config={lobby.config} onChange={onConfigChange} />
+                        )}
+
+                        {canStart && (
+                            <button className="btn btn--primary btn--block"
+                                style={{ marginTop: 18, fontSize: '1rem', padding: '14px 20px' }}
+                                onClick={onStart}>
+                                🔥 {t('startGame')}
                             </button>
                         )}
-                    </div>
 
-                    <ul style={styles.playerList}>
-                        {orderedPlayers.map((p, i) => (
-                            <li key={p.id} style={{
-                                ...styles.playerItem,
-                                background: p.id === myPlayerId ? '#1e2e1e' : '#161626',
-                                borderColor: p.id === myPlayerId ? '#3a5a3a' : '#2a2a3e',
-                            }}>
-                                <span style={styles.seatNum}>{i + 1}</span>
-                                <span style={{
-                                    flex: 1,
-                                    color: p.id === myPlayerId ? '#f0c040' : '#ddd',
-                                    fontWeight: p.id === myPlayerId ? 700 : 400,
-                                }}>
-                                    {p.nickname}
-                                </span>
-                                {p.isHost && <span style={styles.badge}>{t('host')}</span>}
-                                {p.id === myPlayerId && <span style={{ ...styles.badge, background: '#444' }}>{t('you')}</span>}
-                                {isHost && !lobby.started && (
-                                    <span style={{ display: 'flex', gap: 3, marginLeft: 6 }}>
-                                        <button
-                                            onClick={() => onMoveUp(p.id)}
-                                            disabled={i === 0}
-                                            style={{ ...styles.arrowBtn, opacity: i === 0 ? 0.25 : 1 }}
-                                            title={t('moveUp')}
-                                        >{'\u25B2'}</button>
-                                        <button
-                                            onClick={() => onMoveDown(p.id)}
-                                            disabled={i === orderedPlayers.length - 1}
-                                            style={{ ...styles.arrowBtn, opacity: i === orderedPlayers.length - 1 ? 0.25 : 1 }}
-                                            title={t('moveDown')}
-                                        >{'\u25BC'}</button>
-                                    </span>
-                                )}
-                            </li>
-                        ))}
-
-                        {orderedPlayers.length === 0 && (
-                            <li style={{ color: '#999', textAlign: 'center', padding: '10px' }}>
-                                {t('noPlayersYet')}
-                            </li>
+                        {messages.length > 0 && (
+                            <div className="event-log" style={{ marginTop: 16 }}>
+                                {messages.slice(-4).map((m, i) => (
+                                    <div key={i} className="event-log__line">— {m}</div>
+                                ))}
+                            </div>
                         )}
-                    </ul>
-
-                    <div style={{ color: '#666', fontSize: 12, marginBottom: 12 }}>
-                        {t('playersCount', { count: lobby.players.length })}
-                        {lobby.players.length < 4 && ` \u2014 ${t('needMore', { n: 4 - lobby.players.length })}`}
                     </div>
-
-                    {isHost && !lobby.started && (
-                        <GameConfigPanel config={lobby.config} onChange={onConfigChange} />
-                    )}
-
-                    {canStart && (
-                        <button
-                            style={{ ...styles.btn, background: '#5cb85c', fontSize: 15, width: '100%', marginTop: 16 }}
-                            onClick={onStart}
-                        >
-                            {t('startGame')}
-                        </button>
-                    )}
-
-                    {hubStarted && (
-                        <div style={{ color: '#4caf50', fontSize: 12, marginTop: 10 }}>
-                            {t('connectedToHub')}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {messages.length > 0 && (
-                <div style={{ marginTop: 20 }}>
-                    <h4 style={{ color: '#aaa' }}>{t('events')}</h4>
-                    <ul style={{ color: '#ccc', fontSize: 13 }}>
-                        {messages.map((m, i) => <li key={i}>{m}</li>)}
-                    </ul>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
-
-const styles = {
-    page: {
-        padding: 24, fontFamily: 'Segoe UI, Roboto, Arial',
-        background: '#0f0f1a', minHeight: '100vh', color: '#ddd',
-    } as React.CSSProperties,
-    row: { marginBottom: 12 } as React.CSSProperties,
-    label: { display: 'flex', alignItems: 'center', gap: 8, color: '#ccc' } as React.CSSProperties,
-    input: {
-        background: '#1e1e2e', border: '1px solid #444', borderRadius: 6,
-        color: '#ddd', padding: '6px 10px', fontSize: 14,
-    } as React.CSSProperties,
-    btn: {
-        background: '#c0392b', color: '#fff', border: 'none', borderRadius: 8,
-        padding: '8px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-    } as React.CSSProperties,
-    card: {
-        marginTop: 20, background: '#1a1a2e', borderRadius: 12,
-        padding: 20, maxWidth: 420, border: '1px solid #333',
-    } as React.CSSProperties,
-    playerList: {
-        listStyle: 'none', padding: 0, margin: '0 0 8px',
-        display: 'flex', flexDirection: 'column', gap: 4,
-    } as React.CSSProperties,
-    playerItem: {
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '7px 10px', borderRadius: 8, border: '1px solid #2a2a3e',
-    } as React.CSSProperties,
-    seatNum: {
-        width: 22, height: 22, borderRadius: '50%', background: '#2a2a4a',
-        color: '#888', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 700, flexShrink: 0,
-    } as React.CSSProperties,
-    badge: {
-        fontSize: 10, background: '#c0392b', color: '#fff',
-        borderRadius: 4, padding: '1px 6px', textTransform: 'uppercase' as const,
-    } as React.CSSProperties,
-    arrowBtn: {
-        background: '#2a2a4a', border: '1px solid #3a3a5a', borderRadius: 4,
-        color: '#aaa', cursor: 'pointer', fontSize: 10, padding: '2px 6px', lineHeight: 1,
-    } as React.CSSProperties,
-    shuffleBtn: {
-        background: '#2a2a4a', border: '1px solid #3a3a5a', borderRadius: 6,
-        color: '#aaa', cursor: 'pointer', fontSize: 12, padding: '3px 10px',
-    } as React.CSSProperties,
-};

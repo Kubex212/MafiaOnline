@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { GameConfig } from './api';
 import { useTranslation } from 'react-i18next';
 
@@ -8,22 +8,14 @@ type GameConfigPanelProps = {
 };
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian',
-    'detective',
-    'dogTamer',
-    'poacher',
-    'trailer',
-    'seer',
-    'fool',
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool',
 ];
 
 export default function GameConfigPanel({ config, onChange }: GameConfigPanelProps) {
     const { t } = useTranslation();
     const [local, setLocal] = useState<GameConfig>(config);
 
-    useEffect(() => {
-        setLocal(config);
-    }, [config]);
+    useEffect(() => { setLocal(config); }, [config]);
 
     function update<K extends keyof GameConfig>(key: K, value: GameConfig[K]) {
         const next = { ...local, [key]: value };
@@ -32,8 +24,7 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
     }
 
     function updateRole(key: keyof GameConfig['roles'], value: boolean) {
-        const nextRoles = { ...local.roles, [key]: value };
-        update('roles', nextRoles);
+        update('roles', { ...local.roles, [key]: value });
     }
 
     function updateNested<T extends object>(parentKey: keyof GameConfig, value: T) {
@@ -41,170 +32,136 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
     }
 
     return (
-        <div style={{ marginTop: 20, color: '#ddd' }}>
-            <h3 style={{ color: '#f0c040', marginBottom: 12 }}>{t('gameConfig')}</h3>
+        <div className="config">
+            <h3 style={{ color: 'var(--accent)', margin: '0 0 12px',
+                letterSpacing: '0.12em', textTransform: 'uppercase', fontSize: '0.9rem' }}>
+                {t('gameConfig')}
+            </h3>
 
-            <div style={styles.section}>
-                <h4 style={styles.sectionTitle}>{t('generalSettings')}</h4>
-                <label style={styles.row}>
+            <div className="config__section">
+                <h4 className="config__section-title">{t('generalSettings')}</h4>
+                <label className="config__row">
                     <span>{t('werewolfCount')}</span>
-                    <input
-                        type="number"
-                        min={1}
-                        max={5}
+                    <input type="number" min={1} max={5}
+                        className="config__num"
                         value={local.werewolfCount}
-                        onChange={e => update('werewolfCount', Math.max(1, parseInt(e.target.value) || 1))}
-                        style={styles.numberInput}
-                    />
+                        onChange={e => update('werewolfCount', Math.max(1, parseInt(e.target.value) || 1))} />
                 </label>
-                <label style={styles.row}>
+                <label className="config__row">
                     <span>{t('turnDurationSeconds')}</span>
-                    <input
-                        type="number"
-                        min={5}
-                        max={300}
+                    <input type="number" min={5} max={300}
+                        className="config__num"
                         value={local.turnDurationSeconds}
-                        onChange={e => update('turnDurationSeconds', Math.max(5, parseInt(e.target.value) || 5))}
-                        style={styles.numberInput}
-                    />
+                        onChange={e => update('turnDurationSeconds', Math.max(5, parseInt(e.target.value) || 5))} />
                 </label>
             </div>
 
-            <div style={styles.section}>
-                <h4 style={styles.sectionTitle}>{t('daySettings')}</h4>
-                <label style={styles.row}>
+            <div className="config__section">
+                <h4 className="config__section-title">{t('daySettings')}</h4>
+                <label className="config__row">
                     <span>{t('dayDurationSeconds')}</span>
-                    <input
-                        type="number"
-                        min={10}
-                        max={600}
+                    <input type="number" min={10} max={600}
+                        className="config__num"
                         value={local.day.durationSeconds}
-                        onChange={e => updateNested('day', { durationSeconds: Math.max(10, parseInt(e.target.value) || 10) })}
-                        style={styles.numberInput}
-                    />
+                        onChange={e => updateNested('day', { durationSeconds: Math.max(10, parseInt(e.target.value) || 10) })} />
                 </label>
-                <label style={styles.row}>
+                <label className="config__row">
                     <span>{t('votesRequiredFraction')}</span>
-                    <input
-                        type="number"
-                        min={0.1}
-                        max={1}
-                        step={0.1}
+                    <input type="number" min={0.1} max={1} step={0.1}
+                        className="config__num"
                         value={local.day.votesRequiredFraction}
-                        onChange={e => updateNested('day', { votesRequiredFraction: Math.max(0.1, Math.min(1, parseFloat(e.target.value) || 0.5)) })}
-                        style={styles.numberInput}
-                    />
+                        onChange={e => updateNested('day', {
+                            votesRequiredFraction: Math.max(0.1, Math.min(1, parseFloat(e.target.value) || 0.5))
+                        })} />
                 </label>
-                <label style={styles.row}>
+                <label className="config__row">
                     <span>{t('drawResolution')}</span>
-                    <select
+                    <select className="config__select"
                         value={local.day.drawResolution}
-                        onChange={e => updateNested('day', { drawResolution: e.target.value as GameConfig['day']['drawResolution'] })}
-                        style={styles.select}
-                    >
+                        onChange={e => updateNested('day', {
+                            drawResolution: e.target.value as GameConfig['day']['drawResolution']
+                        })}>
                         <option value="KickNone">{t('drawKickNone')}</option>
                         <option value="KickRandom">{t('drawKickRandom')}</option>
                         <option value="KickAll">{t('drawKickAll')}</option>
                     </select>
                 </label>
-                <label style={styles.row}>
-                    <input
-                        type="checkbox"
+                <label className="config__row" style={{ justifyContent: 'flex-start' }}>
+                    <input type="checkbox"
                         checked={local.day.showVoteTargets}
-                        onChange={e => updateNested('day', { showVoteTargets: e.target.checked })}
-                    />
+                        onChange={e => updateNested('day', { showVoteTargets: e.target.checked })} />
                     <span>{t('showVoteTargets')}</span>
                 </label>
             </div>
 
-            <div style={styles.section}>
-                <h4 style={styles.sectionTitle}>{t('roleCards')}</h4>
-                <div style={styles.roleGrid}>
+            <div className="config__section">
+                <h4 className="config__section-title">{t('roleCards')}</h4>
+                <div className="config__grid">
                     {roleKeys.map(key => (
-                        <div key={key} style={styles.roleCard}>
-                            <label style={styles.roleHeader}>
-                                <input
-                                    type="checkbox"
+                        <div key={key} className="role-card">
+                            <label className="role-card__head">
+                                <input type="checkbox"
                                     checked={local.roles[key]}
-                                    onChange={e => updateRole(key, e.target.checked)}
-                                />
-                                <span style={styles.roleName}>{t(key)}</span>
+                                    onChange={e => updateRole(key, e.target.checked)} />
+                                <span>{t(key)}</span>
                             </label>
                             {key === 'guardian' && local.roles.guardian && (
-                                <div style={styles.subConfig}>
-                                    <label style={styles.subRow}>
-                                        <input
-                                            type="checkbox"
-                                            checked={local.guardian.canProtectSelf}
-                                            onChange={e => updateNested('guardian', { canProtectSelf: e.target.checked })}
-                                        />
+                                <div className="role-card__sub">
+                                    <label>
                                         <span>{t('canProtectSelf')}</span>
+                                        <input type="checkbox"
+                                            checked={local.guardian.canProtectSelf}
+                                            onChange={e => updateNested('guardian', { canProtectSelf: e.target.checked })} />
                                     </label>
-                                    <label style={styles.subRow}>
-                                        <input
-                                            type="checkbox"
-                                            checked={local.guardian.canProtectSamePlayerConsecutively}
-                                            onChange={e => updateNested('guardian', { canProtectSamePlayerConsecutively: e.target.checked })}
-                                        />
+                                    <label>
                                         <span>{t('canProtectSamePlayerConsecutively')}</span>
+                                        <input type="checkbox"
+                                            checked={local.guardian.canProtectSamePlayerConsecutively}
+                                            onChange={e => updateNested('guardian', { canProtectSamePlayerConsecutively: e.target.checked })} />
                                     </label>
                                 </div>
                             )}
                             {key === 'detective' && local.roles.detective && (
-                                <div style={styles.subConfig}>
-                                    <label style={styles.subRow}>
-                                        <input
-                                            type="checkbox"
-                                            checked={local.detective.canRevealWerewolves}
-                                            onChange={e => updateNested('detective', { canRevealWerewolves: e.target.checked })}
-                                        />
+                                <div className="role-card__sub">
+                                    <label>
                                         <span>{t('canRevealWerewolves')}</span>
+                                        <input type="checkbox"
+                                            checked={local.detective.canRevealWerewolves}
+                                            onChange={e => updateNested('detective', { canRevealWerewolves: e.target.checked })} />
                                     </label>
                                 </div>
                             )}
                             {key === 'dogTamer' && local.roles.dogTamer && (
-                                <div style={styles.subConfig}>
-                                    <label style={styles.subRow}>
+                                <div className="role-card__sub">
+                                    <label>
                                         <span>{t('dogTamerRange')}</span>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            max={5}
+                                        <input type="number" min={1} max={5}
+                                            className="config__num" style={{ width: 60 }}
                                             value={local.dogTamer.range}
-                                            onChange={e => updateNested('dogTamer', { range: Math.max(1, parseInt(e.target.value) || 1) })}
-                                            style={styles.smallNumber}
-                                        />
+                                            onChange={e => updateNested('dogTamer', { range: Math.max(1, parseInt(e.target.value) || 1) })} />
                                     </label>
-                                    <label style={styles.subRow}>
+                                    <label>
                                         <span>{t('dogTamerNumWerewolves')}</span>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            max={5}
+                                        <input type="number" min={0} max={5}
+                                            className="config__num" style={{ width: 60 }}
                                             value={local.dogTamer.numWerewolves}
-                                            onChange={e => updateNested('dogTamer', { numWerewolves: Math.max(0, parseInt(e.target.value) || 0) })}
-                                            style={styles.smallNumber}
-                                        />
+                                            onChange={e => updateNested('dogTamer', { numWerewolves: Math.max(0, parseInt(e.target.value) || 0) })} />
                                     </label>
                                 </div>
                             )}
                             {key === 'poacher' && local.roles.poacher && (
-                                <div style={styles.subConfig}>
-                                    <label style={styles.subRow}>
-                                        <input
-                                            type="checkbox"
-                                            checked={local.poacher.allowSelfTarget}
-                                            onChange={e => updateNested('poacher', { allowSelfTarget: e.target.checked })}
-                                        />
+                                <div className="role-card__sub">
+                                    <label>
                                         <span>{t('allowSelfTarget')}</span>
+                                        <input type="checkbox"
+                                            checked={local.poacher.allowSelfTarget}
+                                            onChange={e => updateNested('poacher', { allowSelfTarget: e.target.checked })} />
                                     </label>
-                                    <label style={styles.subRow}>
-                                        <input
-                                            type="checkbox"
-                                            checked={local.poacher.mustAlternate}
-                                            onChange={e => updateNested('poacher', { mustAlternate: e.target.checked })}
-                                        />
+                                    <label>
                                         <span>{t('mustAlternate')}</span>
+                                        <input type="checkbox"
+                                            checked={local.poacher.mustAlternate}
+                                            onChange={e => updateNested('poacher', { mustAlternate: e.target.checked })} />
                                     </label>
                                 </div>
                             )}
@@ -215,88 +172,3 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
         </div>
     );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-    section: {
-        background: '#1a1a2e',
-        border: '1px solid #333',
-        borderRadius: 10,
-        padding: 14,
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        color: '#aaa',
-        margin: '0 0 12px',
-        fontSize: 14,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    row: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 10,
-        fontSize: 14,
-    },
-    numberInput: {
-        width: 70,
-        background: '#1e1e2e',
-        border: '1px solid #444',
-        borderRadius: 6,
-        color: '#ddd',
-        padding: '4px 8px',
-    },
-    select: {
-        background: '#1e1e2e',
-        border: '1px solid #444',
-        borderRadius: 6,
-        color: '#ddd',
-        padding: '4px 8px',
-    },
-    roleGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-        gap: 12,
-    },
-    roleCard: {
-        background: '#161626',
-        border: '1px solid #2a2a3e',
-        borderRadius: 8,
-        padding: 12,
-    },
-    roleHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        cursor: 'pointer',
-        fontWeight: 600,
-    },
-    roleName: {
-        color: '#f0c040',
-    },
-    subConfig: {
-        marginTop: 10,
-        paddingTop: 10,
-        borderTop: '1px solid #2a2a3e',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-    },
-    subRow: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
-        fontSize: 13,
-        color: '#bbb',
-    },
-    smallNumber: {
-        width: 50,
-        background: '#1e1e2e',
-        border: '1px solid #444',
-        borderRadius: 6,
-        color: '#ddd',
-        padding: '3px 6px',
-    },
-};

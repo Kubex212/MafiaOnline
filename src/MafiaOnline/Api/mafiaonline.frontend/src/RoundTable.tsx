@@ -1,109 +1,160 @@
+/**
+ * Shared round-table SVG used by the Night and Day phases.
+ * All colours come from CSS custom properties so the table automatically
+ * retunes for the current phase (see [data-phase] in index.css).
+ */
 import React from 'react';
-import type { SeatInfo, RoleResponse } from './api';
-import { useTranslation } from "react-i18next";
+import type { SeatInfo } from './api';
+import { useTranslation } from 'react-i18next';
 
-interface Props {
-    seats: SeatInfo[];          // all players in seat order
-    myPlayerId: string;
-    myRole: RoleResponse | null;
+export interface TableSeatState {
+    seat: SeatInfo;
+    isMe: boolean;
+    isActive?: boolean;
+    isAlive?: boolean;
+    isSelected?: boolean;
+    isTargetable?: boolean;
+    hasVoted?: boolean;
 }
 
-const ROLE_COLORS: Record<string, { bg: string; border: string }> = {
-    Werewolf: { bg: '#5c1a1a', border: '#d9534f' },
-    Guardian: { bg: '#1a3a5c', border: '#5bc0de' },
-    Detective: { bg: '#1a3a2a', border: '#5cb85c' },
-    Villager: { bg: '#2a2a2a', border: '#aaa' },
-};
+export interface VoteArrow {
+    fromId: string;
+    toId: string;
+}
 
-const TEAM_COLORS: Record<string, string> = {
-    Werewolf: '#d9534f',
-    Town: '#5cb85c',
-};
+interface Props {
+    seats: SeatInfo[];
+    states: TableSeatState[];
+    voteArrows?: VoteArrow[];
+    centreLabel?: string;
+    centreIcon?: string;
+    onSeatClick?: (seat: SeatInfo) => void;
+}
 
-export default function RoundTable({ seats, myPlayerId, myRole }: Props) {
+export default function RoundTable({
+    seats, states, voteArrows = [], centreLabel, centreIcon, onSeatClick,
+}: Props) {
     const { t } = useTranslation();
-
-    const count = seats.length;
-    // Radius of the circle (in px). The SVG viewBox is 500�500, centre at 250,250.
     const cx = 250, cy = 250, r = 170;
+    const count = seats.length;
+
+    const seatPos = (i: number) => {
+        const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    };
+
+    const stateFor = (id: string) => states.find(s => s.seat.id === id);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-            {/* Role card for this player */}
-            {myRole && (
-                <div style={{
-                    padding: '12px 32px',
-                    borderRadius: 12,
-                    border: `2px solid ${TEAM_COLORS[myRole.teamName] ?? '#aaa'}`,
-                    background: '#1a1a2e',
-                    textAlign: 'center',
-                }}>
-                    <div style={{ fontSize: 12, color: '#aaa', letterSpacing: 2, textTransform: 'uppercase' }}>Your role</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: TEAM_COLORS[myRole.teamName] ?? '#fff', marginTop: 4 }}>
-                        {myRole.name}
-                    </div>
-                    <div style={{ fontSize: 13, color: '#ccc', marginTop: 2 }}>Team: {myRole.teamName}</div>
-                </div>
+        <svg viewBox="0 0 500 500" className="table-svg" aria-label={t('mafiaTable')}>
+            <defs>
+                <radialGradient id="tableFill" cx="50%" cy="45%" r="60%">
+                    <stop offset="0%" stopColor="var(--surface-2)" />
+                    <stop offset="100%" stopColor="var(--surface)" />
+                </radialGradient>
+                <marker id="voteHead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--accent)" />
+                </marker>
+            </defs>
+
+            <circle cx={cx} cy={cy} r={110} fill="url(#tableFill)"
+                stroke="var(--border)" strokeWidth={4} />
+            <circle cx={cx} cy={cy} r={92} fill="none"
+                stroke="var(--border-soft)" strokeWidth={1} strokeDasharray="2 6" />
+            {centreLabel && (
+                <text x={cx} y={cy + 4} textAnchor="middle"
+                    fill="var(--accent-2)" fontSize={14} fontWeight={700}
+                    style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                    {centreIcon ? `${centreIcon} ` : ''}{centreLabel}
+                </text>
             )}
 
-            {/* Round table SVG */}
-            <svg
-                viewBox="0 0 500 500"
-                style={{ width: '100%', maxWidth: 480, userSelect: 'none' }}
-                aria-label="Round table"
-            >
-                {/* Table surface */}
-                <circle cx={cx} cy={cy} r={100} fill="#2c1a0e" stroke="#7a4a1e" strokeWidth={6} />
-                <text x={cx} y={cy + 6} textAnchor="middle" fill="#7a4a1e" fontSize={14} fontWeight={600}>
-                    {t('mafiaTable')}
-                </text>
+            {voteArrows.map((v, idx) => {
+                const fi = seats.findIndex(s => s.id === v.fromId);
+                const ti = seats.findIndex(s => s.id === v.toId);
+                if (fi < 0 || ti < 0) return null;
+                const p = seatPos(fi), q = seatPos(ti);
+                const dx = q.x - p.x, dy = q.y - p.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                const ux = dx / d, uy = dy / d;
+                return (
+                    <line key={`v${idx}`}
+                        x1={p.x + ux * 36} y1={p.y + uy * 36}
+                        x2={q.x - ux * 40} y2={q.y - uy * 40}
+                        stroke="var(--accent)" strokeWidth={1.4}
+                        strokeDasharray="5 4" opacity={0.75}
+                        markerEnd="url(#voteHead)" className="vote-arrow" />
+                );
+            })}
 
-                {seats.map((seat, i) => {
-                    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-                    const px = cx + r * Math.cos(angle);
-                    const py = cy + r * Math.sin(angle);
-                    const isMe = seat.id === myPlayerId;
-                    const colors = isMe && myRole
-                        ? (ROLE_COLORS[myRole.name] ?? ROLE_COLORS['Villager'])
-                        : { bg: '#1e1e2e', border: isMe ? '#f0c040' : '#555' };
+            {seats.map((seat, i) => {
+                const pos = seatPos(i);
+                const st = stateFor(seat.id);
+                const isMe = !!st?.isMe;
+                const isActive = !!st?.isActive;
+                const isAlive = st?.isAlive ?? true;
+                const isSelected = !!st?.isSelected;
+                const isTargetable = !!st?.isTargetable;
+                const hasVoted = !!st?.hasVoted;
 
-                    // Shorten nickname if needed
-                    const label = seat.nickname.length > 10 ? seat.nickname.slice(0, 9) + '\u2026' : seat.nickname;
+                const stroke = isSelected ? 'var(--accent)'
+                    : isActive ? 'var(--accent-2)'
+                    : isMe ? 'var(--town-2)'
+                    : isAlive ? 'var(--border)' : 'var(--border-soft)';
+                const fill = !isAlive ? 'rgba(0,0,0,0.4)'
+                    : isMe ? 'color-mix(in oklab, var(--town) 25%, var(--surface))'
+                    : 'var(--surface-2)';
+                const label = seat.nickname.length > 10 ? seat.nickname.slice(0, 9) + '…' : seat.nickname;
+                const textFill = !isAlive ? 'var(--text-dim)'
+                    : isMe ? 'var(--accent-2)'
+                    : 'var(--text)';
 
-                    return (
-                        <g key={seat.id} transform={`translate(${px},${py})`}>
-                            {/* Seat circle */}
-                            <circle
-                                r={34}
-                                fill={colors.bg}
-                                stroke={colors.border}
-                                strokeWidth={isMe ? 3 : 2}
-                            />
-                            {/* Seat number badge */}
-                            <circle cx={22} cy={-22} r={10} fill="#333" stroke={colors.border} strokeWidth={1} />
-                            <text x={22} y={-18} textAnchor="middle" fill="#ccc" fontSize={10} fontWeight={600}>
-                                {seat.seatIndex + 1}
-                            </text>
-                            {/* Nickname */}
-                            <text
-                                y={5}
-                                textAnchor="middle"
-                                fill={isMe ? '#f0c040' : '#ddd'}
-                                fontSize={isMe ? 11 : 10}
-                                fontWeight={isMe ? 700 : 400}
-                            >
+                return (
+                    <g key={seat.id} transform={`translate(${pos.x},${pos.y})`}
+                        style={{ cursor: isTargetable ? 'pointer' : 'default' }}
+                        onClick={() => { if (isTargetable && onSeatClick) onSeatClick(seat); }}
+                    >
+                        {isActive && (
+                            <circle r={44} fill="var(--accent)" opacity={0.25}
+                                className="seat-active-halo" />
+                        )}
+                        <circle r={34} fill={fill} stroke={stroke}
+                            strokeWidth={isMe || isSelected || isActive ? 3 : 1.5}
+                            opacity={isAlive ? 1 : 0.5} />
+                        {isAlive && (
+                            <>
+                                <circle cx={22} cy={-22} r={10}
+                                    fill="rgba(0,0,0,0.5)" stroke={stroke} strokeWidth={1} />
+                                <text x={22} y={-18} textAnchor="middle"
+                                    fill="var(--accent-2)" fontSize={10} fontWeight={700}>
+                                    {seat.seatIndex + 1}
+                                </text>
+                            </>
+                        )}
+                        {!isAlive && (
+                            <text y={6} textAnchor="middle" fontSize={18} opacity={0.7}>💀</text>
+                        )}
+                        {isAlive && (
+                            <text y={4} textAnchor="middle" fill={textFill}
+                                fontSize={11} fontWeight={isMe || isActive ? 700 : 500}
+                                style={{ fontFamily: 'var(--font-body)' }}>
                                 {label}
                             </text>
-                            {/* "You" label */}
-                            {isMe && (
-                                <text y={18} textAnchor="middle" fill="#f0c040" fontSize={9} fontStyle="italic">
-                                    ({t('you')})
-                                </text>
-                            )}
-                        </g>
-                    );
-                })}
-            </svg>
-        </div>
+                        )}
+                        {isMe && isAlive && (
+                            <text y={17} textAnchor="middle" fill="var(--accent-2)"
+                                fontSize={9} fontStyle="italic">({t('you')})</text>
+                        )}
+                        {isSelected && (
+                            <text y={17} textAnchor="middle" fill="var(--accent)"
+                                fontSize={9} fontWeight={700}>▸ {t('target')}</text>
+                        )}
+                        {hasVoted && isAlive && (
+                            <text x={-22} y={-22} textAnchor="middle" fontSize={13}>✔️</text>
+                        )}
+                    </g>
+                );
+            })}
+        </svg>
     );
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } f
 import type { SeatInfo, RoleResponse, DayStartedPayload, VoteCastPayload, DayResolvedPayload } from './api';
 import { castVote } from './api';
 import { useTranslation } from 'react-i18next';
+import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
 
 export interface DayPhaseHandle {
     onDayStarted(payload: DayStartedPayload): void;
@@ -12,12 +13,10 @@ export interface DayPhaseHandle {
 
 interface Props {
     lobbyCode: string;
-    allSeats: SeatInfo[];       // all seats including dead players (for layout)
+    allSeats: SeatInfo[];
     myPlayerId: string;
     myRole: RoleResponse;
 }
-
-const TEAM_COLORS: Record<string, string> = { Werewolf: '#d9534f', Town: '#5cb85c' };
 
 const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     { lobbyCode, allSeats, myPlayerId, myRole }, ref
@@ -27,7 +26,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [duration, setDuration] = useState(180);
     const [showVoteTargets, setShowVoteTargets] = useState(false);
     const [timeLeft, setTimeLeft] = useState(180);
-    const [votes, setVotes] = useState<Record<string, string | null>>({}); // voterId -> candidateId | null
+    const [votes, setVotes] = useState<Record<string, string | null>>({});
     const [myVote, setMyVote] = useState<string | null>(null);
     const [resolved, setResolved] = useState<DayResolvedPayload | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -37,7 +36,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
 
     useImperativeHandle(ref, () => ({
         onDayStarted(payload: DayStartedPayload) {
-            setAlivePlayers(payload.alivePlayers.sort((a, b) => a.seatIndex - b.seatIndex));
+            setAlivePlayers([...payload.alivePlayers].sort((a, b) => a.seatIndex - b.seatIndex));
             setDuration(payload.durationSeconds);
             setShowVoteTargets(payload.showVoteTargets);
             setTimeLeft(payload.durationSeconds);
@@ -50,53 +49,47 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
 
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
-                setTimeLeft(t => {
-                    if (t <= 1) { clearInterval(timerRef.current!); return 0; }
-                    return t - 1;
+                setTimeLeft(prev => {
+                    if (prev <= 1) { clearInterval(timerRef.current!); return 0; }
+                    return prev - 1;
                 });
             }, 1000);
         },
-
         onVoteCast(payload: VoteCastPayload) {
             setVotes(prev => ({ ...prev, [payload.voterId]: payload.candidateId }));
             const voter = allSeats.find(s => s.id === payload.voterId);
             setLog(l => [...l, t('playerVoted', { nick: voter?.nickname ?? '?' })]);
         },
-
         onDayResolved(payload: DayResolvedPayload) {
             if (timerRef.current) clearInterval(timerRef.current);
             setResolved(payload);
             if (payload.banished.length > 0)
                 setLog(l => [...l, t('banished', { list: payload.banished.join(', ') })]);
             else
-                setLog(l => [...l, payload.thresholdMet
-                    ? t('drawNoOneBanished')
-                    : t('notEnoughVotes')]);
+                setLog(l => [...l, payload.thresholdMet ? t('drawNoOneBanished') : t('notEnoughVotes')]);
         },
-
-        onRestoreState(state: { remainingSeconds: number; votes?: Record<string, string | null> }) {
-            // adjust remaining time
+        onRestoreState(state) {
             if (timerRef.current) clearInterval(timerRef.current);
             setTimeLeft(state.remainingSeconds);
             timerRef.current = setInterval(() => {
-                setTimeLeft(t => {
-                    if (t <= 1) { clearInterval(timerRef.current!); return 0; }
-                    return t - 1;
+                setTimeLeft(prev => {
+                    if (prev <= 1) { clearInterval(timerRef.current!); return 0; }
+                    return prev - 1;
                 });
             }, 1000);
-
             if (state.votes) {
                 setVotes(state.votes);
-                // set myVote if present
-                if (state.votes[myPlayerId!] !== undefined) setMyVote(state.votes[myPlayerId!] as string | null);
+                if (state.votes[myPlayerId] !== undefined) setMyVote(state.votes[myPlayerId] as string | null);
             }
-        }
+        },
     }), [allSeats, t, myPlayerId]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
     const amAlive = alivePlayers.some(p => p.id === myPlayerId);
     const hasVoted = myVote !== null;
+    const pct = duration > 0 ? timeLeft / duration : 0;
+    const barColor = pct > 0.5 ? 'var(--town-2)' : pct > 0.2 ? '#c9a24c' : 'var(--danger-2)';
 
     async function handleVote() {
         if (!selectedTarget || hasVoted || !amAlive || submitting) return;
@@ -109,186 +102,118 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         finally { setSubmitting(false); }
     }
 
-    // ?? SVG table ????????????????????????????????????????????????????????????
+    const seatStates: TableSeatState[] = allSeats.map(seat => {
+        const isAlive = alivePlayers.some(p => p.id === seat.id);
+        const isMe = seat.id === myPlayerId;
+        return {
+            seat,
+            isMe,
+            isAlive,
+            isSelected: seat.id === selectedTarget,
+            isTargetable: !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting,
+            hasVoted: votes[seat.id] !== undefined,
+        };
+    });
 
-    const cx = 250, cy = 250, r = 170;
-    const seats = allSeats; // use all seats for stable layout; dead players shown greyed
+    const voteArrows: VoteArrow[] = showVoteTargets
+        ? Object.entries(votes)
+            .filter(([, to]) => !!to)
+            .map(([from, to]) => ({ fromId: from, toId: to as string }))
+        : [];
 
-    const pct = timeLeft / duration;
-    const barColor = pct > 0.5 ? '#5cb85c' : pct > 0.2 ? '#f0ad4e' : '#d9534f';
+    const chosenName = selectedTarget
+        ? (allSeats.find(s => s.id === selectedTarget)?.nickname ?? '?')
+        : '—';
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-
-            {/* Role badge */}
-            <div style={{
-                padding: '6px 24px', borderRadius: 10,
-                border: `2px solid ${TEAM_COLORS[myRole.team] ?? '#aaa'}`,
-                background: '#1a1a2e', textAlign: 'center',
-            }}>
-                <span style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 2 }}>{t('yourRole')}</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: TEAM_COLORS[myRole.team] ?? '#fff' }}>{t(myRole.name)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+            <div className="role-badge" style={{ borderColor: `var(--${myRole.name === 'Werewolf' ? 'wolf' : 'town'})` }}>
+                <span className="role-badge__label">{t('yourRole')}</span>
+                <span className="role-badge__name"
+                    style={{ color: `var(--${myRole.name === 'Werewolf' ? 'wolf' : 'town'})` }}>
+                    {t(myRole.name)}
+                </span>
             </div>
 
-            {/* Timer bar */}
             {!resolved && (
-                <div style={{ width: '100%', maxWidth: 460 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#aaa', marginBottom: 4 }}>
+                <div className="timer">
+                    <div className="timer__head">
                         <span>{t('dayPhase')}</span>
-                        <span style={{ color: barColor, fontWeight: 700 }}>{timeLeft}s</span>
+                        <span style={{ color: barColor, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                            {timeLeft}s
+                        </span>
                     </div>
-                    <div style={{ height: 6, background: '#222', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{
-                            height: '100%', borderRadius: 3, background: barColor,
-                            width: `${pct * 100}%`, transition: 'width 0.9s linear, background 0.3s'
-                        }} />
+                    <div className="timer__bar">
+                        <div className="timer__fill"
+                            style={{ width: `${pct * 100}%`, background: barColor }} />
                     </div>
-                    <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
-                        {votes ? `${Object.keys(votes).length} / ${alivePlayers.length} ${t('voted')}` : ''}
-                        {hasVoted && <span style={{ color: '#5cb85c', marginLeft: 8 }}>{'\u2714\uFE0F'} {t('youVoted')}</span>}
+                    <div className="timer__meta">
+                        {Object.keys(votes).length} / {alivePlayers.length} {t('voted')}
+                        {hasVoted && <em>✓ {t('youVoted')}</em>}
                     </div>
                 </div>
             )}
 
-            {/* Round table */}
-            <svg viewBox="0 0 500 500" style={{ width: '100%', maxWidth: 460, userSelect: 'none' }}>
-                {/* Table surface */}
-                <circle cx={cx} cy={cy} r={100} fill="#1e2e1e" stroke="#3a5a3a" strokeWidth={6} />
-                <text x={cx} y={cy + 6} textAnchor="middle" fill="#3a5a3a" fontSize={13} fontWeight={600}>
-                    {'\u2600\uFE0F'} {t('day')}
-                </text>
+            <RoundTable
+                seats={allSeats}
+                states={seatStates}
+                voteArrows={voteArrows}
+                centreLabel={t('day')}
+                centreIcon="☀"
+                onSeatClick={s => setSelectedTarget(prev => prev === s.id ? null : s.id)}
+            />
 
-                {seats.map((seat, i) => {
-                    const angle = (2 * Math.PI * i) / seats.length - Math.PI / 2;
-                    const px = cx + r * Math.cos(angle);
-                    const py = cy + r * Math.sin(angle);
-
-                    const isAlive = alivePlayers.some(p => p.id === seat.id);
-                    const isMe = seat.id === myPlayerId;
-                    const isSelected = seat.id === selectedTarget;
-                    const votedForMe = showVoteTargets && Object.entries(votes).some(([, c]) => c === seat.id);
-                    const iVotedFor = myVote === seat.id;
-                    const hasThisVoted = votes[seat.id] !== undefined;
-                    const isTargetable = !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting;
-
-                    const bg = !isAlive ? '#111' : isMe ? '#1a3a1a' : '#1e1e2e';
-                    const border = isSelected ? '#f0c040'
-                        : iVotedFor ? '#5cb85c'
-                            : isMe ? '#5cb85c'
-                                : isAlive ? '#555' : '#2a2a2a';
-                    const textFill = !isAlive ? '#333' : isMe ? '#f0c040' : '#ddd';
-                    const label = seat.nickname.length > 10 ? seat.nickname.slice(0, 9) + '\u2026' : seat.nickname;
-
-                    // Arrow from voter to their target (visible only when showVoteTargets)
-                    const myVoteArrow = showVoteTargets && votes[seat.id] && isAlive
-                        ? (() => {
-                            const targetSeat = seats.find(s => s.id === votes[seat.id]);
-                            if (!targetSeat) return null;
-                            const ti = seats.indexOf(targetSeat);
-                            const ta = (2 * Math.PI * ti) / seats.length - Math.PI / 2;
-                            const tx = cx + r * Math.cos(ta);
-                            const ty = cy + r * Math.sin(ta);
-                            // Draw arrow from voter toward target, offset slightly to the player radius
-                            const dx = tx - px, dy = ty - py;
-                            const dist = Math.sqrt(dx * dx + dy * dy);
-                            const ux = dx / dist, uy = dy / dist;
-                            const x1 = px + ux * 36, y1 = py + uy * 36;
-                            const x2 = tx - ux * 36, y2 = ty - uy * 36;
-                            return <line key={`arrow-${seat.id}`} x1={x1} y1={y1} x2={x2} y2={y2}
-                                stroke="#f0c040" strokeWidth={1.5} strokeDasharray="4 3"
-                                markerEnd="url(#arrowhead)" opacity={0.7} />;
-                        })()
-                        : null;
-
-                    return (
-                        <React.Fragment key={seat.id}>
-                            {myVoteArrow}
-                            <g transform={`translate(${px},${py})`}
-                                style={{ cursor: isTargetable ? 'pointer' : 'default' }}
-                                onClick={() => { if (isTargetable) setSelectedTarget(seat.id === selectedTarget ? null : seat.id); }}>
-                                <circle r={34} fill={bg} stroke={border} strokeWidth={isMe || isSelected ? 3 : 2} opacity={isAlive ? 1 : 0.4} />
-                                {/* Has-voted checkmark */}
-                                {hasThisVoted && isAlive && (
-                                    <text x={0} y={-24} textAnchor="middle" fontSize={14}>{'\u2714\uFE0F'}</text>
-                                )}
-                                {/* Dead marker */}
-                                {!isAlive && <text y={6} textAnchor="middle" fontSize={16} opacity={0.5}>{'\uD83D\uDC80'}</text>}
-                                {/* Seat number */}
-                                {isAlive && <circle cx={22} cy={-22} r={10} fill="#333" stroke={border} strokeWidth={1} />}
-                                {isAlive && <text x={22} y={-18} textAnchor="middle" fill="#ccc" fontSize={10} fontWeight={600}>{seat.seatIndex + 1}</text>}
-                                {/* Nickname */}
-                                {isAlive && (
-                                    <text y={4} textAnchor="middle" fill={textFill}
-                                        fontSize={isMe ? 11 : 10} fontWeight={isMe ? 700 : 400}>{label}</text>
-                                )}
-                                {isMe && isAlive && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9} fontStyle="italic">({t('you')})</text>}
-                                {isSelected && <text y={17} textAnchor="middle" fill="#f0c040" fontSize={9}>{t('target')}</text>}
-                            </g>
-                        </React.Fragment>
-                    );
-                })}
-
-                {/* Arrow marker definition */}
-                <defs>
-                    <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-                        <path d="M0,0 L6,3 L0,6 Z" fill="#f0c040" opacity={0.8} />
-                    </marker>
-                </defs>
-            </svg>
-
-            {/* Vote button */}
             {!resolved && amAlive && !hasVoted && (
-                <button
+                <button className="btn btn--danger"
                     disabled={!selectedTarget || submitting}
-                    onClick={handleVote}
-                    style={{
-                        border: 'none', borderRadius: 8, padding: '10px 32px',
-                        background: selectedTarget ? '#c0392b' : '#333',
-                        color: '#fff', fontWeight: 700, fontSize: 14,
-                        cursor: selectedTarget ? 'pointer' : 'default',
-                        opacity: (!selectedTarget || submitting) ? 0.6 : 1,
-                    }}>
-                    {'\uD83D\uDEAB'} {t('banish')} {selectedTarget ? (allSeats.find(s => s.id === selectedTarget)?.nickname ?? '?') : '\u2014'}
+                    onClick={handleVote}>
+                    🔥 {t('banish')} {chosenName}
                 </button>
             )}
 
-            {/* Resolution panel */}
             {resolved && (
-                <div style={{ maxWidth: 460, width: '100%', borderRadius: 10, padding: '14px 20px', background: '#1a1a2e', border: '2px solid #333' }}>
-                    <div style={{ fontWeight: 700, color: '#f0c040', marginTop: 0, marginBottom: 8 }}>{t('votesIn')}</div>
+                <div className="resolution">
+                    <div className="resolution__title">⚖ {t('votesIn')}</div>
                     {resolved.banished.length > 0
                         ? resolved.banished.map(n => (
-                            <div key={n} style={{ color: '#d9534f' }}>{'\uD83D\uDEAB'} <b>{n}</b> {t('hasBeenBanished')}</div>
+                            <div key={n} className="resolution__killed">
+                                🔥 <b>{n}</b> {t('hasBeenBanished')}
+                            </div>
                         ))
-                        : <div style={{ color: '#aaa' }}>{resolved.thresholdMet ? t('drawNoOneBanished') : t('notEnoughVotes')}</div>
+                        : <div style={{ color: 'var(--text-muted)' }}>
+                            {resolved.thresholdMet ? t('drawNoOneBanished') : t('notEnoughVotes')}
+                        </div>
                     }
                     {resolved.tally.length > 0 && (
-                        <div style={{ marginTop: 10 }}>
-                            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{t('voteTally')}:</div>
-                            {resolved.tally
-                                .sort((a, b) => b.votes - a.votes)
-                                .map(t => {
-                                    const name = allSeats.find(s => s.id === t.playerId)?.nickname ?? '?';
-                                    return (
-                                        <div key={t.playerId} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                                            <span style={{ color: '#ddd', width: 100, fontSize: 13 }}>{name}</span>
-                                            <div style={{ flex: 1, height: 8, background: '#222', borderRadius: 4, overflow: 'hidden' }}>
-                                                <div style={{ height: '100%', background: '#c0392b', borderRadius: 4, width: `${(t.votes / alivePlayers.length) * 100}%` }} />
-                                            </div>
-                                            <span style={{ color: '#aaa', fontSize: 12, width: 24, textAlign: 'right' }}>{t.votes}</span>
+                        <div className="tally">
+                            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6,
+                                letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                                {t('voteTally')}
+                            </div>
+                            {[...resolved.tally].sort((a, b) => b.votes - a.votes).map(row => {
+                                const name = allSeats.find(s => s.id === row.playerId)?.nickname ?? '?';
+                                const width = alivePlayers.length ? (row.votes / alivePlayers.length) * 100 : 0;
+                                return (
+                                    <div key={row.playerId} className="tally__row">
+                                        <span>{name}</span>
+                                        <div className="tally__bar-outer">
+                                            <div className="tally__bar-inner" style={{ width: `${width}%` }} />
                                         </div>
-                                    );
-                                })}
+                                        <span className="tally__count">{row.votes}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
-                    <div style={{ color: '#555', fontSize: 12, marginTop: 10 }}>{t('nightFallsSoon')}</div>
+                    <div style={{ color: 'var(--text-dim)', fontSize: 12, marginTop: 12, fontStyle: 'italic' }}>
+                        {t('nightFallsSoon')}
+                    </div>
                 </div>
             )}
 
-            {/* Event log */}
-            <div style={{ maxWidth: 460, width: '100%', borderRadius: 8, background: '#111', padding: '8px 14px' }}>
+            <div className="event-log">
                 {log.slice(-5).map((entry, i) => (
-                    <div key={i} style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>{entry}</div>
+                    <div key={i} className="event-log__line">— {entry}</div>
                 ))}
             </div>
         </div>

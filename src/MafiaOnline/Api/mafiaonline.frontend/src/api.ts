@@ -64,7 +64,9 @@ export type LobbyResponse = {
 
 export type RoleResponse = {
     name: string;
-    teamName: string;
+    teamName?: string;
+    /** Backend endpoints inconsistently return `team` vs `teamName`; both are accepted. */
+    team?: string;
     teamId: number;
 };
 

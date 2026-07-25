@@ -4,14 +4,13 @@ import { useTranslation } from 'react-i18next';
 
 interface Props {
     payload: GameOverPayload;
-    myRoleLabel: string; // localized label
-    myRole: string; // raw role name for logic
+    myRoleLabel: string;
+    myRole: string;
 }
 
 export default function GameOver({ payload, myRoleLabel, myRole }: Props) {
     const { t } = useTranslation();
 
-    // Determine win state: if Fool won, only Fool "wins"; for UI we treat others as lost.
     let won = false;
     if (payload.winner === 'Fool') {
         won = myRole === 'Fool';
@@ -20,24 +19,30 @@ export default function GameOver({ payload, myRoleLabel, myRole }: Props) {
             || (payload.winner === 'Werewolves' && myRole === 'Werewolf');
     }
 
-    const color = payload.winner === 'Villagers' ? '#5cb85c' : payload.winner === 'Werewolves' ? '#d9534f' : '#f0c040';
-    const icon = payload.winner === 'Villagers' ? '\uD83C\uDF3E' : payload.winner === 'Werewolves' ? '\uD83D\uDC3A' : '\u2600';
+    const icon = payload.winner === 'Villagers' ? '🌾'
+        : payload.winner === 'Werewolves' ? '🐺'
+        : '🃏';
+
+    const verdictClass = won ? 'gameover__verdict--won' : 'gameover__verdict--lost';
+    const color = payload.winner === 'Villagers' ? 'var(--town-2)'
+        : payload.winner === 'Werewolves' ? 'var(--danger-2)'
+        : 'var(--accent-2)';
 
     return (
-        <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', minHeight: '60vh', gap: 20, textAlign: 'center',
-        }}>
-            <div style={{ fontSize: 64 }}>{icon}</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color, textShadow: `0 0 40px ${color}88` }}>
-                {payload.winner} win!
+        <div className="gameover">
+            <div className="gameover__icon" style={{ color }}>{icon}</div>
+            <div className="gameover__title" style={{ color, textShadow: `0 0 40px ${color}` }}>
+                {t(payload.winner)} {t('teamWins')}
             </div>
-            <div style={{ fontSize: 18, color: won ? '#5cb85c' : '#d9534f', fontWeight: 700 }}>
-                {won ? '\uD83C\uDF89 ' + t('youWon') : '\uD83D\uDE14 ' + t('youLost')}
+            <div className={`gameover__verdict ${verdictClass}`}>
+                {won ? '🎉 ' + t('youWon') : t('youLost')}
             </div>
-            <div style={{ color: '#555', fontSize: 13 }}>
-                You played as: <b style={{ color: '#aaa' }}>{myRoleLabel}</b>
+            <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                {t('youPlayedAs')} <b style={{ color: 'var(--accent-2)' }}>{myRoleLabel}</b>
             </div>
+            <button className="btn btn--primary" onClick={() => window.location.reload()} style={{ marginTop: 16 }}>
+                {t('playAgain')}
+            </button>
         </div>
     );
 }

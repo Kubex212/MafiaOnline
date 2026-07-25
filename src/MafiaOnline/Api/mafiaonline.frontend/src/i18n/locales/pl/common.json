@@ -123,5 +123,17 @@
   "dogTamerRange": "Zasięg",
   "dogTamerNumWerewolves": "Wilkołaki do szczekania",
   "allowSelfTarget": "Może celować w siebie",
-  "mustAlternate": "Musi zmieniać cel"
+  "mustAlternate": "Musi zmieniać cel",
+  "villageOfSecrets": "Wioska sekretów",
+  "tagline": "Nie ufaj nikomu. Głosuj rozważnie. Przetrwaj do świtu.",
+  "copyCode": "Skopiuj kod",
+  "tapToCopy": "Kliknij, aby skopiować",
+  "codeCopied": "Skopiowano",
+  "noPlayersYet": "Brak graczy — zaproś podróżnych.",
+  "connectedToHub": "Połączono z serwerem.",
+  "pickTargetsConfirmOrSkip": "Wybierz cele, potwierdź albo pominij.",
+  "Villagers": "Wieśniacy",
+  "Werewolves": "Wilkołaki",
+  "youPlayedAs": "Grałeś jako",
+  "playAgain": "Zagraj ponownie"
 }
