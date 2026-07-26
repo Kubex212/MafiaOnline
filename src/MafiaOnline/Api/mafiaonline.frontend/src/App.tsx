@@ -17,6 +17,7 @@ import GameOver from './GameOver';
 import GameConfigPanel from './GameConfigPanel';
 import GameConfigView from './GameConfigView';
 import { useTranslation } from 'react-i18next';
+import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
@@ -48,10 +49,12 @@ export default function App() {
     const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
     const [creating, setCreating] = useState(false);
     const [codeCopied, setCodeCopied] = useState(false);
+    const [deadIds, setDeadIds] = useState<string[]>([]);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
     const myPlayerIdRef = useRef<string | null>(null);
+    const seatsRef = useRef<SeatInfo[] | null>(null);
     const nightRef = useRef<NightPhaseHandle | null>(null);
     const dayRef = useRef<DayPhaseHandle | null>(null);
 
@@ -59,6 +62,17 @@ export default function App() {
 
     useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
     useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
+    useEffect(() => { seatsRef.current = seats; }, [seats]);
+
+    /** Nicknames coming back from the hub -> seat ids, merged into the dead set. */
+    const markDeadByNickname = (names: string[]) => {
+        if (!names?.length) return;
+        const all = seatsRef.current ?? [];
+        const ids = names
+            .map(n => all.find(s => s.nickname === n)?.id)
+            .filter((x): x is string => !!x);
+        if (ids.length) setDeadIds(prev => Array.from(new Set([...prev, ...ids])));
+    };
 
     // Update document title reactively based on state instead of during render.
     useEffect(() => {
@@ -106,6 +120,8 @@ export default function App() {
         conn.on('GameStarted', async (seatList: SeatInfo[]) => {
             const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
             setSeats(sorted);
+            seatsRef.current = sorted;
+            setDeadIds([]);
             const code = lobbyRef.current?.code;
             const pid = myPlayerIdRef.current;
             if (code && pid) {
@@ -123,10 +139,15 @@ export default function App() {
         });
 
         conn.on('NightResolved', (payload: NightResolvedPayload) => {
+            markDeadByNickname(payload.killed);
             nightRef.current?.onNightResolved(payload);
         });
 
         conn.on('DayStarted', (payload: DayStartedPayload) => {
+            // Authoritative alive list — anyone missing from it is dead.
+            const alive = new Set(payload.alivePlayers.map(p => p.id));
+            const all = seatsRef.current ?? [];
+            setDeadIds(all.filter(s => !alive.has(s.id)).map(s => s.id));
             setView('day');
             runAfterCommit(() => dayRef.current?.onDayStarted(payload));
         });
@@ -136,6 +157,7 @@ export default function App() {
         });
 
         conn.on('DayResolved', (payload: DayResolvedPayload) => {
+            markDeadByNickname(payload.banished);
             dayRef.current?.onDayResolved(payload);
         });
 
@@ -162,7 +184,8 @@ export default function App() {
                     await conn.invoke('JoinLobby', storedLobbyCode);
 
                     if (data.gamePhase === 'day' && data.day) {
-                        setSeats(data.day.alivePlayers);
+                        const alive = new Set(data.day.alivePlayers.map(p => p.id));
+                        setDeadIds((data.seats ?? []).filter(s => !alive.has(s.id)).map(s => s.id));
                         runAfterCommit(() => {
                             dayRef.current?.onDayStarted({
                                 durationSeconds: data.day!.durationSeconds,
@@ -288,15 +311,7 @@ export default function App() {
         const teamColorVar = myRole.teamId === 1 ? 'var(--wolf)'
             : myRole.teamId === 2 ? 'var(--neutral)'
             : 'var(--town-2)';
-        const sigil = myRole.name === 'Werewolf' ? '🐺'
-            : myRole.name === 'Guardian' ? '🛡'
-            : myRole.name === 'Detective' ? '🔍'
-            : myRole.name === 'Seer' ? '🔮'
-            : myRole.name === 'Fool' ? '🃏'
-            : myRole.name === 'Dog Tamer' ? '🐕'
-            : myRole.name === 'Poacher' ? '🪤'
-            : myRole.name === 'Trailer' ? '🐾'
-            : '🌾';
+        const sigil = ROLE_SIGILS[myRole.name] ?? '🌾';
         return (
             <div className="phase"><div className="phase__inner reveal">
                 <div className="reveal__eyebrow">{t('yourRoleIs')}</div>
@@ -305,6 +320,9 @@ export default function App() {
                     {t(myRole.name)}
                 </div>
                 <div className="reveal__team">{myRole.teamName ?? myRole.team}</div>
+                <p className="reveal__desc">
+                    {t(roleDescKey(myRole.name, 'Short'), roleDescParams(lobby?.config))}
+                </p>
                 <div style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 12, fontStyle: 'italic' }}>
                     {t('nightBeginsSoon')}
                 </div>
@@ -316,6 +334,7 @@ export default function App() {
     if (view === 'night' && seats && myPlayerId && myRole) {
         return (
             <div className="phase"><div className="phase__inner">
+                <div className="phase-veil phase-veil--night" key="veil-night" aria-hidden />
                 <h2 className="phase__title">
                     🌙 {t('nightPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
@@ -324,7 +343,9 @@ export default function App() {
                     lobbyCode={lobby!.code}
                     seats={seats}
                     myPlayerId={myPlayerId}
-                    myRole={myRole} />
+                    myRole={myRole}
+                    deadIds={deadIds}
+                    config={lobby?.config} />
             </div></div>
         );
     }
@@ -333,6 +354,7 @@ export default function App() {
     if (view === 'day' && seats && myPlayerId && myRole) {
         return (
             <div className="phase"><div className="phase__inner">
+                <div className="phase-veil phase-veil--day" key="veil-day" aria-hidden />
                 <h2 className="phase__title">
                     ☀ {t('dayPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
@@ -341,7 +363,9 @@ export default function App() {
                     lobbyCode={lobby!.code}
                     allSeats={seats}
                     myPlayerId={myPlayerId}
-                    myRole={myRole} />
+                    myRole={myRole}
+                    deadIds={deadIds}
+                    config={lobby?.config} />
             </div></div>
         );
     }

@@ -1,8 +1,9 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, DayStartedPayload, VoteCastPayload, DayResolvedPayload } from './api';
+import type { SeatInfo, RoleResponse, DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameConfig } from './api';
 import { castVote } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
+import RoleInfo from './RoleInfo';
 
 export interface DayPhaseHandle {
     onDayStarted(payload: DayStartedPayload): void;
@@ -16,10 +17,12 @@ interface Props {
     allSeats: SeatInfo[];
     myPlayerId: string;
     myRole: RoleResponse;
+    deadIds?: string[];
+    config?: GameConfig | null;
 }
 
 const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
-    { lobbyCode, allSeats, myPlayerId, myRole }, ref
+    { lobbyCode, allSeats, myPlayerId, myRole, deadIds = [], config }, ref
 ) {
     const { t } = useTranslation();
     const [alivePlayers, setAlivePlayers] = useState<SeatInfo[]>([]);
@@ -103,7 +106,10 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     }
 
     const seatStates: TableSeatState[] = allSeats.map(seat => {
-        const isAlive = alivePlayers.some(p => p.id === seat.id);
+        // Fall back to the App-level dead list before DayStarted has landed.
+        const isAlive = alivePlayers.length > 0
+            ? alivePlayers.some(p => p.id === seat.id) && !deadIds.includes(seat.id)
+            : !deadIds.includes(seat.id);
         const isMe = seat.id === myPlayerId;
         return {
             seat,
@@ -127,13 +133,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-            <div className="role-badge" style={{ borderColor: `var(--${myRole.name === 'Werewolf' ? 'wolf' : 'town'})` }}>
-                <span className="role-badge__label">{t('yourRole')}</span>
-                <span className="role-badge__name"
-                    style={{ color: `var(--${myRole.name === 'Werewolf' ? 'wolf' : 'town'})` }}>
-                    {t(myRole.name)}
-                </span>
-            </div>
+            <RoleInfo role={myRole} config={config} />
 
             {!resolved && (
                 <div className="timer">

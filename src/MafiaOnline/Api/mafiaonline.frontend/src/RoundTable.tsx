@@ -111,9 +111,11 @@ export default function RoundTable({
 
                 return (
                     <g key={seat.id} transform={`translate(${pos.x},${pos.y})`}
+                        className={isAlive ? undefined : 'seat--dead'}
                         style={{ cursor: isTargetable ? 'pointer' : 'default' }}
                         onClick={() => { if (isTargetable && onSeatClick) onSeatClick(seat); }}
                     >
+                        <title>{seat.nickname}</title>
                         {isActive && (
                             <circle r={44} fill="var(--accent)" opacity={0.25}
                                 className="seat-active-halo" />

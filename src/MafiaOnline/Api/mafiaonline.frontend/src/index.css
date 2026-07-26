@@ -2,8 +2,9 @@
 
 :root {
   /* Typography */
-  --font-display: 'Cinzel', 'Trajan Pro', 'Palatino Linotype', Georgia, serif;
-  --font-body: 'IM Fell English', 'Iowan Old Style', Georgia, 'Segoe UI', serif;
+  --font-display: 'Cinzel', 'Palatino Linotype', Georgia, serif;
+  /* EB Garamond covers latin-ext (ą ć ę ł ń ó ś ź ż) — IM Fell English does not. */
+  --font-body: 'EB Garamond', 'Iowan Old Style', Georgia, 'Segoe UI', serif;
   --font-ui: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
@@ -65,24 +66,25 @@
 }
 
 [data-phase='day'] {
-  --bg:        #ecdfc0;
-  --bg-grad:   radial-gradient(1400px 800px at 50% -20%, #fbf1d2 0%, #ecdfc0 55%, #d9c69a 100%);
-  --surface:   #f4e8c9;
-  --surface-2: #ecdcb4;
-  --border:    #b89a63;
-  --border-soft:#cdb27a;
-  --text:      #2e2416;
-  --text-muted:#6b5a3c;
-  --text-dim:  #8b7a5a;
-  --accent:    #8b5a1c;
-  --accent-2:  #b47a2a;
-  --accent-glow: rgba(139, 90, 28, 0.25);
-  --danger:    #8b1e1e;
-  --wolf:      #8b1e1e;
-  --town:      #4a6b2a;
-  --town-2:    #6b8f4a;
-  --shadow-lg: 0 18px 40px -18px rgba(90, 60, 20, 0.35), 0 6px 14px -8px rgba(90, 60, 20, 0.25);
-  color-scheme: light;
+  /* Sunlit forest — brighter than night, but mossy and calm rather than flashy. */
+  --bg:        #1d2a1a;
+  --bg-grad:   radial-gradient(1200px 800px at 50% -15%, #3b5030 0%, #22301d 55%, #131b10 100%);
+  --surface:   #26331f;
+  --surface-2: #2e3d26;
+  --border:    #4d6140;
+  --border-soft:#3a4b30;
+  --text:      #e8f0dd;
+  --text-muted:#a9b99a;
+  --text-dim:  #7f8f70;
+  --accent:    #d9bb63;
+  --accent-2:  #f0d693;
+  --accent-glow: rgba(217, 187, 99, 0.28);
+  --danger:    #a83b2b;
+  --danger-2:  #cf5d47;
+  --wolf:      #c04a37;
+  --town:      #71a04f;
+  --town-2:    #a4c977;
+  --shadow-lg: 0 20px 46px -20px rgba(0, 0, 0, 0.6), 0 6px 14px -8px rgba(0, 0, 0, 0.45);
 }
 
 [data-phase='gameover'] {
@@ -99,11 +101,58 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   background: var(--bg);
-  background-image: var(--bg-grad);
-  background-attachment: fixed;
   color: var(--text);
-  transition: background-color 0.6s var(--ease), color 0.6s var(--ease);
+  transition: background-color 1.2s var(--ease), color 1.2s var(--ease);
   overflow-x: hidden;
+}
+
+/* Two stacked sky layers cross-fade between phases (background-image itself
+   cannot be transitioned, so we fade whole layers instead). */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity 1.4s var(--ease);
+}
+body::before {
+  /* dusk base — always visible underneath */
+  background-image: radial-gradient(1200px 800px at 50% -10%, #1a1512 0%, #0a0806 65%, #050403 100%);
+  opacity: 1;
+}
+body::after {
+  background-image: var(--bg-grad);
+  opacity: 0;
+}
+[data-phase='night'] body::after,
+[data-phase='day'] body::after,
+[data-phase='gameover'] body::after { opacity: 1; }
+
+/* Smooth the palette swap on the chrome that carries phase colours. */
+.card, .btn, .input, .select, .role-badge, .turn-banner, .resolution,
+.event-log, .config__section, .role-card, .player-list__item, .table-svg circle,
+.table-svg text, .phase__title, .role-info {
+  transition: background-color 1.1s var(--ease), border-color 1.1s var(--ease),
+              color 1.1s var(--ease), fill 1.1s var(--ease), stroke 1.1s var(--ease),
+              box-shadow 1.1s var(--ease);
+}
+
+/* Dawn / dusk veil played on every phase switch. */
+.phase-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  animation: veil 1.6s var(--ease) forwards;
+}
+.phase-veil--day   { background: radial-gradient(circle at 50% 20%, rgba(240, 214, 147, 0.55), rgba(60, 90, 45, 0.35) 60%, transparent 100%); }
+.phase-veil--night { background: radial-gradient(circle at 50% 20%, rgba(20, 34, 28, 0.7), rgba(2, 5, 4, 0.6) 60%, transparent 100%); }
+@keyframes veil {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 #root {
@@ -170,7 +219,7 @@ code { font-family: var(--font-mono); }
   opacity: 0.7;
 }
 
-/* Day — sunlit warmth + paper grain */
+/* Day — sun shafts through the canopy */
 [data-phase='day'] .phase::before {
   content: '';
   position: absolute;
@@ -178,8 +227,8 @@ code { font-family: var(--font-mono); }
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(50% 30% at 50% 0%, rgba(255, 220, 130, 0.4), transparent 70%),
-    repeating-linear-gradient(45deg, rgba(120,80,30,0.02) 0 2px, transparent 2px 6px);
+    radial-gradient(55% 35% at 50% 0%, rgba(255, 236, 168, 0.18), transparent 70%),
+    repeating-linear-gradient(74deg, rgba(255, 240, 180, 0.045) 0 3px, transparent 3px 46px);
 }
 
 /* Lobby / role-reveal — forest silhouette */
@@ -816,4 +865,96 @@ code { font-family: var(--font-mono); }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Role info (badge + expandable long description)
+   ──────────────────────────────────────────────────────────────────────── */
+
+.role-info { width: 100%; max-width: 480px; }
+.role-info__badge {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font-family: var(--font-display);
+  cursor: pointer;
+  text-align: left;
+}
+.role-info__badge:hover { border-color: var(--accent); }
+.role-info__badge:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.role-info__label {
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.role-info__name { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.08em; flex: 1; }
+.role-info__chev {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.25s var(--ease);
+}
+.role-info__badge[aria-expanded='true'] .role-info__chev { transform: rotate(180deg); }
+.role-info__panel {
+  margin-top: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  animation: fadeIn 0.3s var(--ease);
+}
+
+.reveal__desc {
+  max-width: 460px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  animation: fadeIn 0.9s var(--ease) both;
+  animation-delay: 0.3s;
+}
+
+/* Dead seats */
+.seat--dead { filter: grayscale(0.7); }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Read-only config view (non-host)
+   ──────────────────────────────────────────────────────────────────────── */
+
+.config--readonly .config__row { color: var(--text-muted); }
+.config__value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent-2);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+  min-width: 56px;
+  text-align: center;
+}
+.config__flag {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.config__flag--on  { color: var(--town-2); }
+.config__flag--off { color: var(--text-dim); }
+.role-card--off { opacity: 0.5; }
+.role-card__head--static { cursor: default; justify-content: space-between; }
+
+@media (max-width: 420px) {
+  .config__row { flex-wrap: wrap; }
 }

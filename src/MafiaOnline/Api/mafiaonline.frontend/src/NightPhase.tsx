@@ -1,14 +1,17 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, PlayerNightInfoResponse } from './api';
+import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, PlayerNightInfoResponse, GameConfig } from './api';
 import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState } from './RoundTable';
+import RoleInfo from './RoleInfo';
 
 interface Props {
     lobbyCode: string;
     seats: SeatInfo[];
     myPlayerId: string;
     myRole: RoleResponse;
+    deadIds?: string[];
+    config?: GameConfig | null;
 }
 
 export interface NightPhaseHandle {
@@ -19,7 +22,7 @@ export interface NightPhaseHandle {
 const TURN_SECONDS = 1000;
 
 const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
-    { lobbyCode, seats, myPlayerId, myRole }, ref
+    { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config }, ref
 ) {
     const { t } = useTranslation();
     const [activeTurn, setActiveTurn] = useState<NightTurnStarted | null>(null);
@@ -119,14 +122,17 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         } catch (e) { alert(String(e)); setSubmitting(false); }
     }
 
-    const seatStates: TableSeatState[] = seats.map(seat => ({
-        seat,
-        isMe: seat.id === myPlayerId,
-        isActive: seat.id === activeTurn?.activePlayerId && !resolved,
-        isAlive: true,
-        isSelected: selectedTargets.includes(seat.id),
-        isTargetable: canAct && seat.id !== myPlayerId && !resolved,
-    }));
+    const seatStates: TableSeatState[] = seats.map(seat => {
+        const isAlive = !deadIds.includes(seat.id);
+        return {
+            seat,
+            isMe: seat.id === myPlayerId,
+            isActive: seat.id === activeTurn?.activePlayerId && !resolved,
+            isAlive,
+            isSelected: selectedTargets.includes(seat.id),
+            isTargetable: canAct && isAlive && seat.id !== myPlayerId && !resolved,
+        };
+    });
 
     const actionLabel = myRole.name === 'Werewolf' ? t('attack')
         : myRole.name === 'Guardian' ? t('protect')
@@ -134,14 +140,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-            {/* Role badge */}
-            <div className="role-badge" style={{ borderColor: `var(--${myRole.name === 'Werewolf' ? 'wolf' : 'town-2'})` }}>
-                <span className="role-badge__label">{t('yourRole')}</span>
-                <span className="role-badge__name"
-                    style={{ color: `var(--${myRole.name === 'Werewolf' ? 'wolf' : 'town-2'})` }}>
-                    {t(myRole.name)}
-                </span>
-            </div>
+            {/* Role badge — expandable long description */}
+            <RoleInfo role={myRole} config={config} />
 
             {/* Turn banner */}
             {activeTurn && !resolved && (
