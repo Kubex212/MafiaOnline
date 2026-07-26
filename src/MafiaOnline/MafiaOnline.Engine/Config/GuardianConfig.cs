@@ -15,5 +15,10 @@ public class GuardianConfig
     /// Whether the Guardian can protect the same player on consecutive nights.
     /// Default: true.
     /// </summary>
-    public bool CanProtectSamePlayerConsecutively { get; set; } = true;
+    public bool CanProtectSamePlayerConsecutively { get; set; } = false;
+
+    /// <summary>
+    /// Should the lobby be notified when the Guardian successfully protects a player from an attack?
+    /// </summary>
+    public bool AnnounceSuccessfulProtection { get; set; } = false;
 }

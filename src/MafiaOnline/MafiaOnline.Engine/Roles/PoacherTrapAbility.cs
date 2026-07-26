@@ -9,7 +9,7 @@ public class PoacherTrapAbility(PoacherConfig config) : NightAbility(12)
 
     public override int MinTargets => 1;
     public override int MaxTargets => 1;
-    public override bool CanTargetSelf => false;
+    public override bool CanTargetSelf => config.AllowSelfTarget;
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
@@ -21,7 +21,7 @@ public class PoacherTrapAbility(PoacherConfig config) : NightAbility(12)
         if (target is null) return;
 
         // enforce self-target config
-        if (!config.AllowSelfTarget && actor.Id == targetId) return;
+        if (!CanTargetSelf && actor.Id == targetId) return;
 
         // enforce must-alternate
         if (config.MustAlternate && actor.LastPoacherTrapTarget == targetId)

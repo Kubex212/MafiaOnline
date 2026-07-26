@@ -37,6 +37,16 @@ public abstract class NightAbility(int priority)
     public virtual bool CanTargetSelf => false;
 
     /// <summary>
+    /// If the ability is used, how long should it be before it can be used again? Null means no cooldown.
+    /// </summary>
+    public virtual int? Cooldown => null;
+
+    /// <summary>
+    /// When should the ability be available for the first time? Null means it is available from the start of the game.
+    /// </summary>
+    public virtual int? NightsDelay => null;
+
+    /// <summary>
     /// Execute the ability for <paramref name="actor"/> using the already-submitted
     /// <paramref name="action"/> (may be <c>null</c> for automatic abilities that
     /// choose their own target(s)).
