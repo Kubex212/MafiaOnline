@@ -128,7 +128,7 @@ export default function App() {
                 try {
                     setMyRole(normalizeRole(await getMyRole(code, pid)));
                     setView('role-reveal');
-                    setTimeout(() => setView('night'), 3000);
+                    setTimeout(() => setView('night'), 8000);
                 } catch { /* ignore */ }
             }
         });

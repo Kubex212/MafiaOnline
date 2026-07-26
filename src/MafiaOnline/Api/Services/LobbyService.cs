@@ -103,7 +103,7 @@ public class LobbyService : ILobbyService
         // Give clients a moment to render before the first turn fires
         try
         {
-            await Task.Delay(2000);
+            await Task.Delay(8000);
             using var scope = _scopeFactory.CreateScope();
             var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
             await nightService.BeginNightAsync(lobby.Code);

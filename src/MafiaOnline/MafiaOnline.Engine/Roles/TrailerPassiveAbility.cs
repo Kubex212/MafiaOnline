@@ -29,11 +29,11 @@ public class TrailerPassiveAbility() : NightAbility(26)
             var clockwise = (i - myIndex + n) % n;
             var counterClockwise = (myIndex - i + n) % n;
 
-            if (clockwise < bestRight)
-                bestRight = clockwise;
+            if (clockwise < bestLeft)
+                bestLeft = clockwise;
 
-            if (counterClockwise < bestLeft)
-                bestLeft = counterClockwise;
+            if (counterClockwise < bestRight)
+                bestRight = counterClockwise;
         }
 
         string dir;
