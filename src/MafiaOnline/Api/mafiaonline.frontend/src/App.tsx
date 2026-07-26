@@ -15,6 +15,7 @@ import NightPhase, { type NightPhaseHandle } from './NightPhase';
 import DayPhase, { type DayPhaseHandle } from './DayPhase';
 import GameOver from './GameOver';
 import GameConfigPanel from './GameConfigPanel';
+import GameConfigView from './GameConfigView';
 import { useTranslation } from 'react-i18next';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
@@ -469,8 +470,10 @@ export default function App() {
                             </div>
                         </div>
 
-                        {isHost && !lobby.started && (
-                            <GameConfigPanel config={lobby.config} onChange={onConfigChange} />
+                        {!lobby.started && (
+                            isHost
+                                ? <GameConfigPanel config={lobby.config} onChange={onConfigChange} />
+                                : <GameConfigView config={lobby.config} />
                         )}
 
                         {canStart && (
