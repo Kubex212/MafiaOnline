@@ -22,12 +22,14 @@ public class NightService : INightService
     private readonly IHubContext<LobbyHub> _hub;
     private readonly IDayService _dayService;
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService)
+    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService, IServiceScopeFactory serviceScopeFactory)
     {
         _repository = repository;
         _hub = hub;
         _dayService = dayService;
+        _scopeFactory = serviceScopeFactory;
     }
 
     public async Task BeginNightAsync(string lobbyCode)
@@ -102,15 +104,22 @@ public class NightService : INightService
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(turnSeconds), cts.Token);
-                var current = await GetLobby(lobby.Code);
+                using var scope = _scopeFactory.CreateScope();
+                var lobbyService = scope.ServiceProvider.GetRequiredService<ILobbyService>();
+                var current = await lobbyService.GetLobby(lobby.Code);
                 if (current.NightSession?.ActivePlayer?.Id == active.Id)
                 {
                     current.NightSession.ForceAdvance();
-                    await _repository.Update(current);
+
+                    var repository = scope.ServiceProvider.GetRequiredService<ILobbyRepository>();
+                    await repository.Update(current);
                     await AdvanceTurnAsync(current);
                 }
             }
-            catch (TaskCanceledException) { /* manually advanced */ }
+            catch (TaskCanceledException)
+            {
+                // manually advanced
+            }
         }, CancellationToken.None);
     }
 
