@@ -13,7 +13,6 @@ namespace Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -24,7 +23,6 @@ namespace Api
             builder.Services.AddScoped<ILobbyRepository, PostgresLobbyRepository>();
             builder.Services.AddScoped<ILobbyService, LobbyService>();
 
-            // NightService and DayService call each other; break the cycle with Lazy<T>
             builder.Services.AddScoped<INightService, NightService>();
             builder.Services.AddScoped<IDayService, DayService>();
 
@@ -38,13 +36,28 @@ namespace Api
 
             var app = builder.Build();
 
+
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                try
+                {
+                    var context = services.GetRequiredService<MafiaDbContext>();
+                    context.Database.Migrate();
+                }
+                catch (Exception ex)
+                {
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "An error occurred while migrating the database.");
+                }
+            }
+
+
             app.MapHub<LobbyHub>("/lobbyHub");
 
-            // Serve static files (so a built frontend in Api/wwwroot will be served)
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -56,7 +69,6 @@ namespace Api
 
             app.MapControllers();
 
-            // Fallback to index.html for SPA routes if index exists in wwwroot
             app.MapFallbackToFile("index.html");
 
             app.Run();
