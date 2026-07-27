@@ -1,13 +1,11 @@
 ﻿namespace MafiaOnline.Engine.Roles;
 
 /// <summary>
-/// Werewolf — each night chooses a town player to kill.
+/// Werewolf — member of werewolf team. Team-shared kill vote lives in NightResolver logic.
 /// </summary>
-public class Werewolf : IRole, IHasNightAbility
+public class Werewolf : IRole
 {
     public RoleType Type => RoleType.Werewolf;
     public string Name => "Werewolf";
     public int TeamId => 1;
-
-    public NightAbility NightAbility { get; } = new WerewolfAttackAbility();
 }

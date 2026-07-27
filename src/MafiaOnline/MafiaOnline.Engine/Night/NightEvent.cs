@@ -53,3 +53,10 @@ public sealed class TrailerClueEvent : NightEvent
     public string Direction { get; }
     public TrailerClueEvent(Guid trailerId, string direction) => (TrailerId, Direction) = (trailerId, direction);
 }
+
+public sealed class DraculaEnshroudedEvent : NightEvent
+{
+    public Guid DraculaId { get; }
+    public Guid TargetId { get; }
+    public DraculaEnshroudedEvent(Guid draculaId, Guid targetId) => (DraculaId, TargetId) = (draculaId, targetId);
+}

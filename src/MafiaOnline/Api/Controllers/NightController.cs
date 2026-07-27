@@ -32,7 +32,7 @@ public class NightController : ControllerBase
     public async Task<IActionResult> Action(string code, [FromBody] NightActionRequest request)
     {
         // adapt to engine NightAction
-        var action = new NightAction(request.Targets);
+        var action = new NightAction(request.Targets, request.ActionType);
         await _nightService.SubmitActionAsync(code, request.ActorId, action);
         return Ok();
     }

@@ -15,6 +15,7 @@ export interface TableSeatState {
     isSelected?: boolean;
     isTargetable?: boolean;
     hasVoted?: boolean;
+    isEnshrouded?: boolean;
 }
 
 export interface VoteArrow {
@@ -96,6 +97,7 @@ export default function RoundTable({
                 const isSelected = !!st?.isSelected;
                 const isTargetable = !!st?.isTargetable;
                 const hasVoted = !!st?.hasVoted;
+                const isEnshrouded = !!st?.isEnshrouded;
 
                 const stroke = isSelected ? 'var(--accent)'
                     : isActive ? 'var(--accent-2)'
@@ -153,6 +155,11 @@ export default function RoundTable({
                         )}
                         {hasVoted && isAlive && (
                             <text x={-22} y={-22} textAnchor="middle" fontSize={13}>✔️</text>
+                        )}
+
+                        {/* TODO: make it look better, now it's just a faint circle, make it actual shadow or mist */}
+                        {isEnshrouded && isAlive && (
+                            <circle r={40} fill="none" stroke="var(--wolf)" strokeWidth={2} opacity={0.12} />
                         )}
                     </g>
                 );

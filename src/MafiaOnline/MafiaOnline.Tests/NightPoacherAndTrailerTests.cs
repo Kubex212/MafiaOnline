@@ -22,10 +22,10 @@ public class NightPoacherAndTrailerTests
         var alive = new List<Player> { poacher, wolfA, victim, wolfB };
 
         // Poacher sets trap on victim and wolfA attacks victim
-        var actions = new Dictionary<Guid, NightAction>
+        var actions = new List<SubmittedNightAction>
         {
-            [poacher.Id] = new NightAction(new[] { victim.Id }),
-            [wolfA.Id] = new NightAction(new[] { victim.Id })
+            new SubmittedNightAction(poacher.Id, new NightAction(new[] { victim.Id }, ActionType.Ability)),
+            new SubmittedNightAction(wolfA.Id, new NightAction(new[] { victim.Id }, ActionType.Attack)),
         };
 
         // Act
@@ -49,7 +49,7 @@ public class NightPoacherAndTrailerTests
 
         var resolver = new NightResolver();
         // Run resolver to collect automatic clues
-        var result = resolver.Resolve(alive, new Dictionary<Guid, NightAction>());
+        var result = resolver.Resolve(alive, new List<SubmittedNightAction>());
 
         var trailerEvent = result.Events.OfType<TrailerClueEvent>().FirstOrDefault(e => e.TrailerId == trailer.Id);
         Assert.NotNull(trailerEvent);

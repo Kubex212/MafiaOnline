@@ -16,7 +16,7 @@ export default function RoleInfo({ role, config }: Props) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
 
-    const colorVar = role.name === 'Werewolf' ? 'var(--wolf)'
+    const colorVar = role.teamId === 1 ? 'var(--wolf)'
         : role.teamId === 2 ? 'var(--neutral)'
         : 'var(--town-2)';
     const sigil = ROLE_SIGILS[role.name] ?? '🌾';

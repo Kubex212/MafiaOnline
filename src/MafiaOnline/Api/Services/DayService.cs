@@ -2,6 +2,9 @@ using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using Microsoft.AspNetCore.SignalR;
+using System.Linq;
+using MafiaOnline.Engine.Roles;
+using MafiaOnline.Engine.Night;
 
 namespace MafiaOnline.Api.Services;
 
@@ -34,6 +37,18 @@ public class DayService : IDayService
         int duration = lobby.Game!.Config.Day.DurationSeconds;
         bool showTargets = lobby.Game.Config.Day.ShowVoteTargets;
 
+        // Determine enshrouded players from last night, if any
+        var enshrouded = new List<Guid>();
+        var last = lobby.Game?.LastNightResult;
+        if (last != null)
+        {
+            foreach (var ev in last.Events)
+            {
+                if (ev is DraculaEnshroudedEvent d)
+                    enshrouded.Add(d.TargetId);
+            }
+        }
+
         // Tell all clients the day has started
         var alivePlayers = lobby.Players
             .Where(p => lobby.Game.Players.First(ep => ep.Id == p.Id).IsAlive)
@@ -44,7 +59,8 @@ public class DayService : IDayService
         {
             durationSeconds = duration,
             showVoteTargets = showTargets,
-            alivePlayers
+            alivePlayers,
+            enshrouded = enshrouded
         });
 
         // Start day countdown timer
@@ -91,8 +107,6 @@ public class DayService : IDayService
         }
     }
 
-    // ?? internals ??????????????????????????????????????????????????????????
-
     private async Task ResolveDayAsync(string lobbyCode)
     {
         var lobby = await GetLobby(lobbyCode);
@@ -104,7 +118,22 @@ public class DayService : IDayService
             lobby.DaySession.Resolved = true;
         await _repository.Update(lobby);
 
-        var banishedNames = result.Banished
+        // Determine enshrouded players from last night, if any (so DayResolved can also reflect)
+        var enshrouded = new HashSet<Guid>();
+        var last = lobby.Game?.LastNightResult;
+        if (last != null)
+        {
+            foreach (var ev in last.Events)
+            {
+                if (ev is DraculaEnshroudedEvent d)
+                    enshrouded.Add(d.TargetId);
+            }
+        }
+
+        // Filter out enshrouded players from banishment
+        var filteredBanished = result.Banished.Where(id => !enshrouded.Contains(id)).ToList();
+
+        var banishedNames = filteredBanished
             .Select(id => lobby.Players.FirstOrDefault(p => p.Id == id)?.Nickname ?? "?")
             .ToList();
 

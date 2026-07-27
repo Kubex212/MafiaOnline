@@ -23,8 +23,9 @@ export const ROLE_SIGILS: Record<string, string> = {
     Detective: '🔍',
     Seer: '🔮',
     Fool: '🃏',
-    'Dog Tamer': '🐕',
+    DogTamer : '🐕',
     Poacher: '🪤',
     Trailer: '🐾',
     Villager: '🌾',
+    Dracula: '🧛',
 };

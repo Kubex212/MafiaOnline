@@ -18,18 +18,10 @@ import GameConfigPanel from './GameConfigPanel';
 import GameConfigView from './GameConfigView';
 import { useTranslation } from 'react-i18next';
 import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
+import startSound from './assets/audio/among-us-start-sound.mp3';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
-/**
- * Fill the roleName/team fields the frontend expects from the various
- * shapes the backend returns (some endpoints omit `team` / `teamName`).
- */
-function normalizeRole(r: RoleResponse): RoleResponse {
-    if (r.team && r.teamName) return r;
-    const derived = r.name === 'Werewolf' ? 'Werewolf' : 'Town';
-    return { ...r, team: r.team ?? derived, teamName: r.teamName ?? derived };
-}
 
 // Defer a callback until AFTER the pending React commit lands — this is how
 // we hand off initial NightTurnStarted / DayStarted payloads to phase
@@ -57,6 +49,7 @@ export default function App() {
     const seatsRef = useRef<SeatInfo[] | null>(null);
     const nightRef = useRef<NightPhaseHandle | null>(null);
     const dayRef = useRef<DayPhaseHandle | null>(null);
+    const myRoleRef = useRef<RoleResponse | null>(null);
 
     const { t } = useTranslation();
 
@@ -79,7 +72,7 @@ export default function App() {
         if (view === 'role-reveal' && myRole) {
             document.title = `${nickname}: ${t(myRole.name)} — ${t('appTitle')}`;
         } else {
-            document.title = t('appTitle');
+            // document.title = t('appTitle'); // for debugging, show the nickname and role
         }
     }, [view, myRole, nickname, t]);
 
@@ -126,8 +119,12 @@ export default function App() {
             const pid = myPlayerIdRef.current;
             if (code && pid) {
                 try {
-                    setMyRole(normalizeRole(await getMyRole(code, pid)));
+                    const myRoleResponse = await getMyRole(code, pid);
+                    setMyRole(myRoleResponse);
+                    myRoleRef.current = myRoleResponse;
                     setView('role-reveal');
+                    const audio = new Audio(startSound);
+                    audio.play();
                     setTimeout(() => setView('night'), 8000);
                 } catch { /* ignore */ }
             }
@@ -166,6 +163,14 @@ export default function App() {
             setView('gameover');
         });
 
+        conn.on('WerewolfAttackCast', (payload: { actorId: string; actorName: string, targetId: string; targetName: string }) => {
+            // Only notify local werewolf players (client can inspect role)
+            if (myRoleRef.current?.teamId === 1 && payload.actorId !== myPlayerIdRef.current) {
+                nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName } ));
+                // TODO: maybe show a vote arrow on the map for werewolves? (but not for non-werewolves)
+            }
+        });
+
         conn.start()
             .then(async () => {
                 setHubStarted(true);
@@ -178,7 +183,7 @@ export default function App() {
                     setLobby(data.lobby);
                     setMyPlayerId(storedUserId);
                     setSeats(data.seats);
-                    setMyRole(data.myRole ? normalizeRole(data.myRole) : null);
+                    setMyRole(data.myRole ? data.myRole : null);
                     setView(data.gamePhase);
                     setMessages([t('reconnected')]);
                     await conn.invoke('JoinLobby', storedLobbyCode);
@@ -191,6 +196,7 @@ export default function App() {
                                 durationSeconds: data.day!.durationSeconds,
                                 showVoteTargets: data.day!.showVoteTargets,
                                 alivePlayers: data.day!.alivePlayers,
+                                enshrouded: data.day!.enshrouded ?? []
                             });
                             if (data.day!.votes) {
                                 Object.entries(data.day!.votes).forEach(([voterId, candidateId]) => {
@@ -319,7 +325,7 @@ export default function App() {
                 <div className="reveal__role" style={{ color: teamColorVar, textShadow: `0 0 40px ${teamColorVar}` }}>
                     {t(myRole.name)}
                 </div>
-                <div className="reveal__team">{myRole.teamName ?? myRole.team}</div>
+                <div className="reveal__team">{t(myRole.teamName)}</div>
                 <p className="reveal__desc">
                     {t(roleDescKey(myRole.name, 'Short'), roleDescParams(lobby?.config))}
                 </p>

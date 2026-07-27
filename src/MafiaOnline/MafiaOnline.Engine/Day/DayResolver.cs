@@ -10,8 +10,16 @@ public class DayResolver
     public DayResult Resolve(
         IReadOnlyDictionary<Guid, Guid> votes,   // voter ? candidate
         IReadOnlyList<Guid> alivePlayers,
-        DayConfig config)
+        DayConfig config,
+        HashSet<Guid> enshroudedPlayers)
     {
+        AssertNoVotesOnEnshroudedPlayer(votes, enshroudedPlayers);
+
+        var context = new DayContext()
+        {
+            EnshroudedPlayers = enshroudedPlayers.ToHashSet()
+        };
+
         // Tally
         var tally = new Dictionary<Guid, int>();
         foreach (var (_, candidate) in votes)
@@ -50,5 +58,14 @@ public class DayResolver
             VoteTally = tally,
             ThresholdMet = thresholdMet
         };
+    }
+
+    private void AssertNoVotesOnEnshroudedPlayer(IReadOnlyDictionary<Guid, Guid> votes, HashSet<Guid> enshroudedPlayers)
+    {
+        foreach(var (_, candidate) in votes)
+        {
+            if (enshroudedPlayers.Contains(candidate))
+                throw new InvalidOperationException($"Vote cast for enshrouded player {candidate}");
+        }
     }
 }

@@ -35,6 +35,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [submitting, setSubmitting] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
     const [log, setLog] = useState<string[]>([t('dayBreaks')]);
+    const [enshrouded, setEnshrouded] = useState<Set<string>>(new Set());
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -49,6 +50,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             setResolved(null);
             setSubmitting(false);
             setLog([t('dayBreaks')]);
+            setEnshrouded(new Set((payload.enshrouded ?? []).map(id => id)));
 
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
@@ -111,13 +113,15 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             ? alivePlayers.some(p => p.id === seat.id) && !deadIds.includes(seat.id)
             : !deadIds.includes(seat.id);
         const isMe = seat.id === myPlayerId;
+        const isEnshrouded = enshrouded.has(seat.id);
         return {
             seat,
             isMe,
             isAlive,
             isSelected: seat.id === selectedTarget,
-            isTargetable: !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting,
+            isTargetable: !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting && !isEnshrouded,
             hasVoted: votes[seat.id] !== undefined,
+            isEnshrouded: isEnshrouded
         };
     });
 

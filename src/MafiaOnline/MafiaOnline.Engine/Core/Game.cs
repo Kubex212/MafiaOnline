@@ -10,7 +10,7 @@ public class Game
 {
     [JsonProperty]
     private List<Player> _players = new();
-    private readonly Dictionary<Guid, NightAction> _pendingNightActions = new();
+    private readonly Dictionary<(Guid Owner, ActionType type), NightAction> _pendingNightActions = new();
 
     [JsonConstructor]
     public Game(Guid id, GameConfig? config = null)
@@ -52,28 +52,7 @@ public class Game
 
     // ── Night ──────────────────────────────────────────────────────────────
 
-    internal void ResolveNightWithActions(IReadOnlyDictionary<Guid, Guid> actions)
-    {
-        if (Phase != GamePhase.Night)
-            throw new InvalidOperationException("Not currently the night phase.");
-
-        var alivePlayers = _players.Where(p => p.IsAlive).ToList();
-        var resolver = new NightResolver();
-        // adapt legacy actions
-        var adapted = actions.ToDictionary(kvp => kvp.Key, kvp => new NightAction(new[] { kvp.Value } as IEnumerable<Guid>));
-        LastNightResult = resolver.Resolve(alivePlayers, adapted);
-
-        foreach (var killedId in LastNightResult.Killed)
-            _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
-
-        CheckWinCondition();
-
-        if (Phase != GamePhase.Finished)
-            Phase = GamePhase.DayDiscussion;
-    }
-
-    // New overload accepting NightAction payloads
-    internal void ResolveNightWithActions(IReadOnlyDictionary<Guid, NightAction> actions)
+    internal void ResolveNightWithActions(IReadOnlyList<SubmittedNightAction> actions)
     {
         if (Phase != GamePhase.Night)
             throw new InvalidOperationException("Not currently the night phase.");
@@ -91,6 +70,7 @@ public class Game
             Phase = GamePhase.DayDiscussion;
     }
 
+
     // ── Day ────────────────────────────────────────────────────────────────
 
     internal void ResolveDayVoting(IReadOnlyDictionary<Guid, Guid> votes)
@@ -99,8 +79,9 @@ public class Game
             throw new InvalidOperationException("Not currently the day phase.");
 
         var alivePlayers = _players.Where(p => p.IsAlive).Select(p => p.Id).ToList();
+        var enshroudedPlayers = LastNightResult!.Events.OfType<DraculaEnshroudedEvent>().Select(e => e.TargetId).ToHashSet();
         var resolver = new DayResolver();
-        LastDayResult = resolver.Resolve(votes, alivePlayers, Config.Day);
+        LastDayResult = resolver.Resolve(votes, alivePlayers, Config.Day, enshroudedPlayers);
 
         foreach (var banishedId in LastDayResult.Banished)
             _players.FirstOrDefault(p => p.Id == banishedId)?.Kill();
@@ -156,66 +137,6 @@ public class Game
         }
     }
 
-    // ── Existing helpers (kept for completeness) ───────────────────────────
-
-    internal void SubmitNightAction(Guid actorId, Guid targetId)
-    {
-        if (Phase != GamePhase.Night)
-            throw new InvalidOperationException("Not currently the night phase.");
-
-        var actor = _players.FirstOrDefault(p => p.Id == actorId && p.IsAlive)
-            ?? throw new InvalidOperationException("Player not found or not alive.");
-
-        if (actor.Role is not IHasNightAbility nightRole || nightRole.NightAbility.IsAutomatic)
-            throw new InvalidOperationException("This player has no submittable night action.");
-
-        _pendingNightActions[actorId] = new NightAction(new[] { targetId } as IEnumerable<Guid>);
-
-        if (AllNightActionsSubmitted()) ResolveNightLegacy();
-    }
-
-    // New submission allowing multiple targets
-    internal void SubmitNightAction(Guid actorId, NightAction action)
-    {
-        if (Phase != GamePhase.Night)
-            throw new InvalidOperationException("Not currently the night phase.");
-
-        var actor = _players.FirstOrDefault(p => p.Id == actorId && p.IsAlive)
-            ?? throw new InvalidOperationException("Player not found or not alive.");
-
-        if (actor.Role is not IHasNightAbility nightRole || nightRole.NightAbility.IsAutomatic)
-            throw new InvalidOperationException("This player has no submittable night action.");
-
-        _pendingNightActions[actorId] = action;
-
-        if (AllNightActionsSubmitted()) ResolveNightLegacy();
-    }
-
-    internal void ForceResolveNight()
-    {
-        if (Phase != GamePhase.Night)
-            throw new InvalidOperationException("Not currently the night phase.");
-        ResolveNightLegacy();
-    }
-
-    private bool AllNightActionsSubmitted() =>
-        _players
-            .Where(p => p.IsAlive && p.Role is IHasNightAbility na && !na.NightAbility.IsAutomatic)
-            .All(p => _pendingNightActions.ContainsKey(p.Id));
-
-    private void ResolveNightLegacy()
-    {
-        var alivePlayers = _players.Where(p => p.IsAlive).ToList();
-        var resolver = new NightResolver();
-        LastNightResult = resolver.Resolve(alivePlayers, _pendingNightActions);
-
-        foreach (var killedId in LastNightResult.Killed)
-            _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
-
-        _pendingNightActions.Clear();
-        Phase = GamePhase.DayDiscussion;
-    }
-
     internal void AssignRoles(IReadOnlyList<Guid>? orderedPlayerIds = null)
     {
         List<Player> ordered;
@@ -233,22 +154,43 @@ public class Game
 
         var specialRolesToAssign = new List<IRole>();
 
-        for (int i = 0; i < Config.WerewolfCount; i++)
-            specialRolesToAssign.Add(new Werewolf());
-
+        // villager roles
         if (Config.Roles.Guardian) specialRolesToAssign.Add(new Guardian(Config.Guardian));
         if (Config.Roles.Detective) specialRolesToAssign.Add(new Detective(Config.Detective));
         if (Config.Roles.DogTamer) specialRolesToAssign.Add(new DogTamer(Config.DogTamer));
         if (Config.Roles.Poacher) specialRolesToAssign.Add(new Poacher(Config.Poacher));
         if (Config.Roles.Trailer) specialRolesToAssign.Add(new Trailer());
         if (Config.Roles.Seer) specialRolesToAssign.Add(new Seer());
+
+        // neutral roles
         if (Config.Roles.Fool) specialRolesToAssign.Add(new Fool());
+
+        var werewolfRolesToAssign = new List<IRole>();
+
+        // werewolf roles
+        if (Config.Roles.Dracula) werewolfRolesToAssign.Add(new Dracula());
+
+        var werewolfRoleCount = werewolfRolesToAssign.Count;
+        for (int i = 0; i < Config.WerewolfCount - werewolfRoleCount; i++)
+            werewolfRolesToAssign.Add(new Werewolf());
+
 
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
 
-        var shuffledIndices = Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
         var playerCount = ordered.Count;
-        for (var i = 0; i < Math.Min(specialRolesToAssign.Count, playerCount); i++)
+        var shuffledIndices = new List<int>() { 0, 1, 2, 3, 4, 5, 6, 7, 8 }.Take(playerCount).ToList();//Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
+
+        // assign werewolf roles
+        for (var i = 0; i < Math.Min(werewolfRolesToAssign.Count, playerCount); i++)
+        {
+            var playerIndex = shuffledIndices[i];
+            var werewolfRole = werewolfRolesToAssign[i];
+            ordered[playerIndex].AssignRole(werewolfRole);
+            unassignedPlayers.Remove(playerIndex);
+        }
+
+        // assign other roles
+        for (var i = Config.WerewolfCount; i < Math.Min(specialRolesToAssign.Count, playerCount); i++)
         {
             var playerIndex = shuffledIndices[i];
             var role = specialRolesToAssign[i];

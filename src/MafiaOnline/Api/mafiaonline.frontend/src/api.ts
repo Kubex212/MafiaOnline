@@ -1,4 +1,5 @@
 import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
+import type { ActionType } from './NightPhase';
 
 export type PlayerResponse = {
     id: string;
@@ -16,6 +17,7 @@ export type RoleSelection = {
     trailer: boolean;
     seer: boolean;
     fool: boolean;
+    dracula: boolean;
 };
 
 export type DayConfig = {
@@ -65,8 +67,6 @@ export type LobbyResponse = {
 export type RoleResponse = {
     name: string;
     teamName?: string;
-    /** Backend endpoints inconsistently return `team` vs `teamName`; both are accepted. */
-    team?: string;
     teamId: number;
 };
 
@@ -124,6 +124,13 @@ export type DayStartedPayload = {
     durationSeconds: number;
     showVoteTargets: boolean;
     alivePlayers: SeatInfo[];
+    enshrouded?: string[];
+};
+
+export type WerewolfAttackPayload = {
+    actorId: string;
+    targetId: string;
+    targetName: string;
 };
 
 export type VoteCastPayload = {
@@ -191,12 +198,13 @@ export function createHubConnection(): HubConnection {
         .build();
 }
 
-export async function submitNightAction(code: string, actorId: string, targetIdOrTargets: string | string[]): Promise<void> {
+export async function submitNightAction(code: string, actorId: string, targetIdOrTargets: string | string[], actionType: ActionType): Promise<void> {
     const targets = Array.isArray(targetIdOrTargets) ? targetIdOrTargets : [targetIdOrTargets];
+    const body: any = { actorId, targets, actionType };
     const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actorId, targets })
+        body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error('Action failed: ' + res.statusText);
 }

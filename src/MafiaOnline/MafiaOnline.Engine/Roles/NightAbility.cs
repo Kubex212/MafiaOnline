@@ -58,7 +58,7 @@ public abstract class NightAbility(int priority)
     public virtual void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
         // Default behavior: wrap single target into a NightAction and call new Apply.
-        NightAction? action = targetId is null ? null : new NightAction(new[] { targetId.Value }, new Dictionary<string, object>());
+        NightAction? action = targetId is null ? null : new NightAction(new[] { targetId.Value }, ActionType.Ability);
         Apply(actor, action, context, alivePlayers);
     }
 }

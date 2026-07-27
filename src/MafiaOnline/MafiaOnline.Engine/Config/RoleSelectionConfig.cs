@@ -12,4 +12,5 @@ public class RoleSelectionConfig
     public bool Trailer { get; set; } = true;
     public bool Seer { get; set; } = false;
     public bool Fool { get; set; } = true;
+    public bool Dracula { get; set; } = true;
 }

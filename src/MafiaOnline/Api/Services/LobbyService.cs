@@ -127,7 +127,7 @@ public class LobbyService : ILobbyService
         var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == playerId)
             ?? throw new InvalidOperationException("Player not found.");
 
-        return new RoleResponse() { Name = enginePlayer.Role.Name, TeamId = enginePlayer.Role.TeamId };
+        return new RoleResponse() { Name = enginePlayer.Role.Name, TeamName = enginePlayer.Role.Team.ToString(), TeamId = enginePlayer.Role.TeamId };
     }
 
     public async Task<Lobby> MovePlayerUpAsync(string code, Guid requestingPlayerId, Guid targetPlayerId)
@@ -193,7 +193,7 @@ public class LobbyService : ILobbyService
                 response.MyRole = new RoleResponse
                 {
                     Name = enginePlayer.Role.Name,
-                    Team = enginePlayer.Role.Name is "Werewolf" ? "Werewolf" : "Town",
+                    TeamName = enginePlayer.Role.Team.ToString(),
                     TeamId = enginePlayer.Role.TeamId
                 };
             }
@@ -221,9 +221,9 @@ public class LobbyService : ILobbyService
                 ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
                 HasAbility = lobby.ActivePlayerHasAbility(),
                 RemainingSeconds = 0,
-                SubmittedActions = lobby.NightSession.SubmittedActions
-                    .Where(kv => kv.Value != null && kv.Value.Targets.Any())
-                    .ToDictionary(kv => kv.Key, kv => kv.Value.Targets.First())
+                SubmittedActions = null//lobby.NightSession.SubmittedActions
+                    //.Where(kv => kv.Value != null && kv.Value.Targets.Any())
+                    //.ToDictionary(kv => kv.Key.Owner, kv => kv.Value.Targets.First()) // TODO: FIX THIS
             };
         }
         else if (lobby.DaySession != null && !lobby.DaySession.Resolved)
@@ -240,7 +240,8 @@ public class LobbyService : ILobbyService
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),
 
-                Votes = lobby.DaySession.Votes.ToDictionary(k => k.Key, v => v.Value)
+                Votes = lobby.DaySession.Votes.ToDictionary(k => k.Key, v => v.Value),
+                EnshroudedPlayer = null // TODO: fill this
             };
         }
         else if (lobby.Game?.Phase == GamePhase.Finished)

@@ -39,6 +39,11 @@ public class NightContext
     /// </summary>
     internal Dictionary<Guid, string> TrailerClues { get; } = new();
 
+    /// <summary>
+    /// Enshrouded players (Dracula ability) — set of player IDs that cannot be voted out during the next day. For now there should be only 1 enshrouded player at once.
+    /// </summary>
+    internal HashSet<Guid> Enshrouded { get; } = new();
+
     // ---------- finalised outcomes (populated by NightResolver) ----------
 
     internal List<NightEvent> Events { get; } = new();

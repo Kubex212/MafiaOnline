@@ -15,7 +15,7 @@ public enum RoleType
 
 public enum Team
 {
-    Town = 0,
+    Villagers = 0,
     Werewolves = 1,
     Neutral = 2
 }

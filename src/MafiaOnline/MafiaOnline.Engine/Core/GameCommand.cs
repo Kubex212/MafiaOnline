@@ -55,24 +55,6 @@ public class StartGameCommand : GameCommand
     }
 }
 
-/// <summary>
-/// Submitted by a player to declare their night action target.
-/// </summary>
-public class NightActionCommand : GameCommand
-{
-    public NightActionCommand(Guid playerId, Guid targetId)
-        : base(playerId)
-    {
-        TargetId = targetId;
-    }
-
-    public Guid TargetId { get; }
-
-    internal override void Execute(Game game)
-    {
-        game.SubmitNightAction(PlayerId, TargetId);
-    }
-}
 
 /// <summary>
 /// Resolves the night with a pre-collected set of player actions.
@@ -80,13 +62,13 @@ public class NightActionCommand : GameCommand
 /// </summary>
 public class ResolveNightCommand : GameCommand
 {
-    public ResolveNightCommand(IReadOnlyDictionary<Guid, NightAction> actions)
+    public ResolveNightCommand(IReadOnlyList<SubmittedNightAction> actions)
         : base(Guid.Empty)
     {
         Actions = actions;
     }
 
-    public IReadOnlyDictionary<Guid, NightAction> Actions { get; }
+    public IReadOnlyList<SubmittedNightAction> Actions { get; }
 
     internal override void Execute(Game game)
     {

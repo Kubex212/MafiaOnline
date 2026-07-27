@@ -20,7 +20,7 @@ public class NightService : INightService
 
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
-    private readonly IDayService _dayService;
+    private readonly IDayService _day_service;
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -28,7 +28,7 @@ public class NightService : INightService
     {
         _repository = repository;
         _hub = hub;
-        _dayService = dayService;
+        _day_service = dayService;
         _scopeFactory = serviceScopeFactory;
     }
 
@@ -43,10 +43,62 @@ public class NightService : INightService
     public async Task SubmitActionAsync(string lobbyCode, Guid actorId, NightAction action)
     {
         var lobby = await GetLobby(lobbyCode);
+        // Determine action type from data
+        var actionType = action.ActionType;
+
+        // ability submission — may be final or partial depending on role
         lobby.NightSession!.SubmitAction(actorId, action);
         await _repository.Update(lobby);
-        CancelTimer(lobbyCode);
-        await AdvanceTurnAsync(lobby);
+
+        if (actionType == ActionType.Attack)
+        {
+            // broadcast to werewolf team if config allows showing kill votes
+            var cfg = lobby.Config?.Werewolf;
+            if (cfg?.ShowKillVotesToTeam ?? true)
+            {
+                // find the attack target id from stored action
+                var attackTarget = action.Targets.FirstOrDefault();
+
+                if (action.Targets.Any())
+                {
+                    var targetName = lobby.Players.FirstOrDefault(p => p.Id == attackTarget)?.Nickname ?? "?";
+                    // send only to werewolves (clients should filter by team membership); using group per-lobby, include actor id so clients can decide
+                    await _hub.Clients.Group(lobby.Code).SendAsync("WerewolfAttackCast", new
+                    {
+                        actorId,
+                        actorName = lobby.Players.FirstOrDefault(p => p.Id == actorId)?.Nickname ?? "?",
+                        targetId = attackTarget,
+                        targetName
+                    });
+                }
+            }          
+        }
+
+        if (ShouldAdvance(lobby, actorId))
+        {
+            lobby.NightSession.Advance();
+            await _repository.Update(lobby);
+
+            await AdvanceTurnAsync(lobby);
+            CancelTimer(lobbyCode);
+        }
+        return;
+    }
+
+    private bool ShouldAdvance(Lobby lobby, Guid actorId)
+    {
+        // determine if this is the second action of a werewolf (attack + ability) or if the player has no ability and thus should advance
+        var isWerewolf = lobby.Game?.Players.FirstOrDefault(p => p.Id == actorId)?.Role.TeamId == 1;
+        var hasAbility = lobby.ActivePlayerHasAbility();
+
+        if(!isWerewolf || !hasAbility)
+            return true;
+
+        // check if the player has already submitted an attack
+        var submittedAttack = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == actorId && sa.Action.ActionType == ActionType.Attack);
+        var submittedAbility = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == actorId && sa.Action.ActionType == ActionType.Ability);
+
+        return submittedAttack == true && submittedAbility == true;
     }
 
     public async Task SkipTurnAsync(string lobbyCode, Guid actorId)
@@ -154,7 +206,7 @@ public class NightService : INightService
 
         // Transition to day after a short pause so clients can show the night summary
         await Task.Delay(7000);
-        await _dayService.BeginDayAsync(lobby.Code);
+        await _day_service.BeginDayAsync(lobby.Code);
     }
 
     private void CancelTimer(string code)

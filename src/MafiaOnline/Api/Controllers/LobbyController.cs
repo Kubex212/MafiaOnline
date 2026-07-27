@@ -46,22 +46,15 @@ public class LobbiesController : ControllerBase
     {
         var lobby = await _lobbyService.StartLobbyAsync(code, request.PlayerId);
 
-        return Ok(LobbyResponse.FromLobby(lobby));
+         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
     [HttpGet("{code}/role/{playerId:guid}")]
     public async Task<ActionResult<RoleResponse>> GetRole(string code, Guid playerId)
     {
         var role = await _lobbyService.GetPlayerRole(code, playerId);
-        // map team based on role name / engine TeamId
-        var teamName = role.TeamId switch
-        {
-            1 => "Werewolf",
-            2 => "Neutral",
-            _ => "Town"
-        };
 
-        return Ok(new RoleResponse { Name = role.Name, Team = teamName, TeamId = role.TeamId });
+        return Ok(role);
     }
 
     [HttpPost("{code}/order/move-up")]

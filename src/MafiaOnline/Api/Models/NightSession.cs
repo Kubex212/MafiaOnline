@@ -1,25 +1,29 @@
+using MafiaOnline.Engine.Night;
+using Newtonsoft.Json;
+
 namespace MafiaOnline.Api.Models;
 
 /// <summary>
 /// Tracks the turn-by-turn night phase for one lobby.
 /// Players act in seat order; non-ability players must still press Skip (to hide role information).
+/// This session supports multiple sub-actions per player (e.g. werewolf team attack + role ability).
 /// </summary>
 public class NightSession
 {
     [Newtonsoft.Json.JsonProperty]
     private List<LobbyPlayer> _turnOrder;
 
-    [Newtonsoft.Json.JsonProperty]
-    private readonly Dictionary<Guid, Engine.Night.NightAction> _submittedActions = new();
+    [JsonProperty]
+    private readonly List<SubmittedNightAction> _submittedActions = new();
 
     [Newtonsoft.Json.JsonConstructor]
-    public NightSession(List<LobbyPlayer> turnOrder, Dictionary<Guid, Engine.Night.NightAction>? submittedActions, int currentTurnIndex)
+    public NightSession(List<LobbyPlayer> turnOrder, List<SubmittedNightAction>? submittedActions, int currentTurnIndex)
     {
         _turnOrder = turnOrder ?? new List<LobbyPlayer>();
         if (submittedActions is not null)
         {
-            foreach (var kv in submittedActions)
-                _submittedActions[kv.Key] = kv.Value;
+            foreach (var action in submittedActions)
+                _submittedActions.Add(action);
         }
 
         CurrentTurnIndex = currentTurnIndex;
@@ -40,20 +44,13 @@ public class NightSession
 
     public LobbyPlayer? ActivePlayer => IsFinished ? null : _turnOrder[CurrentTurnIndex];
 
-    public IReadOnlyDictionary<Guid, Engine.Night.NightAction> SubmittedActions => _submittedActions;
+    public IReadOnlyList<SubmittedNightAction> SubmittedActions => _submittedActions;
 
-    /// <summary>Record a targeted action for the current player, then advance the turn.</summary>
+    /// <summary>Record a full action for the current player and advance the turn (legacy).</summary>
     public void SubmitAction(Guid actorId, Engine.Night.NightAction action)
     {
         AssertIsActivePlayer(actorId);
-        _submittedActions[actorId] = action;
-        Advance();
-    }
-
-    /// <summary>Legacy single-target overload kept for compatibility.</summary>
-    public void SubmitAction(Guid actorId, Guid targetId)
-    {
-        SubmitAction(actorId, new Engine.Night.NightAction(new[] { targetId }));
+        _submittedActions.Add(new (actorId, action));
     }
 
     /// <summary>Skip the current player's turn (no action recorded), then advance.</summary>
@@ -66,7 +63,7 @@ public class NightSession
     /// <summary>Force-advance the current turn (timeout).</summary>
     public void ForceAdvance() => Advance();
 
-    private void Advance() => CurrentTurnIndex++;
+    public void Advance() => CurrentTurnIndex++;
 
     private void AssertIsActivePlayer(Guid actorId)
     {

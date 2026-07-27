@@ -26,6 +26,7 @@ public class GameConfigDto
                 Trailer = config.Roles.Trailer,
                 Seer = config.Roles.Seer,
                 Fool = config.Roles.Fool,
+                Dracula = config.Roles.Dracula
             },
             WerewolfCount = config.WerewolfCount,
             TurnDurationSeconds = config.TurnDurationSeconds,
@@ -50,6 +51,7 @@ public class GameConfigDto
                 Trailer = Roles.Trailer,
                 Seer = Roles.Seer,
                 Fool = Roles.Fool,
+                Dracula = Roles.Dracula
             },
             WerewolfCount = WerewolfCount,
             TurnDurationSeconds = TurnDurationSeconds,
@@ -71,4 +73,5 @@ public class RoleSelectionDto
     public bool Trailer { get; set; } = true;
     public bool Seer { get; set; } = false;
     public bool Fool { get; set; } = true;
+    public bool Dracula { get; set; } = true;
 }

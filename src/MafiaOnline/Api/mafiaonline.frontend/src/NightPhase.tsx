@@ -17,6 +17,19 @@ interface Props {
 export interface NightPhaseHandle {
     onTurnStarted(turn: NightTurnStarted): void;
     onNightResolved(payload: NightResolvedPayload): void;
+    addLog(message: string): void;
+}
+
+export interface ActionData {
+    type: ActionType;
+    targets: string[];
+    attack: string[];
+}
+
+export enum ActionType {
+    Attack = 0,
+    Ability = 1,
+    Other = 2,
 }
 
 const TURN_SECONDS = 1000;
@@ -34,12 +47,18 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const [log, setLog] = useState<string[]>([t('nightFalls')]);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // track whether we already submitted attack/ability for this turn
+    const [attackSubmitted, setAttackSubmitted] = useState(false);
+    const [abilitySubmitted, setAbilitySubmitted] = useState(false);
+
     useImperativeHandle(ref, () => ({
         onTurnStarted(turn: NightTurnStarted) {
             setActiveTurn(turn);
             setTimeLeft(turn.timeoutSeconds ?? TURN_SECONDS);
             setSelectedTargets([]);
             setSubmitting(false);
+            setAttackSubmitted(false);
+            setAbilitySubmitted(false);
             const who = seats.find(s => s.id === turn.activePlayerId);
             const isMe = turn.activePlayerId === myPlayerId;
             setLog(l => [...l, isMe ? t('yourTurn') : t('playerTurn', { nick: who?.nickname ?? '?' })]);
@@ -83,6 +102,9 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 }
             } catch { /* no clue for this role */ }
         },
+        addLog(message: string) {
+            setLog(l => [...l, message]);
+        }
     }), [lobbyCode, myPlayerId, seats, t]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
@@ -104,13 +126,28 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         });
     }
 
-    async function handleAction() {
-        if (selectedTargets.length < minTargets || !isMyTurn) return;
+    async function submitAttack() {
+        if (!isMyTurn || submitting) return;
+        if (selectedTargets.length === 0) return;
         setSubmitting(true);
         try {
-            await submitNightAction(lobbyCode, myPlayerId, selectedTargets);
-            setLog(l => [...l, t('actionSubmitted')]);
-        } catch (e) { alert(String(e)); setSubmitting(false); }
+            await submitNightAction(lobbyCode, myPlayerId, selectedTargets[0], ActionType.Attack);
+            setAttackSubmitted(true);
+            setLog(l => [...l, t('attackSubmitted')]);
+        } catch (e) { alert(String(e)); }
+        finally { setSubmitting(false); }
+    }
+
+    async function submitAbility() {
+        if (!isMyTurn || submitting) return;
+        if (selectedTargets.length < minTargets) return;
+        setSubmitting(true);
+        try {
+            await submitNightAction(lobbyCode, myPlayerId, selectedTargets, ActionType.Ability);
+            setAbilitySubmitted(true);
+            setLog(l => [...l, t('abilitySubmitted')]);
+        } catch (e) { alert(String(e)); }
+        finally { setSubmitting(false); }
     }
 
     async function handleSkip() {
@@ -119,7 +156,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         try {
             await skipNightTurn(lobbyCode, myPlayerId);
             setLog(l => [...l, t('skipped')]);
-        } catch (e) { alert(String(e)); setSubmitting(false); }
+        } catch (e) { alert(String(e)); }
+        finally { setSubmitting(false); }
     }
 
     const seatStates: TableSeatState[] = seats.map(seat => {
@@ -130,13 +168,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             isActive: seat.id === activeTurn?.activePlayerId && !resolved,
             isAlive,
             isSelected: selectedTargets.includes(seat.id),
-            isTargetable: canAct && isAlive && seat.id !== myPlayerId && !resolved,
+            isTargetable: isMyTurn && !resolved && isAlive && seat.id !== myPlayerId && !submitting,
         };
     });
 
-    const actionLabel = myRole.name === 'Werewolf' ? t('attack')
-        : myRole.name === 'Guardian' ? t('protect')
-        : t('useAbility');
+    const isWerewolf = myRole.teamId === 1;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
@@ -189,13 +225,22 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             {/* Action controls */}
             {isMyTurn && !resolved && (
                 <div style={{ display: 'flex', gap: 12 }}>
-                    {activeTurn!.hasAbility && (
+                    {isWerewolf && (
                         <button className="btn btn--danger"
-                            disabled={selectedTargets.length < minTargets || submitting}
-                            onClick={handleAction}>
-                            {actionLabel}
+                            disabled={attackSubmitted || selectedTargets.length === 0 || submitting}
+                            onClick={submitAttack}>
+                            {t('attack')}
                         </button>
                     )}
+
+                    {activeTurn!.hasAbility && (
+                        <button className="btn btn--primary"
+                            disabled={abilitySubmitted || selectedTargets.length < minTargets || submitting}
+                            onClick={submitAbility}>
+                            {t('useAbility')}
+                        </button>
+                    )}
+
                     <button className="btn" disabled={submitting} onClick={handleSkip}>
                         {t('skip')}
                     </button>

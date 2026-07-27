@@ -15,4 +15,7 @@ public class GameConfig
     public DogTamerConfig DogTamer { get; set; } = new();
     public DayConfig Day { get; set; } = new();
     public PoacherConfig Poacher { get; set; } = new();
+
+    // Configuration for werewolf team behaviour (shared kill vote etc.)
+    public WerewolfConfig Werewolf { get; set; } = new();
 }

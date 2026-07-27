@@ -1,4 +1,5 @@
 using MafiaOnline.Engine.Roles;
+using MafiaOnline.Engine.Config;
 
 namespace MafiaOnline.Engine.Night;
 
@@ -17,15 +18,33 @@ public class NightResolver
     /// </param>
     public NightResult Resolve(
         IReadOnlyList<Player> alivePlayers,
-        IReadOnlyDictionary<Guid, NightAction> submittedActions)
+        IReadOnlyList<SubmittedNightAction> submittedActions,
+        GameConfig? config = null)
     {
         var context = new NightContext();
 
-        // Build ordered list of (player, ability) pairs
-        var abilitySlots = alivePlayers
-            .Where(p => p.Role is IHasNightAbility)
-            .Select(p => (Player: p, Ability: ((IHasNightAbility)p.Role).NightAbility))
-            .OrderBy(s => s.Player.SeatIndex)
+        // Build list of ability slots. Include per-role abilities and a team-shared werewolf attack
+        var slots = new List<(Player Player, NightAbility Ability)>();
+
+        foreach (var player in alivePlayers.OrderBy(p => p.SeatIndex))
+        {
+            // Werewolf team: each member gets the shared attack ability slot
+            if (player.Role.TeamId == 1)
+            {
+                slots.Add((player, new WerewolfAttackAbility()));
+            }
+
+            // Role-specific ability (if any)
+            if (player.Role is IHasNightAbility na)
+            {
+                slots.Add((player, na.NightAbility));
+            }
+        }
+
+        // Sort by ability priority ascending, ties broken by seat index
+        var abilitySlots = slots
+            .OrderBy(s => s.Ability.Priority)
+            .ThenBy(s => s.Player.SeatIndex)
             .ToList();
 
         foreach (var (player, ability) in abilitySlots)
@@ -33,7 +52,8 @@ public class NightResolver
             NightAction? action = null;
             if (!ability.IsAutomatic)
             {
-                if (submittedActions.TryGetValue(player.Id, out var a)) action = a;
+                var expectedActionType = ability is WerewolfAttackAbility ? ActionType.Attack : ActionType.Ability;
+                action = submittedActions.SingleOrDefault(action => action.Owner == player.Id && action.Action.ActionType == expectedActionType)?.Action;
             }
 
             // Skip non-automatic abilities for which no action was submitted
@@ -42,19 +62,11 @@ public class NightResolver
             ability.Apply(player, action, context, alivePlayers);
         }
 
-        return BuildResult(context, alivePlayers);
+        return BuildResult(context, alivePlayers, config);
     }
 
-    // Legacy adapter for existing code passing Guid->Guid mapping
-    public NightResult Resolve(
-        IReadOnlyList<Player> alivePlayers,
-        IReadOnlyDictionary<Guid, Guid> submittedActions)
-    {
-        var adapted = submittedActions.ToDictionary(kvp => kvp.Key, kvp => new NightAction(new[] { kvp.Value } as IEnumerable<Guid>));
-        return Resolve(alivePlayers, adapted);
-    }
 
-    private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> alivePlayers)
+    private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> alivePlayers, GameConfig? config)
     {
         var events = new List<NightEvent>();
         var killed = new List<Guid>();
@@ -62,21 +74,58 @@ public class NightResolver
         // Determine which targets are protected
         var protectedPlayerIds = new HashSet<Guid>(context.GuardianProtections.Values);
 
-        // Resolve attacks — each attacked player either dies or is saved
-        foreach (var (guardianId, victimId) in context.WerewolfAttacks)
+        // --- Resolve werewolf collective vote into at most one killed player ---
+        if (context.WerewolfAttacks.Count > 0)
         {
-            if (protectedPlayerIds.Contains(victimId))
+            // Tally votes
+            var tally = new Dictionary<Guid, int>();
+            foreach (var target in context.WerewolfAttacks.Values)
             {
-                // Find which guardian protected this victim
-                var guardianEntry = context.GuardianProtections
-                    .FirstOrDefault(kvp => kvp.Value == victimId);
+                tally.TryGetValue(target, out var cur);
+                tally[target] = cur + 1;
+            }
 
-                events.Add(new AttackBlockedEvent(victimId, guardianEntry.Key));
+            // find top-voted targets
+            var maxVotes = tally.Values.Max();
+            var top = tally.Where(kvp => kvp.Value == maxVotes).Select(kvp => kvp.Key).ToList();
+
+            var tieResolution = config?.Werewolf?.TieResolution ?? "Random";
+
+            List<Guid> chosenTargets = new();
+
+            if (top.Count == 1)
+            {
+                chosenTargets.Add(top[0]);
             }
             else
             {
-                events.Add(new PlayerKilledEvent(victimId));
-                killed.Add(victimId);
+                switch (tieResolution)
+                {
+                    case "NoKill":
+                        // nobody dies
+                        break;
+                    case "All":
+                        chosenTargets.AddRange(top);
+                        break;
+                    default: // Random
+                        var rnd = new Random();
+                        chosenTargets.Add(top[rnd.Next(top.Count)]);
+                        break;
+                }
+            }
+
+            foreach (var chosen in chosenTargets)
+            {
+                if (protectedPlayerIds.Contains(chosen))
+                {
+                    var guardianEntry = context.GuardianProtections.FirstOrDefault(kvp => kvp.Value == chosen);
+                    events.Add(new AttackBlockedEvent(chosen, guardianEntry.Key));
+                }
+                else
+                {
+                    events.Add(new PlayerKilledEvent(chosen));
+                    killed.Add(chosen);
+                }
             }
         }
 
@@ -129,6 +178,12 @@ public class NightResolver
         foreach (var (trailerId, dir) in context.TrailerClues)
         {
             events.Add(new TrailerClueEvent(trailerId, dir));
+        }
+
+        // Enshrouded players
+        foreach(var enshroudedId in context.Enshrouded)
+        {
+            events.Add(new DraculaEnshroudedEvent(enshroudedId, enshroudedId));
         }
 
         // Include any events directly registered in context
