@@ -34,4 +34,6 @@ public class Player(Guid id, string nickname)
     {
         IsAlive = false;
     }
+
+    public RoleType? Alibi { get; set; } = null;
 }

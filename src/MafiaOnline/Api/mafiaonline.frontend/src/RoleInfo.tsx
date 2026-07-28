@@ -22,6 +22,7 @@ export default function RoleInfo({ role, config }: Props) {
     const sigil = ROLE_SIGILS[role.name] ?? '🌾';
     const long = t(roleDescKey(role.name, 'Long'), roleDescParams(config));
 
+    // TODO: if this player belongs to werewolf team and has alibi - display it
     return (
         <div className="role-info"
             onMouseEnter={() => setOpen(true)}

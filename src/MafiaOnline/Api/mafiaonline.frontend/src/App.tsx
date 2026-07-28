@@ -166,7 +166,7 @@ export default function App() {
         conn.on('WerewolfAttackCast', (payload: { actorId: string; actorName: string, targetId: string; targetName: string }) => {
             // Only notify local werewolf players (client can inspect role)
             if (myRoleRef.current?.teamId === 1 && payload.actorId !== myPlayerIdRef.current) {
-                nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName } ));
+                nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
                 // TODO: maybe show a vote arrow on the map for werewolves? (but not for non-werewolves)
             }
         });
@@ -316,11 +316,13 @@ export default function App() {
     if (view === 'role-reveal' && myRole) {
         const teamColorVar = myRole.teamId === 1 ? 'var(--wolf)'
             : myRole.teamId === 2 ? 'var(--neutral)'
-            : 'var(--town-2)';
+                : 'var(--town-2)';
         const sigil = ROLE_SIGILS[myRole.name] ?? '🌾';
+        const alibi = myRole.alibi ? t('alibi', { alibi: t(myRole.alibi) }) : '';
         return (
             <div className="phase"><div className="phase__inner reveal">
                 <div className="reveal__eyebrow">{t('yourRoleIs')}</div>
+                {alibi && (<div className="reveal__role">{alibi}</div>)} {/*TODO: fix style for alibi*/}
                 <div className="reveal__sigil" style={{ color: teamColorVar }}>{sigil}</div>
                 <div className="reveal__role" style={{ color: teamColorVar, textShadow: `0 0 40px ${teamColorVar}` }}>
                     {t(myRole.name)}
@@ -450,8 +452,10 @@ export default function App() {
                         </div>
 
                         <div className="card card--parchment">
-                            <div style={{ display: 'flex', justifyContent: 'space-between',
-                                alignItems: 'center', marginBottom: 10 }}>
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between',
+                                alignItems: 'center', marginBottom: 10
+                            }}>
                                 <span className="field__label">
                                     {t('seatOrder')} {!isHost && `— ${t('setByHost')}`}
                                 </span>
@@ -493,8 +497,10 @@ export default function App() {
                                 )}
                             </ul>
 
-                            <div style={{ color: 'var(--text-dim)', fontSize: 12,
-                                fontStyle: 'italic', textAlign: 'center', marginBottom: 6 }}>
+                            <div style={{
+                                color: 'var(--text-dim)', fontSize: 12,
+                                fontStyle: 'italic', textAlign: 'center', marginBottom: 6
+                            }}>
                                 {t('playersCount', { count: lobby.players.length })}
                                 {lobby.players.length < 4 && ` — ${t('needMore', { n: 4 - lobby.players.length })}`}
                             </div>

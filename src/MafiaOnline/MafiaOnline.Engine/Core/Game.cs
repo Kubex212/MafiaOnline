@@ -165,6 +165,7 @@ public class Game
         // neutral roles
         if (Config.Roles.Fool) specialRolesToAssign.Add(new Fool());
 
+        var specialRolesSet = new HashSet<IRole>(specialRolesToAssign);
         var werewolfRolesToAssign = new List<IRole>();
 
         // werewolf roles
@@ -178,7 +179,8 @@ public class Game
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
 
         var playerCount = ordered.Count;
-        var shuffledIndices = new List<int>() { 0, 1, 2, 3, 4, 5, 6, 7, 8 }.Take(playerCount).ToList();//Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
+        //var shuffledIndices = new List<int>() { 0, 1, 2, 3, 4, 5, 6, 7, 8 }.Take(playerCount).ToList();
+        var shuffledIndices = Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
 
         // assign werewolf roles
         for (var i = 0; i < Math.Min(werewolfRolesToAssign.Count, playerCount); i++)
@@ -196,10 +198,22 @@ public class Game
             var role = specialRolesToAssign[i];
             ordered[playerIndex].AssignRole(role);
             unassignedPlayers.Remove(playerIndex);
+            specialRolesSet.Remove(role);
         }
 
         foreach (var playerIndex in unassignedPlayers)
             ordered[playerIndex].AssignRole(new Villager());
+
+        if(Config.Werewolf.ShowAlibi)
+        {
+            var unusedSpecialVillagerRoles = specialRolesSet.Where(r => r.Team == Team.Villagers).ToList();
+            foreach(var werewolf in ordered.Where(player => player.Role.Team == Team.Werewolves))
+            {
+                var randomIndex = new Random().Next(unusedSpecialVillagerRoles.Count);
+                werewolf.Alibi = unusedSpecialVillagerRoles[randomIndex].Type;
+                unusedSpecialVillagerRoles.RemoveAt(randomIndex);
+            }
+        }
     }
 }
 

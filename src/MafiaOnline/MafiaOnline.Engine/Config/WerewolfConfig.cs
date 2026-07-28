@@ -7,5 +7,14 @@ public class WerewolfConfig
 
     // How to resolve ties for werewolf kill votes
     // "NoKill" means nobody dies on tie, "Random" picks one of top tied targets, "All" kills all top tied
-    public string TieResolution { get; set; } = "Random";
+    public WerewolfTieResolution TieResolution { get; set; } = WerewolfTieResolution.Random;
+
+    public bool ShowAlibi { get; set; } = true;
+}
+
+public enum WerewolfTieResolution
+{
+    NoKill,
+    Random,
+    All
 }

@@ -160,5 +160,6 @@
   "on": "on",
   "off": "off",
   "attackSubmitted": "Attack submitted",
-  "werewolfXAttackedY": "Werewolf {{attacker}} attacked {{target}}"
+  "werewolfXAttackedY": "Werewolf {{attacker}} attacked {{target}}",
+  "alibi": "Your alibi is {{alibi}}"
 }

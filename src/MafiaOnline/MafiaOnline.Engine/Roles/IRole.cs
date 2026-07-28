@@ -10,7 +10,10 @@ public enum RoleType
     Detective,
     DogTamer,
     Poacher,
-    Trailer
+    Trailer,
+    Dracula,
+    Seer,
+    Fool
 }
 
 public enum Team
@@ -35,4 +38,9 @@ public interface IRole
     // backward-compatible with existing TeamId usages. Default
     // implementation converts TeamId to Team.
     Team Team => (Team)TeamId;
+}
+
+public interface IWerewolfRole : IRole
+{
+    public RoleType? Alibi { get; set; }
 }

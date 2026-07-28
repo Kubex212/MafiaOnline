@@ -89,7 +89,7 @@ public class NightResolver
             var maxVotes = tally.Values.Max();
             var top = tally.Where(kvp => kvp.Value == maxVotes).Select(kvp => kvp.Key).ToList();
 
-            var tieResolution = config?.Werewolf?.TieResolution ?? "Random";
+            var tieResolution = config?.Werewolf?.TieResolution ?? WerewolfTieResolution.Random;
 
             List<Guid> chosenTargets = new();
 
@@ -101,10 +101,10 @@ public class NightResolver
             {
                 switch (tieResolution)
                 {
-                    case "NoKill":
+                    case WerewolfTieResolution.NoKill:
                         // nobody dies
                         break;
-                    case "All":
+                    case WerewolfTieResolution.All:
                         chosenTargets.AddRange(top);
                         break;
                     default: // Random

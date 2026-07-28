@@ -34,8 +34,8 @@ public class DayService : IDayService
         lobby.BeginDaySession();
         await _repository.Update(lobby);
 
-        int duration = lobby.Game!.Config.Day.DurationSeconds;
-        bool showTargets = lobby.Game.Config.Day.ShowVoteTargets;
+        var duration = lobby.Game!.Config.Day.DurationSeconds;
+        var showTargets = lobby.Game.Config.Day.ShowVoteTargets;
 
         // Determine enshrouded players from last night, if any
         var enshrouded = new List<Guid>();
@@ -58,7 +58,7 @@ public class DayService : IDayService
         await _hub.Clients.Group(lobby.Code).SendAsync("DayStarted", new
         {
             durationSeconds = duration,
-            showVoteTargets = showTargets,
+            showVoteTargets = showTargets.ToString(),
             alivePlayers,
             enshrouded = enshrouded
         });
@@ -85,17 +85,17 @@ public class DayService : IDayService
         if (lobby.DaySession is null)
             throw new InvalidOperationException("No active day session.");
 
-        bool alreadyVoted = lobby.DaySession.HasVoted(voterId);
+        var alreadyVoted = lobby.DaySession.HasVoted(voterId);
         var votes = lobby.CastVote(voterId, candidateId);
         await _repository.Update(lobby);
 
-        bool showTargets = lobby.Game!.Config.Day.ShowVoteTargets;
+        var showTargets = lobby.Game!.Config.Day.ShowVoteTargets;
 
         // Always broadcast that the voter has voted; conditionally include target
         await _hub.Clients.Group(lobby.Code).SendAsync("VoteCast", new
         {
             voterId,
-            candidateId = showTargets ? (Guid?)candidateId : null,
+            candidateId = showTargets != Engine.Config.ShowDayVotes.Never ? (Guid?)candidateId : null, // TODO: don't send here if config is ShowDayVotes.AfterVotingEnds and not all voted yet - possible cheating
             totalVotesCast = votes.Count
         });
 

@@ -10,6 +10,13 @@ public enum DrawResolution
     KickAll
 }
 
+public enum ShowDayVotes
+{
+    Never,
+    AfterVotingEnds,
+    Always
+}
+
 /// <summary>Configuration for the day discussion + voting phase.</summary>
 public class DayConfig
 {
@@ -30,5 +37,5 @@ public class DayConfig
     /// When true, every client is told in real time who each voter is targeting.
     /// When false, only the fact that a player has voted (not their target) is broadcast.
     /// </summary>
-    public bool ShowVoteTargets { get; set; } = true;
+    public ShowDayVotes ShowVoteTargets { get; set; } = ShowDayVotes.AfterVotingEnds;
 }

@@ -62,7 +62,7 @@ public class NightService : INightService
                 if (action.Targets.Any())
                 {
                     var targetName = lobby.Players.FirstOrDefault(p => p.Id == attackTarget)?.Nickname ?? "?";
-                    // send only to werewolves (clients should filter by team membership); using group per-lobby, include actor id so clients can decide
+                    // TODO: create connection manager and send to only werewolf team instead of all clients - possible cheating
                     await _hub.Clients.Group(lobby.Code).SendAsync("WerewolfAttackCast", new
                     {
                         actorId,

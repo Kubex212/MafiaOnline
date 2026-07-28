@@ -51,10 +51,10 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                     <span>{t('drawResolution')}</span>
                     <span className="config__value">{t(config.day.drawResolution)}</span>
                 </div>
-                <div className="config__row">
-                    <span>{t('showVoteTargets')}</span>
-                    <Flag on={config.day.showVoteTargets} t={t} />
-                </div>
+                {/*<div className="config__row">*/}
+                {/*    <span>{t('showVoteTargets')}</span>*/}
+                {/*    <Flag on={config.day.showVoteTargets} t={t} />*/}
+                {/*</div>*/}
             </div>
 
             <div className="config__section">

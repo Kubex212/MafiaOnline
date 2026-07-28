@@ -127,7 +127,7 @@ public class LobbyService : ILobbyService
         var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == playerId)
             ?? throw new InvalidOperationException("Player not found.");
 
-        return new RoleResponse() { Name = enginePlayer.Role.Name, TeamName = enginePlayer.Role.Team.ToString(), TeamId = enginePlayer.Role.TeamId };
+        return new RoleResponse() { Name = enginePlayer.Role.Name, TeamName = enginePlayer.Role.Team.ToString(), TeamId = enginePlayer.Role.TeamId, Alibi = enginePlayer.Alibi.ToString() };
     }
 
     public async Task<Lobby> MovePlayerUpAsync(string code, Guid requestingPlayerId, Guid targetPlayerId)
@@ -232,10 +232,10 @@ public class LobbyService : ILobbyService
 
             response.Day = new DayState
             {
-                DurationSeconds = lobby.Game?.Config.Day.DurationSeconds ?? 180,
+                DurationSeconds = lobby.Game!.Config.Day.DurationSeconds,
                 RemainingSeconds = 0,
-                ShowVoteTargets = lobby.Game?.Config.Day.ShowVoteTargets ?? false,
-                AlivePlayers = lobby.Players.Where(p => lobby.Game.Players.First(ep => ep.Id == p.Id).IsAlive)
+                ShowVoteTargets = lobby.Game!.Config.Day.ShowVoteTargets,
+                AlivePlayers = lobby.Players.Where(p => lobby.Game!.Players.First(ep => ep.Id == p.Id).IsAlive)
                     .OrderBy(p => p.SeatIndex)
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),

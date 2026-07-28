@@ -160,5 +160,6 @@
   "on": "tak",
   "off": "nie",
   "attackSubmitted": "Zatwierdzono atak",
-  "werewolfXAttackedY": "Wilkołak {{attacker}} zaatakował {{target}}"
+  "werewolfXAttackedY": "Wilkołak {{attacker}} zaatakował {{target}}",
+  "alibi": "Twoje alibi to {{alibi}}"
 }

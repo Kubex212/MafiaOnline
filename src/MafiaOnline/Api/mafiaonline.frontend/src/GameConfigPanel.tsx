@@ -86,12 +86,12 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                         <option value="KickAll">{t('drawKickAll')}</option>
                     </select>
                 </label>
-                <label className="config__row" style={{ justifyContent: 'flex-start' }}>
-                    <input type="checkbox"
-                        checked={local.day.showVoteTargets}
-                        onChange={e => updateNested('day', { showVoteTargets: e.target.checked })} />
-                    <span>{t('showVoteTargets')}</span>
-                </label>
+                {/*<label className="config__row" style={{ justifyContent: 'flex-start' }}>*/}
+                {/*    <input type="checkbox"*/}
+                {/*        checked={local.day.showVoteTargets}*/}
+                {/*        onChange={e => updateNested('day', { showVoteTargets: e.target.checked })} />*/}
+                {/*    <span>{t('showVoteTargets')}</span>*/}
+                {/*</label>*/}
             </div>
 
             <div className="config__section">

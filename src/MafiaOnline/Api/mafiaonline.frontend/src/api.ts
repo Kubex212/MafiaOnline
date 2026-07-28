@@ -24,7 +24,7 @@ export type DayConfig = {
     durationSeconds: number;
     votesRequiredFraction: number;
     drawResolution: 'KickNone' | 'KickRandom' | 'KickAll';
-    showVoteTargets: boolean;
+    showVoteTargets: 'Never' | 'AfterVotingEnds' | 'Always';
 };
 
 export type GuardianConfig = {
@@ -68,6 +68,7 @@ export type RoleResponse = {
     name: string;
     teamName?: string;
     teamId: number;
+    alibi?: string;
 };
 
 export type SeatInfo = {
@@ -122,9 +123,9 @@ export type LobbyOrderChangedPayload = {
 
 export type DayStartedPayload = {
     durationSeconds: number;
-    showVoteTargets: boolean;
     alivePlayers: SeatInfo[];
     enshrouded?: string[];
+    showVoteTargets: 'Always' | 'Never' | 'AfterVotingEnds';
 };
 
 export type WerewolfAttackPayload = {
@@ -275,6 +276,7 @@ export type ReconnectResponse = {
         showVoteTargets: boolean;
         alivePlayers: SeatInfo[];
         votes?: Record<string, string>;
+        enshrouded?: string[];
     };
     night?: {
         activePlayerId?: string | null;

@@ -1,3 +1,4 @@
+using MafiaOnline.Engine.Config;
 using System;
 using System.Collections.Generic;
 
@@ -31,7 +32,7 @@ public class DayState
 {
     public int DurationSeconds { get; set; }
     public int RemainingSeconds { get; set; }
-    public bool ShowVoteTargets { get; set; }
+    public ShowDayVotes ShowVoteTargets { get; set; }
     public List<SeatInfoResponse> AlivePlayers { get; set; } = new();
     public Dictionary<Guid, Guid>? Votes { get; set; }
     public Guid? EnshroudedPlayer { get; set; }
