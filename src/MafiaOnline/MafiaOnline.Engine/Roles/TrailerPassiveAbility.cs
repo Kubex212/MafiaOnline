@@ -2,7 +2,7 @@ using MafiaOnline.Engine.Night;
 
 namespace MafiaOnline.Engine.Roles;
 
-public class TrailerPassiveAbility() : NightAbility(26)
+public class TrailerPassiveAbility() : NightAbility()
 {
     public override bool IsAutomatic => true;
 
@@ -51,6 +51,5 @@ public class TrailerPassiveAbility() : NightAbility(26)
         }
 
         context.TrailerClues[actor.Id] = dir;
-        context.AddEvent(new TrailerClueEvent(actor.Id, dir));
     }
 }

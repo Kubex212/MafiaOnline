@@ -9,7 +9,7 @@ namespace MafiaOnline.Engine.Roles;
 /// Priority 30: fires last so the detective's information reflects the current state
 /// (e.g. whether someone died tonight).
 /// </summary>
-public class DetectiveInvestigateAbility(DetectiveConfig config) : NightAbility(30)
+public class DetectiveInvestigateAbility(DetectiveConfig config) : NightAbility()
 {
     public override bool IsAutomatic => true;
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameConfig } from './api';
+import type { SeatInfo, RoleResponse, DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameConfig, ShowVotes } from './api';
 import { castVote } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
@@ -27,7 +27,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const { t } = useTranslation();
     const [alivePlayers, setAlivePlayers] = useState<SeatInfo[]>([]);
     const [duration, setDuration] = useState(180);
-    const [showVoteTargets, setShowVoteTargets] = useState(false);
+    const [showVoteTargets, setShowVoteTargets] = useState<ShowVotes>('Never');
     const [timeLeft, setTimeLeft] = useState(180);
     const [votes, setVotes] = useState<Record<string, string | null>>({});
     const [myVote, setMyVote] = useState<string | null>(null);
@@ -42,7 +42,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         onDayStarted(payload: DayStartedPayload) {
             setAlivePlayers([...payload.alivePlayers].sort((a, b) => a.seatIndex - b.seatIndex));
             setDuration(payload.durationSeconds);
-            setShowVoteTargets(payload.showVoteTargets);
+            setShowVoteTargets((payload.showVoteTargets ?? 'Never') as ShowVotes);
             setTimeLeft(payload.durationSeconds);
             setVotes({});
             setMyVote(null);
@@ -125,7 +125,12 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         };
     });
 
-    const voteArrows: VoteArrow[] = showVoteTargets
+    const votingOver = !!resolved
+        || (alivePlayers.length > 0 && Object.keys(votes).length >= alivePlayers.length);
+    const revealTargets = showVoteTargets === 'Always'
+        || (showVoteTargets === 'AfterVotingEnds' && votingOver);
+
+    const voteArrows: VoteArrow[] = revealTargets
         ? Object.entries(votes)
             .filter(([, to]) => !!to)
             .map(([from, to]) => ({ fromId: from, toId: to as string }))

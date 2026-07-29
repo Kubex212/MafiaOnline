@@ -58,70 +58,15 @@ public class NightController : ControllerBase
         var result = lobby.Game.LastNightResult;
         if (result is null) return NoContent();
 
-        // Detective clue
-        var detectiveEvent = result.Events.OfType<DetectiveClueEvent>().FirstOrDefault(e => e.DetectiveId == playerId);
-        if (detectiveEvent is not null)
-        {
-            return Ok(new ClueResponse
-            {
-                Type = "DetectiveClue",
-                Data = new Dictionary<string, object>
-                {
-                    ["SubjectNickname"] = detectiveEvent.SubjectNickname,
-                    ["IsWerewolf"] = detectiveEvent.IsWerewolf
-                }
-            });
-        }
+        // find proper clue event for this player, if any; return 204 if none
+        var clueEvent = result.Events.OfType<ClueEvent>().SingleOrDefault(e => e.ClueOwnerId == playerId);
+        if (clueEvent is null) return NoContent();
 
-        // Dog tamer clue
-        var dogEvent = result.Events.OfType<DogTamerClueEvent>().FirstOrDefault(e => e.DogTamerId == playerId);
-        if (dogEvent is not null)
+        return Ok(new ClueResponse
         {
-            return Ok(new ClueResponse
-            {
-                Type = "DogTamerClue",
-                Data = new Dictionary<string, object>
-                {
-                    ["DidBark"] = dogEvent.DidBark
-                }
-            });
-        }
-
-        // Seer clue
-        var seerEvent = result.Events.OfType<SeerClueEvent>().FirstOrDefault(e => e.SeerId == playerId);
-        if (seerEvent is not null)
-        {
-            // resolve nicknames for subjects if possible
-            var subjAName = lobby.Players.FirstOrDefault(p => p.Id == seerEvent.SubjectA)?.Nickname ?? "?";
-            var subjBName = lobby.Players.FirstOrDefault(p => p.Id == seerEvent.SubjectB)?.Nickname ?? "?";
-            return Ok(new ClueResponse
-            {
-                Type = "SeerClue",
-                Data = new Dictionary<string, object>
-                {
-                    ["SubjectA"] = seerEvent.SubjectA,
-                    ["SubjectB"] = seerEvent.SubjectB,
-                    ["SubjectAName"] = subjAName,
-                    ["SubjectBName"] = subjBName,
-                    ["SameTeam"] = seerEvent.SameTeam
-                }
-            });
-        }
-
-        // Trailer clue
-        var trailerEvent = result.Events.OfType<TrailerClueEvent>().FirstOrDefault(e => e.TrailerId == playerId);
-        if (trailerEvent is not null)
-        {
-            return Ok(new ClueResponse
-            {
-                Type = "TrailerClue",
-                Data = new Dictionary<string, object>
-                {
-                    ["Direction"] = trailerEvent.Direction
-                }
-            });
-        }
-
-        return NoContent();
+            Type = clueEvent.ClueType.ToString(),
+            Clue = clueEvent.DisplayedClue,
+            Data = clueEvent.GetAdditionalInfoDictionary(lobby.Game.Players)
+        });
     }
 }

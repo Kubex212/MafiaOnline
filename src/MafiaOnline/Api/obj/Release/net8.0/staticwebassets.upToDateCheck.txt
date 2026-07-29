@@ -1,4 +1,0 @@
-wwwroot\assets\index-DdQP6idU.js
-wwwroot\favicon.svg
-wwwroot\icons.svg
-wwwroot\index.html

@@ -43,8 +43,7 @@ public class NightResolver
 
         // Sort by ability priority ascending, ties broken by seat index
         var abilitySlots = slots
-            .OrderBy(s => s.Ability.Priority)
-            .ThenBy(s => s.Player.SeatIndex)
+            .OrderBy(s => s.Player.SeatIndex)
             .ToList();
 
         foreach (var (player, ability) in abilitySlots)
@@ -129,6 +128,10 @@ public class NightResolver
             }
         }
 
+        var deceiverEvents = context.Events.OfType<DeceiverEvent>().ToList();
+        var deceiverTargets = deceiverEvents.Select(e => e.TargetId).FirstOrDefault();
+        var clueEvents = context.Events.OfType<ClueEvent>().ToList();
+
         // After initial kills, resolve poacher traps: if a trapped player was killed by werewolves,
         // one of the attacking werewolves (or any living werewolf) also dies.
         foreach (var (poacherId, trappedId) in context.PoacherTraps)
@@ -166,7 +169,7 @@ public class NightResolver
             if (subject is null) continue;
 
             bool isWerewolf = subject.Role.TeamId != 0;
-            events.Add(new DetectiveClueEvent(detectiveId, subject.Nickname, isWerewolf));
+            events.Add(new DetectiveClueEvent(detectiveId, subject.Nickname, subject.Nickname)); // TODO: insert a werewolf
         }
 
         foreach(var (dogTamerId, shouldBark) in context.DogTamerClues)
@@ -183,7 +186,7 @@ public class NightResolver
         // Enshrouded players
         foreach(var enshroudedId in context.Enshrouded)
         {
-            events.Add(new DraculaEnshroudedEvent(enshroudedId, enshroudedId));
+            events.Add(new DraculaEnshroudedEvent(enshroudedId, enshroudedId)); // TODO: add the Dracula's ID to the event
         }
 
         // Include any events directly registered in context

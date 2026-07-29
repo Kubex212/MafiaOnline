@@ -21,6 +21,8 @@ export interface TableSeatState {
 export interface VoteArrow {
     fromId: string;
     toId: string;
+    /** 'vote' = village banish vote (gold), 'attack' = werewolf kill vote (blood red). */
+    kind?: 'vote' | 'attack';
 }
 
 interface Props {
@@ -56,6 +58,20 @@ export default function RoundTable({
                 <marker id="voteHead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
                     <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--accent)" />
                 </marker>
+                <marker id="attackHead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--wolf)" />
+                </marker>
+                {/* Creeping mist used to mark an enshrouded player. */}
+                <radialGradient id="mistFill" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#0b0f14" stopOpacity="0.85" />
+                    <stop offset="55%" stopColor="#2a2233" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="#2a2233" stopOpacity="0" />
+                </radialGradient>
+                <filter id="mistBlur" x="-60%" y="-60%" width="220%" height="220%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves={3} seed={7} result="noise" />
+                    <feDisplacementMap in="SourceGraphic" in2="noise" scale={12} xChannelSelector="R" yChannelSelector="G" />
+                    <feGaussianBlur stdDeviation={3.5} />
+                </filter>
             </defs>
 
             <circle cx={cx} cy={cy} r={110} fill="url(#tableFill)"
@@ -78,13 +94,16 @@ export default function RoundTable({
                 const dx = q.x - p.x, dy = q.y - p.y;
                 const d = Math.sqrt(dx * dx + dy * dy);
                 const ux = dx / d, uy = dy / d;
+                const attack = v.kind === 'attack';
                 return (
                     <line key={`v${idx}`}
                         x1={p.x + ux * 36} y1={p.y + uy * 36}
                         x2={q.x - ux * 40} y2={q.y - uy * 40}
-                        stroke="var(--accent)" strokeWidth={1.4}
-                        strokeDasharray="5 4" opacity={0.75}
-                        markerEnd="url(#voteHead)" className="vote-arrow" />
+                        stroke={attack ? 'var(--wolf)' : 'var(--accent)'}
+                        strokeWidth={attack ? 2 : 1.4}
+                        strokeDasharray="5 4" opacity={attack ? 0.9 : 0.75}
+                        markerEnd={attack ? 'url(#attackHead)' : 'url(#voteHead)'}
+                        className={`vote-arrow ${attack ? 'vote-arrow--attack' : ''}`} />
                 );
             })}
 
@@ -157,9 +176,16 @@ export default function RoundTable({
                             <text x={-22} y={-22} textAnchor="middle" fontSize={13}>✔️</text>
                         )}
 
-                        {/* TODO: make it look better, now it's just a faint circle, make it actual shadow or mist */}
                         {isEnshrouded && isAlive && (
-                            <circle r={40} fill="none" stroke="var(--wolf)" strokeWidth={2} opacity={0.12} />
+                            <g className="seat-mist" pointerEvents="none" aria-hidden>
+                                <g filter="url(#mistBlur)">
+                                    <circle r={44} fill="url(#mistFill)" />
+                                    <circle cx={-10} cy={8} r={26} fill="url(#mistFill)" opacity={0.8} />
+                                    <circle cx={12} cy={-6} r={22} fill="url(#mistFill)" opacity={0.7} />
+                                </g>
+                                <circle r={40} fill="none" stroke="var(--wolf)"
+                                    strokeWidth={1} opacity={0.18} strokeDasharray="3 7" />
+                            </g>
                         )}
                     </g>
                 );

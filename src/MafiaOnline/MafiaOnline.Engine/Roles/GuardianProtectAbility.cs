@@ -7,7 +7,7 @@ namespace MafiaOnline.Engine.Roles;
 /// Guardian ability — registers a protection on a target player.
 /// Priority 10: fires first so the protection is in place when attacks are resolved.
 /// </summary>
-public class GuardianProtectAbility(GuardianConfig config) : NightAbility(10)
+public class GuardianProtectAbility(GuardianConfig config) : NightAbility()
 {
     public override bool IsAutomatic => false;
 

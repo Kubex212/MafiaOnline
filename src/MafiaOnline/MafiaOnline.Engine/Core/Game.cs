@@ -5,6 +5,7 @@ using global::MafiaOnline.Engine.Night;
 using global::MafiaOnline.Engine.Roles;
 using MafiaOnline.Engine.Commands;
 using Newtonsoft.Json;
+using System.Runtime.InteropServices;
 
 public class Game
 {
@@ -102,8 +103,8 @@ public class Game
     private void CheckWinCondition()
     {
         var alive = _players.Where(p => p.IsAlive).ToList();
-        int wolves = alive.Count(p => p.Role.TeamId == 1);
-        int town   = alive.Count(p => p.Role.TeamId == 0);
+        int wolves = alive.Count(p => p.Role.Team == Team.Werewolves);
+        int nonWolves   = alive.Count(p => p.Role.Team != Team.Werewolves);
 
         if (wolves == 0)
         {
@@ -112,7 +113,7 @@ public class Game
             Status = GameStatus.Finished;
             return;
         }
-        else if (wolves >= town)
+        else if (wolves >= nonWolves)
         {
             Winner = GameWinner.Werewolves;
             Phase  = GamePhase.Finished;
@@ -187,15 +188,19 @@ public class Game
         {
             var playerIndex = shuffledIndices[i];
             var werewolfRole = werewolfRolesToAssign[i];
+
             ordered[playerIndex].AssignRole(werewolfRole);
             unassignedPlayers.Remove(playerIndex);
         }
 
         // assign other roles
-        for (var i = Config.WerewolfCount; i < Math.Min(specialRolesToAssign.Count, playerCount); i++)
+        var offset = Config.WerewolfCount;
+        Random.Shared.Shuffle(CollectionsMarshal.AsSpan(specialRolesToAssign));
+        for (var i = 0; i < Math.Min(specialRolesToAssign.Count, playerCount - offset); i++)
         {
-            var playerIndex = shuffledIndices[i];
+            var playerIndex = shuffledIndices[i + offset];
             var role = specialRolesToAssign[i];
+
             ordered[playerIndex].AssignRole(role);
             unassignedPlayers.Remove(playerIndex);
             specialRolesSet.Remove(role);
@@ -207,9 +212,16 @@ public class Game
         if(Config.Werewolf.ShowAlibi)
         {
             var unusedSpecialVillagerRoles = specialRolesSet.Where(r => r.Team == Team.Villagers).ToList();
-            foreach(var werewolf in ordered.Where(player => player.Role.Team == Team.Werewolves))
+
+            // if there are more werewolves than unused special villager roles, some werewolves will not get an alibi
+
+            var werewolves = ordered.Where(player => player.Role.Team == Team.Werewolves).ToList();
+            var unusedRolesCount = unusedSpecialVillagerRoles.Count;
+            for (int i = 0; i < Math.Min(werewolves.Count, unusedRolesCount); i++)
             {
+                var werewolf = werewolves[i];
                 var randomIndex = new Random().Next(unusedSpecialVillagerRoles.Count);
+
                 werewolf.Alibi = unusedSpecialVillagerRoles[randomIndex].Type;
                 unusedSpecialVillagerRoles.RemoveAt(randomIndex);
             }

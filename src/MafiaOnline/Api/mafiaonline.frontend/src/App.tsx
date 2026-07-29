@@ -165,9 +165,14 @@ export default function App() {
 
         conn.on('WerewolfAttackCast', (payload: { actorId: string; actorName: string, targetId: string; targetName: string }) => {
             // Only notify local werewolf players (client can inspect role)
-            if (myRoleRef.current?.teamId === 1 && payload.actorId !== myPlayerIdRef.current) {
-                nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
-                // TODO: maybe show a vote arrow on the map for werewolves? (but not for non-werewolves)
+            if (myRoleRef.current?.teamId === 1) {
+                // Draw the kill vote as an arrow on the table (werewolves only).
+                nightRef.current?.onWerewolfAttackCast({
+                    actorId: payload.actorId, targetId: payload.targetId,
+                });
+                if (payload.actorId !== myPlayerIdRef.current) {
+                    nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
+                }
             }
         });
 
@@ -318,16 +323,20 @@ export default function App() {
             : myRole.teamId === 2 ? 'var(--neutral)'
                 : 'var(--town-2)';
         const sigil = ROLE_SIGILS[myRole.name] ?? '🌾';
-        const alibi = myRole.alibi ? t('alibi', { alibi: t(myRole.alibi) }) : '';
         return (
             <div className="phase"><div className="phase__inner reveal">
                 <div className="reveal__eyebrow">{t('yourRoleIs')}</div>
-                {alibi && (<div className="reveal__role">{alibi}</div>)} {/*TODO: fix style for alibi*/}
                 <div className="reveal__sigil" style={{ color: teamColorVar }}>{sigil}</div>
                 <div className="reveal__role" style={{ color: teamColorVar, textShadow: `0 0 40px ${teamColorVar}` }}>
                     {t(myRole.name)}
                 </div>
                 <div className="reveal__team">{t(myRole.teamName)}</div>
+                {myRole.alibi && (
+                    <div className="reveal__alibi">
+                        <span className="reveal__alibi-label">{t('alibiShort')}</span>
+                        <span className="reveal__alibi-value">{t(myRole.alibi)}</span>
+                    </div>
+                )}
                 <p className="reveal__desc">
                     {t(roleDescKey(myRole.name, 'Short'), roleDescParams(lobby?.config))}
                 </p>

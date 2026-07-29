@@ -17,7 +17,7 @@ public class Dracula : IRole, IHasNightAbility
 
 public class DraculaEnshroudAbility : NightAbility
 {
-    public DraculaEnshroudAbility() : base(15) { }
+    public DraculaEnshroudAbility() : base() { }
 
     public override bool IsAutomatic => false;
 

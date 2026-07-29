@@ -9,7 +9,7 @@ namespace MafiaOnline.Engine.Roles;
 /// </summary>
 public class WerewolfAttackAbility : NightAbility
 {
-    public WerewolfAttackAbility() : base(20) { }
+    public WerewolfAttackAbility() : base() { }
 
     public override bool IsAutomatic => false;
 

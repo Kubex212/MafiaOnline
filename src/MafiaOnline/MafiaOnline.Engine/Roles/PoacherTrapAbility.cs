@@ -3,7 +3,7 @@ using MafiaOnline.Engine.Night;
 
 namespace MafiaOnline.Engine.Roles;
 
-public class PoacherTrapAbility(PoacherConfig config) : NightAbility(12)
+public class PoacherTrapAbility(PoacherConfig config) : NightAbility()
 {
     public override bool IsAutomatic => false;
 

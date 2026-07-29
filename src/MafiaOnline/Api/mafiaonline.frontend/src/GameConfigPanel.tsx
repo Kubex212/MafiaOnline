@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { GameConfig } from './api';
+import type { GameConfig, WerewolfConfig } from './api';
+import { DEFAULT_WEREWOLF_CONFIG } from './api';
 import { useTranslation } from 'react-i18next';
 
 type GameConfigPanelProps = {
@@ -29,6 +30,11 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
 
     function updateNested<T extends object>(parentKey: keyof GameConfig, value: T) {
         update(parentKey, { ...local[parentKey], ...value } as GameConfig[keyof GameConfig]);
+    }
+
+    const werewolf: WerewolfConfig = { ...DEFAULT_WEREWOLF_CONFIG, ...(local.werewolf ?? {}) };
+    function updateWerewolf(value: Partial<WerewolfConfig>) {
+        update('werewolf', { ...werewolf, ...value });
     }
 
     return (
@@ -86,12 +92,52 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                         <option value="KickAll">{t('drawKickAll')}</option>
                     </select>
                 </label>
-                {/*<label className="config__row" style={{ justifyContent: 'flex-start' }}>*/}
-                {/*    <input type="checkbox"*/}
-                {/*        checked={local.day.showVoteTargets}*/}
-                {/*        onChange={e => updateNested('day', { showVoteTargets: e.target.checked })} />*/}
-                {/*    <span>{t('showVoteTargets')}</span>*/}
-                {/*</label>*/}
+                <label className="config__row">
+                    <span>{t('showVoteTargets')}</span>
+                    <select className="config__select config__select--wide"
+                        value={local.day.showVoteTargets ?? 'Always'}
+                        onChange={e => updateNested('day', {
+                            showVoteTargets: e.target.value as GameConfig['day']['showVoteTargets']
+                        })}>
+                        <option value="Never">{t('votesNever')}</option>
+                        <option value="AfterVotingEnds">{t('votesAfterVotingEnds')}</option>
+                        <option value="Always">{t('votesAlways')}</option>
+                    </select>
+                </label>
+            </div>
+
+            <div className="config__section">
+                <h4 className="config__section-title">{t('werewolfSettings')}</h4>
+                <label className="config__row">
+                    <span>{t('werewolfDrawResolution')}</span>
+                    <select className="config__select"
+                        value={werewolf.drawResolution}
+                        onChange={e => updateWerewolf({
+                            drawResolution: e.target.value as WerewolfConfig['drawResolution']
+                        })}>
+                        <option value="KickNone">{t('drawKickNone')}</option>
+                        <option value="KickRandom">{t('drawKickRandom')}</option>
+                        <option value="KickAll">{t('drawKickAll')}</option>
+                    </select>
+                </label>
+                <label className="config__row">
+                    <span>{t('werewolfShowVoteTargets')}</span>
+                    <select className="config__select config__select--wide"
+                        value={werewolf.showVoteTargets}
+                        onChange={e => updateWerewolf({
+                            showVoteTargets: e.target.value as WerewolfConfig['showVoteTargets']
+                        })}>
+                        <option value="Never">{t('votesNever')}</option>
+                        <option value="AfterVotingEnds">{t('votesAfterVotingEnds')}</option>
+                        <option value="Always">{t('votesAlways')}</option>
+                    </select>
+                </label>
+                <label className="config__row">
+                    <span>{t('werewolfAlibi')}</span>
+                    <input type="checkbox"
+                        checked={werewolf.alibi}
+                        onChange={e => updateWerewolf({ alibi: e.target.checked })} />
+                </label>
             </div>
 
             <div className="config__section">

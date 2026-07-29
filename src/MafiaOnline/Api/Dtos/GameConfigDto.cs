@@ -12,6 +12,7 @@ public class GameConfigDto
     public DogTamerConfig DogTamer { get; set; } = new();
     public DayConfig Day { get; set; } = new();
     public PoacherConfig Poacher { get; set; } = new();
+    public WerewolfConfig Werewolf { get; set; } = new();
 
     public static GameConfigDto FromConfig(GameConfig config)
     {
@@ -35,6 +36,7 @@ public class GameConfigDto
             DogTamer = config.DogTamer,
             Day = config.Day,
             Poacher = config.Poacher,
+            Werewolf = config.Werewolf
         };
     }
 
@@ -60,6 +62,7 @@ public class GameConfigDto
             DogTamer = DogTamer,
             Day = Day,
             Poacher = Poacher,
+            Werewolf = Werewolf
         };
     }
 }

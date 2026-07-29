@@ -149,6 +149,9 @@ public class DayService : IDayService
             tally
         });
 
+        // wait a few seconds before transitioning to night/gameover so players can see the results
+        await Task.Delay(5000);
+
         // Check game over
         if (lobby.Game!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
         {
@@ -159,8 +162,7 @@ public class DayService : IDayService
             return;
         }
 
-        // Transition back to night after a pause
-        await Task.Delay(5000);
+        // transition back to night
         await _nightService.Value.BeginNightAsync(lobbyCode);
     }
 

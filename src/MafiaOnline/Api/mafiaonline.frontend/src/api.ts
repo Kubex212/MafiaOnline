@@ -20,11 +20,29 @@ export type RoleSelection = {
     dracula: boolean;
 };
 
+export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';
+export type ShowVotes = 'Never' | 'AfterVotingEnds' | 'Always';
+
 export type DayConfig = {
     durationSeconds: number;
     votesRequiredFraction: number;
-    drawResolution: 'KickNone' | 'KickRandom' | 'KickAll';
-    showVoteTargets: 'Never' | 'AfterVotingEnds' | 'Always';
+    drawResolution: DrawResolution;
+    showVoteTargets: ShowVotes;
+};
+
+export type WerewolfConfig = {
+    /** How a tie between werewolf attack votes is resolved. */
+    drawResolution: DrawResolution;
+    /** Whether werewolves see each other's attack votes live. */
+    showVoteTargets: ShowVotes;
+    /** Whether werewolves receive a fake alibi at the start of the game. */
+    alibi: boolean;
+};
+
+export const DEFAULT_WEREWOLF_CONFIG: WerewolfConfig = {
+    drawResolution: 'KickRandom',
+    showVoteTargets: 'Always',
+    alibi: true,
 };
 
 export type GuardianConfig = {
@@ -55,6 +73,7 @@ export type GameConfig = {
     dogTamer: DogTamerConfig;
     day: DayConfig;
     poacher: PoacherConfig;
+    werewolf?: WerewolfConfig;
 };
 
 export type LobbyResponse = {
@@ -91,28 +110,50 @@ export type NightResolvedPayload = {
     attackBlocked: boolean;
 };
 
+export enum ClueType {
+    Detective = "Detective",
+    DogTamer = "DogTamer",
+    Seer = "Seer",
+    Trailer = "Trailer"
+}
 
-export type DetectiveNightInfo = {
-    type: 'DetectiveClue';
-    data: { SubjectNickname: string; IsWerewolf: boolean };
-};
+export interface ClueResponse {
+    type: ClueType;
+    data: Record<string, unknown>;
+    clue: unknown;
+}
 
-export type DogTamerNightInfo = {
-    type: 'DogTamerClue';
-    data: { DidBark: boolean };
-};
+export interface DetectiveClueResponse extends ClueResponse {
+    type: ClueType.Detective;
+    clue: string;
+}
 
-export type SeerNightInfo = {
-    type: 'SeerClue';
-    data: { SubjectA: string; SubjectB: string; SubjectAName: string; SubjectBName: string; SameTeam: boolean };
-};
+export interface DogTamerClueResponse extends ClueResponse {
+    type: ClueType.DogTamer;
+    clue: boolean;
+}
 
-export type TrailerNightInfo = {
-    type: 'TrailerClue';
-    data: { Direction: 'Left' | 'Right' | 'None' };
-};
+export interface SeerClueResponse extends ClueResponse {
+    type: ClueType.Seer;
+    clue: boolean;
+    data: {
+        SubjectAName: string;
+        SubjectBName: string;
+        SubjectA: string;
+        SubjectB: string;
+    };
+}
 
-export type PlayerNightInfoResponse = DetectiveNightInfo | DogTamerNightInfo | SeerNightInfo | TrailerNightInfo;
+export interface TrailerClueResponse extends ClueResponse {
+    type: ClueType.Trailer;
+    clue: string;
+}
+
+export type AnyClueResponse =
+    | DetectiveClueResponse
+    | DogTamerClueResponse
+    | SeerClueResponse
+    | TrailerClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string;
@@ -219,7 +260,7 @@ export async function skipNightTurn(code: string, actorId: string): Promise<void
     if (!res.ok) throw new Error('Skip failed: ' + res.statusText);
 }
 
-export async function getPlayerNightInfo(code: string, playerId: string): Promise<PlayerNightInfoResponse | null> {
+export async function getPlayerNightInfo(code: string, playerId: string): Promise<AnyClueResponse | null> {
     const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/clue/${encodeURIComponent(playerId)}`);
     if (res.status === 204) return null;
     if (!res.ok) throw new Error('Night info fetch failed: ' + res.statusText);
@@ -273,7 +314,7 @@ export type ReconnectResponse = {
     day?: {
         durationSeconds: number;
         remainingSeconds: number;
-        showVoteTargets: boolean;
+        showVoteTargets: ShowVotes;
         alivePlayers: SeatInfo[];
         votes?: Record<string, string>;
         enshrouded?: string[];

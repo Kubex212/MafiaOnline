@@ -1,7 +1,146 @@
+using Newtonsoft.Json;
+
 namespace MafiaOnline.Engine.Night;
 
-public abstract class NightEvent { }
+public enum ClueType
+{
+    Detective,
+    DogTamer,
+    Seer,
+    Trailer
+}
 
+public abstract class NightEvent
+{
+}
+
+public abstract class ClueEvent : NightEvent
+{
+    [JsonProperty]
+    public Guid ClueOwnerId { get; private set; }
+
+    [JsonProperty]
+    public bool IsReversed { get; private set; }
+
+    public abstract object DisplayedClue { get; }
+    public abstract ClueType ClueType { get; }
+
+    protected ClueEvent()
+    {
+    }
+
+    protected ClueEvent(Guid clueOwnerId)
+    {
+        ClueOwnerId = clueOwnerId;
+    }
+
+    public void ReverseClue() => IsReversed = !IsReversed;
+
+    public virtual Dictionary<string, object> GetAdditionalInfoDictionary(IReadOnlyCollection<Player> players)
+    {
+        return new Dictionary<string, object>();
+    }
+}
+
+public abstract class ClueEvent<T> : ClueEvent
+{
+    [JsonProperty]
+    public T Clue { get; private set; }
+
+    [JsonProperty]
+    public T FakeClue { get; private set; }
+
+    public override object DisplayedClue => IsReversed ? FakeClue! : Clue!;
+
+    protected ClueEvent()
+    {
+    }
+
+    protected ClueEvent(Guid playerId, T clue, T fakeClue)
+        : base(playerId)
+    {
+        Clue = clue;
+        FakeClue = fakeClue;
+    }
+}
+
+public sealed class DetectiveClueEvent : ClueEvent<string>
+{
+    public override ClueType ClueType => ClueType.Detective;
+
+    public DetectiveClueEvent()
+    {
+    }
+
+    public DetectiveClueEvent(Guid detectiveId, string nonWerewolf, string werewolf)
+        : base(detectiveId, nonWerewolf, werewolf)
+    {
+    }
+}
+
+public sealed class DogTamerClueEvent : ClueEvent<bool>
+{
+    public override ClueType ClueType => ClueType.DogTamer;
+
+    public DogTamerClueEvent()
+    {
+    }
+
+    public DogTamerClueEvent(Guid dogTamerId, bool didBark)
+        : base(dogTamerId, didBark, !didBark)
+    {
+    }
+}
+
+public sealed class SeerClueEvent : ClueEvent<bool>
+{
+    public override ClueType ClueType => ClueType.Seer;
+
+    [JsonProperty]
+    public Guid SubjectA { get; private set; }
+
+    [JsonProperty]
+    public Guid SubjectB { get; private set; }
+
+    public SeerClueEvent()
+    {
+    }
+
+    public SeerClueEvent(Guid seerId, Guid subjectA, Guid subjectB, bool sameTeam)
+        : base(seerId, sameTeam, !sameTeam)
+    {
+        SubjectA = subjectA;
+        SubjectB = subjectB;
+    }
+
+    public override Dictionary<string, object> GetAdditionalInfoDictionary(IReadOnlyCollection<Player> players)
+    {
+        var subjAName = players.FirstOrDefault(p => p.Id == SubjectA)?.Nickname ?? "?";
+        var subjBName = players.FirstOrDefault(p => p.Id == SubjectB)?.Nickname ?? "?";
+
+        return new Dictionary<string, object>
+        {
+            ["SubjectAName"] = subjAName,
+            ["SubjectBName"] = subjBName,
+            ["SubjectA"] = SubjectA,
+            ["SubjectB"] = SubjectB
+        };
+    }
+}
+
+public sealed class TrailerClueEvent : ClueEvent<string>
+{
+    public override ClueType ClueType => ClueType.Trailer;
+
+    public TrailerClueEvent()
+    {
+    }
+
+    public TrailerClueEvent(Guid trailerId, string direction)
+        : base(trailerId, direction, direction == "Left" ? "Right" : "Left")
+    {
+    }
+}
 public sealed class PlayerKilledEvent : NightEvent
 {
     public Guid PlayerId { get; }
@@ -15,29 +154,7 @@ public sealed class AttackBlockedEvent : NightEvent
     public AttackBlockedEvent(Guid victimId, Guid guardianId) => (VictimId, GuardianId) = (victimId, guardianId);
 }
 
-public sealed class DetectiveClueEvent : NightEvent
-{
-    public Guid DetectiveId { get; }
-    public string SubjectNickname { get; }
-    public bool IsWerewolf { get; }
-    public DetectiveClueEvent(Guid detectiveId, string subjectNickname, bool isWerewolf) => (DetectiveId, SubjectNickname, IsWerewolf) = (detectiveId, subjectNickname, isWerewolf);
-}
 
-public sealed class DogTamerClueEvent : NightEvent
-{
-    public Guid DogTamerId { get; }
-    public bool DidBark { get; }
-    public DogTamerClueEvent(Guid dogTamerId, bool didBark) => (DogTamerId, DidBark) = (dogTamerId, didBark);
-}
-
-public sealed class SeerClueEvent : NightEvent
-{
-    public Guid SeerId { get; }
-    public Guid SubjectA { get; }
-    public Guid SubjectB { get; }
-    public bool SameTeam { get; }
-    public SeerClueEvent(Guid seerId, Guid subjectA, Guid subjectB, bool sameTeam) => (SeerId, SubjectA, SubjectB, SameTeam) = (seerId, subjectA, subjectB, sameTeam);
-}
 
 public sealed class PoacherTriggeredEvent : NightEvent
 {
@@ -47,16 +164,16 @@ public sealed class PoacherTriggeredEvent : NightEvent
     public PoacherTriggeredEvent(Guid poacherId, Guid victimId, Guid werewolfId) => (PoacherId, VictimId, WerewolfId) = (poacherId, victimId, werewolfId);
 }
 
-public sealed class TrailerClueEvent : NightEvent
-{
-    public Guid TrailerId { get; }
-    public string Direction { get; }
-    public TrailerClueEvent(Guid trailerId, string direction) => (TrailerId, Direction) = (trailerId, direction);
-}
-
 public sealed class DraculaEnshroudedEvent : NightEvent
 {
     public Guid DraculaId { get; }
     public Guid TargetId { get; }
     public DraculaEnshroudedEvent(Guid draculaId, Guid targetId) => (DraculaId, TargetId) = (draculaId, targetId);
+}
+
+public sealed class DeceiverEvent : NightEvent
+{
+    public Guid DeceiverId { get; }
+    public Guid TargetId { get; }
+    public DeceiverEvent(Guid deceiverId, Guid targetId) => (DeceiverId, TargetId) = (deceiverId, targetId);
 }

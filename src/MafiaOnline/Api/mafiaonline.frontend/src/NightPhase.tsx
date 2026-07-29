@@ -1,8 +1,8 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, PlayerNightInfoResponse, GameConfig } from './api';
+import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, AnyClueResponse, GameConfig } from './api';
 import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
 import { useTranslation } from 'react-i18next';
-import RoundTable, { type TableSeatState } from './RoundTable';
+import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
 import RoleInfo from './RoleInfo';
 
 interface Props {
@@ -18,6 +18,7 @@ export interface NightPhaseHandle {
     onTurnStarted(turn: NightTurnStarted): void;
     onNightResolved(payload: NightResolvedPayload): void;
     addLog(message: string): void;
+    onWerewolfAttackCast(vote: { actorId: string; targetId: string }): void;
 }
 
 export interface ActionData {
@@ -41,10 +42,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const [activeTurn, setActiveTurn] = useState<NightTurnStarted | null>(null);
     const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
     const [resolved, setResolved] = useState<NightResolvedPayload | null>(null);
-    const [nightInfo, setNightInfo] = useState<PlayerNightInfoResponse | null>(null);
+    const [nightInfo, setNightInfo] = useState<AnyClueResponse | null>(null);
     const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [log, setLog] = useState<string[]>([t('nightFalls')]);
+    // actorId -> targetId, only ever populated for werewolf players
+    const [wolfVotes, setWolfVotes] = useState<Record<string, string>>({});
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // track whether we already submitted attack/ability for this turn
@@ -74,6 +77,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             if (timerRef.current) clearInterval(timerRef.current);
             setActiveTurn(null);
             setResolved(payload);
+            setWolfVotes({});
             if (payload.killed.length > 0)
                 setLog(l => [...l, t('killed', { list: payload.killed.join(', ') })]);
             else if (payload.attackBlocked)
@@ -83,28 +87,31 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             try {
                 const info = await getPlayerNightInfo(lobbyCode, myPlayerId);
                 setNightInfo(info);
-                if (info?.type === 'DetectiveClue') {
+                if (!info) return;
+                if (info.type === 'Detective') {
                     setLog(l => [...l, t('detectiveClueLong', {
                         player: info.data.SubjectNickname,
                         role: info.data.IsWerewolf ? t('werewolf') : t('innocent'),
                     })]);
-                } else if (info?.type === 'DogTamerClue') {
+                } else if (info.type === 'DogTamer') {
                     setLog(l => [...l, t('dogClue', {
                         barked: info.data.DidBark ? t('dogBarked') : t('dogQuiet'),
                     })]);
-                } else if (info?.type === 'SeerClue') {
-                    const same = String(info.data.SameTeam) === 'true';
+                } else if (info.type === 'Seer') {
                     setLog(l => [...l, t('seerClueLong', {
                         a: String(info.data.SubjectAName),
                         b: String(info.data.SubjectBName),
-                        relation: same ? t('sameTeam') : t('differentTeams'),
+                        relation: info.clue ? t('sameTeam') : t('differentTeams'),
                     })]);
                 }
             } catch { /* no clue for this role */ }
         },
         addLog(message: string) {
             setLog(l => [...l, message]);
-        }
+        },
+        onWerewolfAttackCast({ actorId, targetId }) {
+            setWolfVotes(prev => ({ ...prev, [actorId]: targetId }));
+        },
     }), [lobbyCode, myPlayerId, seats, t]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
@@ -133,6 +140,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         try {
             await submitNightAction(lobbyCode, myPlayerId, selectedTargets[0], ActionType.Attack);
             setAttackSubmitted(true);
+            setWolfVotes(prev => ({ ...prev, [myPlayerId]: selectedTargets[0] }));
             setLog(l => [...l, t('attackSubmitted')]);
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
@@ -173,6 +181,15 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     });
 
     const isWerewolf = myRole.teamId === 1;
+    const teamClass = myRole.teamId === 1 ? 'turn-banner--wolf'
+        : myRole.teamId === 2 ? 'turn-banner--neutral'
+            : 'turn-banner--town';
+
+    // Werewolves see each other's kill votes as blood-red arrows.
+    const wolfArrows: VoteArrow[] = isWerewolf
+        ? (Object.entries(wolfVotes) as [string, string][])
+            .map(([fromId, toId]) => ({ fromId, toId, kind: 'attack' as const }))
+        : [];
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
@@ -181,7 +198,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
 
             {/* Turn banner */}
             {activeTurn && !resolved && (
-                <div className={`turn-banner ${isMyTurn ? 'turn-banner--me' : ''}`}>
+                <div className={`turn-banner ${teamClass} ${isMyTurn ? 'turn-banner--me' : ''}`}>
                     <div>
                         <div className="turn-banner__title">
                             {isMyTurn
@@ -201,7 +218,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                             <circle cx={26} cy={26} r={22} fill="none"
                                 stroke="rgba(255,255,255,0.08)" strokeWidth={4} />
                             <circle cx={26} cy={26} r={22} fill="none"
-                                stroke={timeUrgent ? 'var(--danger-2)' : 'var(--town-2)'}
+                                stroke={timeUrgent ? 'var(--danger-2)' : 'var(--team-color)'}
                                 strokeWidth={4} strokeLinecap="round"
                                 strokeDasharray={ringLen}
                                 strokeDashoffset={ringLen * ringPct}
@@ -217,6 +234,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             <RoundTable
                 seats={seats}
                 states={seatStates}
+                voteArrows={wolfArrows}
                 centreLabel={t('night')}
                 centreIcon="🌙"
                 onSeatClick={s => toggleTarget(s.id)}
@@ -260,29 +278,29 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {resolved.attackBlocked && (
                         <div style={{ color: 'var(--town-2)', marginTop: 4 }}>🛡 {t('attackBlocked')}</div>
                     )}
-                    {nightInfo?.type === 'DetectiveClue' && (
+                    {nightInfo?.type === 'Detective' && (
                         <div className="resolution__clue">
-                            🔍 {t('detectiveClueShort')} <b>{String(nightInfo.data.SubjectNickname)}</b> {t('is')}{' '}
-                            <b style={{ color: nightInfo.data.IsWerewolf ? 'var(--danger-2)' : 'var(--town-2)' }}>
-                                {nightInfo.data.IsWerewolf ? t('werewolf') : t('innocent')}
+                            🔍 {t('detectiveClueShort')} <b>{nightInfo.clue}</b> {t('is')}{' '}
+                            <b style={{ color: 'var(--town-2)' }}>
+                                {t('innocent')}
                             </b>
                         </div>
                     )}
-                    {nightInfo?.type === 'DogTamerClue' && (
+                    {nightInfo?.type === 'DogTamer' && (
                         <div className="resolution__clue">
-                            🐕 {t('dogClueShort')} {nightInfo.data.DidBark ? t('dogBarked') : t('dogQuiet')}.
+                            🐕 {t('dogClueShort')} {nightInfo.clue ? t('dogBarked') : t('dogQuiet')}.
                         </div>
                     )}
-                    {nightInfo?.type === 'SeerClue' && (
+                    {nightInfo?.type === 'Seer' && (
                         <div className="resolution__clue">
                             🔮 {t('seerClueShort')} {String(nightInfo.data.SubjectAName)} &amp;{' '}
                             {String(nightInfo.data.SubjectBName)} —{' '}
-                            {String(nightInfo.data.SameTeam) === 'true' ? t('sameTeam') : t('differentTeams')}
+                            {nightInfo.clue ? t('sameTeam') : t('differentTeams')}
                         </div>
                     )}
-                    {nightInfo?.type === 'TrailerClue' && (
+                    {nightInfo?.type === 'Trailer' && (
                         <div className="resolution__clue">
-                            🐾 {t('trailerClueLong', { dir: t(nightInfo.data.Direction) })}.
+                            🐾 {t('trailerClueLong', { dir: t(nightInfo.clue) })}.
                         </div>
                     )}
                 </div>

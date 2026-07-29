@@ -9,10 +9,8 @@ namespace MafiaOnline.Engine.Roles;
 /// Determines the order in which night abilities fire (ascending).
 /// Ties are broken by the acting player's seat index (ascending).
 /// </param>
-public abstract class NightAbility(int priority)
+public abstract class NightAbility()
 {
-    public int Priority { get; } = priority;
-
     /// <summary>
     /// When true, the ability is applied automatically without waiting for player input.
     /// When false, the game waits for the player to submit a <see cref="NightAction"/>

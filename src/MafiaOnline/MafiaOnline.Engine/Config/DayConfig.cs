@@ -1,5 +1,7 @@
-namespace MafiaOnline.Engine.Config;
+namespace MafiaOnline.Engine.Config; 
+using System.Text.Json.Serialization;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum DrawResolution
 {
     /// <summary>Nobody is banished on a tie.</summary>
@@ -10,6 +12,7 @@ public enum DrawResolution
     KickAll
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ShowDayVotes
 {
     Never,

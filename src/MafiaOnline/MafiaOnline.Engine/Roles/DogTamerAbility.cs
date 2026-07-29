@@ -7,7 +7,7 @@ namespace MafiaOnline.Engine.Roles;
 /// Dog tamer as a dog that will bark if there are exactly N werewolves in range.
 /// The dog tamer will investigate the player and their neighbors, up to this range (range is per direction).
 /// </summary>
-public class DogTamerAbility(DogTamerConfig config) : NightAbility(25)
+public class DogTamerAbility(DogTamerConfig config) : NightAbility()
 {
     public override bool IsAutomatic => true;
 

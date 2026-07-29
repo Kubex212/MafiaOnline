@@ -1,9 +1,10 @@
 import React from 'react';
-import type { GameConfig } from './api';
+import type { GameConfig, WerewolfConfig } from './api';
+import { DEFAULT_WEREWOLF_CONFIG } from './api';
 import { useTranslation } from 'react-i18next';
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool',
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool', 'dracula',
 ];
 
 function Flag({ on, t }: { on: boolean; t: (k: string) => string }) {
@@ -17,6 +18,11 @@ function Flag({ on, t }: { on: boolean; t: (k: string) => string }) {
 /** Read-only mirror of the host's game configuration (live via ConfigUpdated). */
 export default function GameConfigView({ config }: { config: GameConfig }) {
     const { t } = useTranslation();
+    const werewolf: WerewolfConfig = { ...DEFAULT_WEREWOLF_CONFIG, ...(config.werewolf ?? {}) };
+    const votesLabel = (v: string) =>
+        v === 'Never' ? t('votesNever')
+            : v === 'AfterVotingEnds' ? t('votesAfterVotingEnds')
+            : t('votesAlways');
 
     return (
         <div className="config config--readonly">
@@ -51,10 +57,26 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                     <span>{t('drawResolution')}</span>
                     <span className="config__value">{t(config.day.drawResolution)}</span>
                 </div>
-                {/*<div className="config__row">*/}
-                {/*    <span>{t('showVoteTargets')}</span>*/}
-                {/*    <Flag on={config.day.showVoteTargets} t={t} />*/}
-                {/*</div>*/}
+                <div className="config__row">
+                    <span>{t('showVoteTargets')}</span>
+                    <span className="config__value">{votesLabel(config.day.showVoteTargets ?? 'Always')}</span>
+                </div>
+            </div>
+
+            <div className="config__section">
+                <h4 className="config__section-title">{t('werewolfSettings')}</h4>
+                <div className="config__row">
+                    <span>{t('werewolfDrawResolution')}</span>
+                    <span className="config__value">{t(werewolf.drawResolution)}</span>
+                </div>
+                <div className="config__row">
+                    <span>{t('werewolfShowVoteTargets')}</span>
+                    <span className="config__value">{votesLabel(werewolf.showVoteTargets)}</span>
+                </div>
+                <div className="config__row">
+                    <span>{t('werewolfAlibi')}</span>
+                    <Flag on={werewolf.alibi} t={t} />
+                </div>
             </div>
 
             <div className="config__section">
