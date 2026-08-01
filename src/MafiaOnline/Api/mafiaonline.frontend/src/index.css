@@ -754,16 +754,148 @@ code { font-family: var(--font-mono); }
   border-radius: var(--radius);
   background: rgba(0,0,0,0.35);
   border: 1px solid var(--border-soft);
-  padding: 10px 14px;
+  padding: 8px 10px 10px;
   font-family: var(--font-body);
   font-style: italic;
+}
+.event-log__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0 4px 6px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+}
+.event-log__count {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.event-log__scroll {
+  max-height: 148px;
+  overflow-y: auto;
+  padding: 0 4px;
+  scrollbar-width: thin;
 }
 .event-log__line {
   font-size: 0.85rem;
   color: var(--text-muted);
   line-height: 1.55;
   animation: fadeIn 0.4s var(--ease);
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
 }
+.event-log__mark { font-style: normal; opacity: 0.65; font-size: 0.72rem; flex: none; }
+.event-log__line--night { color: color-mix(in oklab, var(--text-muted) 85%, var(--accent-2)); }
+.event-log__line--day { color: color-mix(in oklab, var(--text-muted) 85%, var(--town-2)); }
+@media (max-height: 760px) { .event-log__scroll { max-height: 96px; } }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Role hint (ⓘ popover in the lobby config)
+   ──────────────────────────────────────────────────────────────────────── */
+
+.role-card__headrow { display: flex; align-items: center; gap: 6px; }
+.role-card__headrow .role-card__head { flex: 1; }
+.role-card__flag { margin-left: auto; }
+
+.role-hint { position: relative; display: inline-flex; }
+.role-hint__btn {
+  appearance: none;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-dim);
+  width: 22px; height: 22px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid; place-items: center;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  padding: 0px;
+}
+.role-hint__btn:hover, .role-hint--open .role-hint__btn {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+.role-hint__pop {
+  position: absolute;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, 4px);
+  width: min(260px, 68vw);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), visibility 0.18s;
+}
+.role-hint--open .role-hint__pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+.role-hint__title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.role-hint__body {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+@media (max-width: 520px) {
+  .role-hint__pop { position: fixed; left: 50%; bottom: 16px; width: min(340px, 90vw); }
+}
+
+/* Fellow werewolf marker on the round table */
+.seat-ally-ring { animation: allyPulse 2.8s var(--ease) infinite; }
+@keyframes allyPulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.6; }
+}
+
+/* Pack list on the role reveal */
+.reveal__pack {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: 1px dashed var(--wolf);
+    background: rgba(0,0,0,0.3);
+    animation: revealFade 1s var(--ease) both;
+}
+.reveal__pack-label {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.reveal__pack-names { font-family: var(--font-body); color: var(--wolf); }
 
 /* ────────────────────────────────────────────────────────────────────────
    Resolution panel (Night dawn / Day banish)
@@ -1082,4 +1214,144 @@ code { font-family: var(--font-mono); }
 @media (max-width: 700px), (max-height: 760px) {
   .role-info__panel { font-size: 0.85rem; }
   .role-info__alibi { display: none; }
+}
+
+/* ── Landing explainer (home page, before a lobby exists) ──────────────── */
+.landing {
+  max-width: 640px;
+  margin: 34px auto 8px;
+  display: grid;
+  gap: 22px;
+  animation: fade-in .5s ease both;
+}
+.landing__lede {
+  text-align: center;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.6;
+  margin: 0;
+}
+.landing__heading {
+  font-family: var(--font-display, 'Cinzel', serif);
+  text-align: center;
+  font-size: 1.05rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0;
+}
+.landing__facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  text-align: center;
+}
+.landing__facts li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  padding: 10px 6px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.landing__facts strong {
+  font-family: var(--font-display, 'Cinzel', serif);
+  color: var(--accent);
+  font-size: 1.05rem;
+}
+.landing__facts span { color: var(--text-muted); font-size: .78rem; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  padding: 12px 14px;
+}
+.step__icon { font-size: 1.25rem; line-height: 1.4; flex-shrink: 0; }
+.step__text { min-width: 0; }
+.step__text h3 {
+  margin: 0 0 3px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: .95rem;
+  letter-spacing: .04em;
+}
+.step__text p { margin: 0; color: var(--text-muted); font-size: .88rem; line-height: 1.5; }
+
+.landing__teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.team-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  padding: 14px;
+  background: var(--surface);
+  text-align: center;
+  min-width: 0;
+}
+.team-card h3 {
+  margin: 6px 0 4px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: .95rem;
+}
+.team-card p { margin: 0; font-size: .84rem; color: var(--text-muted); line-height: 1.5; }
+.team-card__sigil { font-size: 1.5rem; }
+.team-card--town { border-color: color-mix(in oklab, var(--town, #7f9a63) 55%, var(--border)); }
+.team-card--town h3 { color: var(--town, #7f9a63); }
+.team-card--wolf { border-color: color-mix(in oklab, var(--danger, #a33) 55%, var(--border)); }
+.team-card--wolf h3 { color: var(--danger, #a33); }
+
+.landing__details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--surface);
+  padding: 0 14px;
+}
+.landing__details > summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-family: var(--font-display, 'Cinzel', serif);
+  letter-spacing: .06em;
+  color: var(--accent);
+  font-size: .92rem;
+}
+.landing__details > summary:focus-visible { outline: 2px solid var(--focus, #6cf); outline-offset: 3px; }
+.role-peek {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.role-peek li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+}
+.role-peek__sigil { font-size: 1.1rem; }
+.role-peek strong { display: block; font-size: .88rem; }
+.role-peek span { display: block; color: var(--text-muted); font-size: .8rem; line-height: 1.45; }
+
+.landing__foot {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: .85rem;
+  margin: 0 0 6px;
+}
+
+@media (max-width: 520px) {
+  .landing { gap: 18px; margin-top: 26px; }
+  .landing__teams { grid-template-columns: 1fr; }
+  .landing__facts strong { font-size: .95rem; }
 }

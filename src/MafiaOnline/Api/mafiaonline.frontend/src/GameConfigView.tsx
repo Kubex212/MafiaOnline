@@ -2,6 +2,7 @@ import React from 'react';
 import type { GameConfig, WerewolfConfig } from './api';
 import { DEFAULT_WEREWOLF_CONFIG } from './api';
 import { useTranslation } from 'react-i18next';
+import RoleHint from './RoleHint';
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
     'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool', 'dracula',
@@ -88,7 +89,8 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                             <div key={key} className={`role-card ${enabled ? '' : 'role-card--off'}`}>
                                 <div className="role-card__head role-card__head--static">
                                     <span>{t(key)}</span>
-                                    <Flag on={enabled} t={t} />
+                                    <RoleHint role={key} config={config} />
+                                    <span className="role-card__flag"><Flag on={enabled} t={t} /></span>
                                 </div>
 
                                 {key === 'guardian' && enabled && (

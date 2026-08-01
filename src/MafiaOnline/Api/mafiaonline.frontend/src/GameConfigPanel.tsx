@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { GameConfig, WerewolfConfig } from './api';
 import { DEFAULT_WEREWOLF_CONFIG } from './api';
 import { useTranslation } from 'react-i18next';
+import RoleHint from './RoleHint';
 
 type GameConfigPanelProps = {
     config: GameConfig;
@@ -145,12 +146,15 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                 <div className="config__grid">
                     {roleKeys.map(key => (
                         <div key={key} className="role-card">
-                            <label className="role-card__head">
-                                <input type="checkbox"
-                                    checked={local.roles[key]}
-                                    onChange={e => updateRole(key, e.target.checked)} />
-                                <span>{t(key)}</span>
-                            </label>
+                            <div className="role-card__headrow">
+                                <label className="role-card__head">
+                                    <input type="checkbox"
+                                        checked={local.roles[key]}
+                                        onChange={e => updateRole(key, e.target.checked)} />
+                                    <span>{t(key)}</span>
+                                </label>
+                                <RoleHint role={key} config={local} />
+                            </div>
                             {key === 'guardian' && local.roles.guardian && (
                                 <div className="role-card__sub">
                                     <label>

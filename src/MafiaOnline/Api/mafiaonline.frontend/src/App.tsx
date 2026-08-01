@@ -16,8 +16,10 @@ import DayPhase, { type DayPhaseHandle } from './DayPhase';
 import GameOver from './GameOver';
 import GameConfigPanel from './GameConfigPanel';
 import GameConfigView from './GameConfigView';
+import Landing from './Landing';
 import { useTranslation } from 'react-i18next';
 import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
+import { addLog, clearLog } from './gameLog';
 import startSound from './assets/audio/among-us-start-sound.mp3';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
@@ -49,6 +51,7 @@ export default function App() {
     const seatsRef = useRef<SeatInfo[] | null>(null);
     const nightRef = useRef<NightPhaseHandle | null>(null);
     const dayRef = useRef<DayPhaseHandle | null>(null);
+    const pendingDayStartedRef = useRef<DayStartedPayload | null>(null);
     const myRoleRef = useRef<RoleResponse | null>(null);
 
     const { t } = useTranslation();
@@ -79,6 +82,13 @@ export default function App() {
     // Reflect current phase on <html> so the theme retunes atmospherically.
     useEffect(() => {
         document.documentElement.setAttribute('data-phase', view);
+    }, [view]);
+
+    // One chronicle for the whole game — mark each phase change in it.
+    useEffect(() => {
+        if (view === 'night') addLog(t('nightFalls'), 'night');
+        else if (view === 'day') addLog(t('dayBreaks'), 'day');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view]);
 
     // ── SignalR wiring ────────────────────────────────────────────────────
@@ -115,6 +125,7 @@ export default function App() {
             setSeats(sorted);
             seatsRef.current = sorted;
             setDeadIds([]);
+            clearLog();
             const code = lobbyRef.current?.code;
             const pid = myPlayerIdRef.current;
             if (code && pid) {
@@ -145,8 +156,9 @@ export default function App() {
             const alive = new Set(payload.alivePlayers.map(p => p.id));
             const all = seatsRef.current ?? [];
             setDeadIds(all.filter(s => !alive.has(s.id)).map(s => s.id));
+
+            pendingDayStartedRef.current = payload;
             setView('day');
-            runAfterCommit(() => dayRef.current?.onDayStarted(payload));
         });
 
         conn.on('VoteCast', (payload: VoteCastPayload) => {
@@ -302,6 +314,17 @@ export default function App() {
     }
 
     const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
+
+    // Fellow werewolves — the backend only sends this to werewolves, so nobody
+    // else can ever see the markers.
+    const otherWerewolvesSeats: SeatInfo[] = (() => {
+        if (!myRole || myRole.teamId !== 1 || !seats) return [];
+        const raw = myRole.otherWerewolvesIds ?? [];
+        const found = raw.map(id => seats.find(s => s.id === id)).filter((s): s is SeatInfo => !!s && s.id !== myPlayerId);
+        return Array.from(new Map(found.map(s => [s.id, s])).values());
+    })();
+    const otherWerewolvesIds = otherWerewolvesSeats.map(s => s.id);
+
     const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
     const orderedPlayers = lobby
         ? [...lobby.players].sort((a, b) => a.lobbyPosition - b.lobbyPosition)
@@ -331,6 +354,14 @@ export default function App() {
                     {t(myRole.name)}
                 </div>
                 <div className="reveal__team">{t(myRole.teamName)}</div>
+                {otherWerewolvesSeats.length > 0 && (
+                    <div className="reveal__pack">
+                        <span className="reveal__pack-label">🐺 {t('yourPack')}</span>
+                        <span className="reveal__pack-names">
+                            {otherWerewolvesSeats.map(s => s.nickname).join(' · ')}
+                        </span>
+                    </div>
+                )}
                 {myRole.alibi && (
                     <div className="reveal__alibi">
                         <span className="reveal__alibi-label">{t('alibiShort')}</span>
@@ -362,6 +393,7 @@ export default function App() {
                     myPlayerId={myPlayerId}
                     myRole={myRole}
                     deadIds={deadIds}
+                    otherWerewolvesIds={otherWerewolvesIds}
                     config={lobby?.config} />
             </div></div>
         );
@@ -376,13 +408,20 @@ export default function App() {
                     ☀ {t('dayPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
                 </h2>
-                <DayPhase ref={dayRef}
+                <DayPhase
+                    ref={instance => {
+                        dayRef.current = instance;
+
+                        if (instance && pendingDayStartedRef.current) {
+                            instance.onDayStarted(pendingDayStartedRef.current);
+                            pendingDayStartedRef.current = null;
+                        }
+                    }}
                     lobbyCode={lobby!.code}
                     allSeats={seats}
                     myPlayerId={myPlayerId}
                     myRole={myRole}
-                    deadIds={deadIds}
-                    config={lobby?.config} />
+                />
             </div></div>
         );
     }
@@ -440,6 +479,8 @@ export default function App() {
                                 </button>
                             </div>
                         </div>
+
+                        <Landing />
                     </>
                 )}
 

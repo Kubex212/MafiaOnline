@@ -10,4 +10,8 @@ public class RoleResponse
     public string TeamName { get; set; } = "";
     public int TeamId { get; set; }
     public string? Alibi { get; set; }
+    /// <summary>
+    /// Not set unless the player is a werewolf.
+    /// </summary>
+    public List<Guid> OtherWerewolvesIds { get; set; } = new();
 }

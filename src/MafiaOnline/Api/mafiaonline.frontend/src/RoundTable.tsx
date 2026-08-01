@@ -16,6 +16,8 @@ export interface TableSeatState {
     isTargetable?: boolean;
     hasVoted?: boolean;
     isEnshrouded?: boolean;
+    /** Fellow werewolf — only ever set for viewers who are werewolves themselves. */
+    isAnotherWerewolf?: boolean;
 }
 
 export interface VoteArrow {
@@ -117,16 +119,20 @@ export default function RoundTable({
                 const isTargetable = !!st?.isTargetable;
                 const hasVoted = !!st?.hasVoted;
                 const isEnshrouded = !!st?.isEnshrouded;
+                const isAnotherWerewolf = !!st?.isAnotherWerewolf;
 
                 const stroke = isSelected ? 'var(--accent)'
                     : isActive ? 'var(--accent-2)'
+                    : isAnotherWerewolf && isAlive ? 'var(--wolf)'
                     : isMe ? 'var(--town-2)'
                     : isAlive ? 'var(--border)' : 'var(--border-soft)';
                 const fill = !isAlive ? 'rgba(0,0,0,0.4)'
+                    : isAnotherWerewolf ? 'color-mix(in oklab, var(--wolf) 28%, var(--surface))'
                     : isMe ? 'color-mix(in oklab, var(--town) 25%, var(--surface))'
                     : 'var(--surface-2)';
                 const label = seat.nickname.length > 10 ? seat.nickname.slice(0, 9) + '…' : seat.nickname;
                 const textFill = !isAlive ? 'var(--text-dim)'
+                    : isAnotherWerewolf && !isMe ? 'var(--danger-2)'
                     : isMe ? 'var(--accent-2)'
                     : 'var(--text)';
 
@@ -142,8 +148,16 @@ export default function RoundTable({
                                 className="seat-active-halo" />
                         )}
                         <circle r={34} fill={fill} stroke={stroke}
-                            strokeWidth={isMe || isSelected || isActive ? 3 : 1.5}
+                            strokeWidth={isMe || isSelected || isActive || isAnotherWerewolf ? 3 : 1.5}
                             opacity={isAlive ? 1 : 0.5} />
+                        {isAnotherWerewolf && isAlive && (
+                            <>
+                                <circle r={40} fill="none" stroke="var(--wolf)" strokeWidth={1.5}
+                                    opacity={0.5} strokeDasharray="4 6" className="seat-ally-ring" />
+                                <text x={-22} y={22} textAnchor="middle" fontSize={12}
+                                    aria-hidden>🐺</text>
+                            </>
+                        )}
                         {isAlive && (
                             <>
                                 <circle cx={22} cy={-22} r={10}

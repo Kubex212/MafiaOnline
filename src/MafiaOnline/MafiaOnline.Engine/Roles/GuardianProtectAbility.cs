@@ -10,6 +10,7 @@ namespace MafiaOnline.Engine.Roles;
 public class GuardianProtectAbility(GuardianConfig config) : NightAbility()
 {
     public override bool IsAutomatic => false;
+    public override bool CanTargetSelf => config.CanProtectSelf;
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
@@ -17,7 +18,7 @@ public class GuardianProtectAbility(GuardianConfig config) : NightAbility()
         var targetId = action.Targets[0];
 
         // Prevent self-protection if not allowed
-        if (!config.CanProtectSelf && targetId == actor.Id) return;
+        if (!CanTargetSelf && targetId == actor.Id) return;
 
         var target = alivePlayers.FirstOrDefault(p => p.Id == targetId && p.IsAlive);
         if (target is null) return;

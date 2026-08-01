@@ -144,3 +144,4 @@ coverage.*
 /src/MafiaOnline/Api/bin/Release/net8.0/mafiaonline.frontend/package.json
 /src/MafiaOnline/Api/obj/Debug/net8.0/
 /src/MafiaOnline/Api/bin/Debug/net8.0/
+/src/MafiaOnline/Api/Api.csproj.user

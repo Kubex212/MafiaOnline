@@ -88,6 +88,8 @@ export type RoleResponse = {
     teamName?: string;
     teamId: number;
     alibi?: string;
+    /** Fellow werewolves (ids and/or nicknames) — only ever sent to werewolves. */
+    otherWerewolvesIds?: string[];
 };
 
 export type SeatInfo = {
@@ -141,7 +143,7 @@ export interface SeerClueResponse extends ClueResponse {
         SubjectBName: string;
         SubjectA: string;
         SubjectB: string;
-    };
+};
 }
 
 export interface TrailerClueResponse extends ClueResponse {

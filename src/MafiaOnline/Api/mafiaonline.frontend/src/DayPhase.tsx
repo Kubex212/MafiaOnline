@@ -4,6 +4,8 @@ import { castVote } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
 import RoleInfo from './RoleInfo';
+import EventLog from './EventLog';
+import { addLog as pushLog } from './gameLog';
 
 export interface DayPhaseHandle {
     onDayStarted(payload: DayStartedPayload): void;
@@ -19,10 +21,12 @@ interface Props {
     myRole: RoleResponse;
     deadIds?: string[];
     config?: GameConfig | null;
+    /** Ids of fellow werewolves — empty unless the viewer is a werewolf. */
+    otherWerewolvesIds?: string[];
 }
 
 const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
-    { lobbyCode, allSeats, myPlayerId, myRole, deadIds = [], config }, ref
+    { lobbyCode, allSeats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [] }, ref
 ) {
     const { t } = useTranslation();
     const [alivePlayers, setAlivePlayers] = useState<SeatInfo[]>([]);
@@ -34,12 +38,14 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [resolved, setResolved] = useState<DayResolvedPayload | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-    const [log, setLog] = useState<string[]>([t('dayBreaks')]);
     const [enshrouded, setEnshrouded] = useState<Set<string>>(new Set());
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    const setLog = (msg: string) => pushLog(msg, 'day');
+
     useImperativeHandle(ref, () => ({
         onDayStarted(payload: DayStartedPayload) {
+            //alert(payload);
             setAlivePlayers([...payload.alivePlayers].sort((a, b) => a.seatIndex - b.seatIndex));
             setDuration(payload.durationSeconds);
             setShowVoteTargets((payload.showVoteTargets ?? 'Never') as ShowVotes);
@@ -49,7 +55,6 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             setSelectedTarget(null);
             setResolved(null);
             setSubmitting(false);
-            setLog([t('dayBreaks')]);
             setEnshrouded(new Set((payload.enshrouded ?? []).map(id => id)));
 
             if (timerRef.current) clearInterval(timerRef.current);
@@ -63,15 +68,15 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         onVoteCast(payload: VoteCastPayload) {
             setVotes(prev => ({ ...prev, [payload.voterId]: payload.candidateId }));
             const voter = allSeats.find(s => s.id === payload.voterId);
-            setLog(l => [...l, t('playerVoted', { nick: voter?.nickname ?? '?' })]);
+            setLog(t('playerVoted', { nick: voter?.nickname ?? '?' }));
         },
         onDayResolved(payload: DayResolvedPayload) {
             if (timerRef.current) clearInterval(timerRef.current);
             setResolved(payload);
             if (payload.banished.length > 0)
-                setLog(l => [...l, t('banished', { list: payload.banished.join(', ') })]);
+                setLog(t('banished', { list: payload.banished.join(', ') }));
             else
-                setLog(l => [...l, payload.thresholdMet ? t('drawNoOneBanished') : t('notEnoughVotes')]);
+                setLog(payload.thresholdMet ? t('drawNoOneBanished') : t('notEnoughVotes'));
         },
         onRestoreState(state) {
             if (timerRef.current) clearInterval(timerRef.current);
@@ -102,7 +107,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         try {
             await castVote(lobbyCode, myPlayerId, selectedTarget);
             setMyVote(selectedTarget);
-            setLog(l => [...l, t('yourVoteCast')]);
+            setLog(t('yourVoteCast'));
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
@@ -121,7 +126,8 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             isSelected: seat.id === selectedTarget,
             isTargetable: !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting && !isEnshrouded,
             hasVoted: votes[seat.id] !== undefined,
-            isEnshrouded: isEnshrouded
+            isEnshrouded: isEnshrouded,
+            isAnotherWerewolf: otherWerewolvesIds?.includes(seat.id),
         };
     });
 
@@ -220,11 +226,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
                 </div>
             )}
 
-            <div className="event-log">
-                {log.slice(-5).map((entry, i) => (
-                    <div key={i} className="event-log__line">— {entry}</div>
-                ))}
-            </div>
+            <EventLog />
         </div>
     );
 });

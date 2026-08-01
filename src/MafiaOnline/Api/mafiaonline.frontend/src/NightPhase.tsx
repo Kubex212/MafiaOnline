@@ -4,6 +4,8 @@ import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
 import RoleInfo from './RoleInfo';
+import EventLog from './EventLog';
+import { addLog as pushLog } from './gameLog';
 
 interface Props {
     lobbyCode: string;
@@ -12,6 +14,8 @@ interface Props {
     myRole: RoleResponse;
     deadIds?: string[];
     config?: GameConfig | null;
+    /** Ids of fellow werewolves — empty unless the viewer is a werewolf. */
+    otherWerewolvesIds?: string[];
 }
 
 export interface NightPhaseHandle {
@@ -36,7 +40,7 @@ export enum ActionType {
 const TURN_SECONDS = 1000;
 
 const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
-    { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config }, ref
+    { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [] }, ref
 ) {
     const { t } = useTranslation();
     const [activeTurn, setActiveTurn] = useState<NightTurnStarted | null>(null);
@@ -45,10 +49,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const [nightInfo, setNightInfo] = useState<AnyClueResponse | null>(null);
     const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    const [log, setLog] = useState<string[]>([t('nightFalls')]);
     // actorId -> targetId, only ever populated for werewolf players
     const [wolfVotes, setWolfVotes] = useState<Record<string, string>>({});
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const setLog = (msg: string) => pushLog(msg, 'night');
 
     // track whether we already submitted attack/ability for this turn
     const [attackSubmitted, setAttackSubmitted] = useState(false);
@@ -64,7 +69,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setAbilitySubmitted(false);
             const who = seats.find(s => s.id === turn.activePlayerId);
             const isMe = turn.activePlayerId === myPlayerId;
-            setLog(l => [...l, isMe ? t('yourTurn') : t('playerTurn', { nick: who?.nickname ?? '?' })]);
+            setLog(isMe ? t('yourTurn') : t('playerTurn', { nick: who?.nickname ?? '?' }));
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
                 setTimeLeft(prev => {
@@ -79,35 +84,35 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setResolved(payload);
             setWolfVotes({});
             if (payload.killed.length > 0)
-                setLog(l => [...l, t('killed', { list: payload.killed.join(', ') })]);
+                setLog(t('killed', { list: payload.killed.join(', ') }));
             else if (payload.attackBlocked)
-                setLog(l => [...l, t('attackBlocked')]);
+                setLog(t('attackBlocked'));
             else
-                setLog(l => [...l, t('quietNight')]);
+                setLog(t('quietNight'));
             try {
                 const info = await getPlayerNightInfo(lobbyCode, myPlayerId);
                 setNightInfo(info);
                 if (!info) return;
                 if (info.type === 'Detective') {
-                    setLog(l => [...l, t('detectiveClueLong', {
-                        player: info.data.SubjectNickname,
-                        role: info.data.IsWerewolf ? t('werewolf') : t('innocent'),
-                    })]);
+                    setLog(t('detectiveClueLong', {
+                        player: info.clue,
+                        role: t('innocent'),
+                    }));
                 } else if (info.type === 'DogTamer') {
-                    setLog(l => [...l, t('dogClue', {
-                        barked: info.data.DidBark ? t('dogBarked') : t('dogQuiet'),
-                    })]);
+                    setLog( t('dogClue', {
+                        barked: info.clue ? t('dogBarked') : t('dogQuiet'),
+                    }));
                 } else if (info.type === 'Seer') {
-                    setLog(l => [...l, t('seerClueLong', {
+                    setLog( t('seerClueLong', {
                         a: String(info.data.SubjectAName),
                         b: String(info.data.SubjectBName),
                         relation: info.clue ? t('sameTeam') : t('differentTeams'),
-                    })]);
+                    }));
                 }
             } catch { /* no clue for this role */ }
         },
         addLog(message: string) {
-            setLog(l => [...l, message]);
+            setLog(message);
         },
         onWerewolfAttackCast({ actorId, targetId }) {
             setWolfVotes(prev => ({ ...prev, [actorId]: targetId }));
@@ -141,7 +146,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             await submitNightAction(lobbyCode, myPlayerId, selectedTargets[0], ActionType.Attack);
             setAttackSubmitted(true);
             setWolfVotes(prev => ({ ...prev, [myPlayerId]: selectedTargets[0] }));
-            setLog(l => [...l, t('attackSubmitted')]);
+            setLog(t('attackSubmitted'));
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
@@ -153,7 +158,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         try {
             await submitNightAction(lobbyCode, myPlayerId, selectedTargets, ActionType.Ability);
             setAbilitySubmitted(true);
-            setLog(l => [...l, t('abilitySubmitted')]);
+            setLog(t('actionSubmitted'));
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
@@ -163,7 +168,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         setSubmitting(true);
         try {
             await skipNightTurn(lobbyCode, myPlayerId);
-            setLog(l => [...l, t('skipped')]);
+            setLog(t('skipped'));
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
@@ -177,13 +182,14 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             isAlive,
             isSelected: selectedTargets.includes(seat.id),
             isTargetable: isMyTurn && !resolved && isAlive && seat.id !== myPlayerId && !submitting,
+            isAnotherWerewolf: otherWerewolvesIds?.includes(seat.id),
         };
     });
 
     const isWerewolf = myRole.teamId === 1;
     const teamClass = myRole.teamId === 1 ? 'turn-banner--wolf'
         : myRole.teamId === 2 ? 'turn-banner--neutral'
-            : 'turn-banner--town';
+        : 'turn-banner--town';
 
     // Werewolves see each other's kill votes as blood-red arrows.
     const wolfArrows: VoteArrow[] = isWerewolf
@@ -306,12 +312,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 </div>
             )}
 
-            {/* Event log */}
-            <div className="event-log">
-                {log.slice(-6).map((entry, i) => (
-                    <div key={i} className="event-log__line">— {entry}</div>
-                ))}
-            </div>
+            {/* Shared chronicle (night + day) */}
+            <EventLog />
         </div>
     );
 });

@@ -127,7 +127,23 @@ public class LobbyService : ILobbyService
         var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == playerId)
             ?? throw new InvalidOperationException("Player not found.");
 
-        return new RoleResponse() { Name = enginePlayer.Role.Name, TeamName = enginePlayer.Role.Team.ToString(), TeamId = enginePlayer.Role.TeamId, Alibi = enginePlayer.Alibi.ToString() };
+        var response = new RoleResponse()
+        {
+            Name = enginePlayer.Role.Name,
+            TeamName = enginePlayer.Role.Team.ToString(),
+            TeamId = enginePlayer.Role.TeamId,
+            Alibi = enginePlayer.Alibi.ToString()
+        };
+
+        var isWerewolf = enginePlayer.Role.Team == Team.Werewolves;
+        if (isWerewolf)
+        {
+            response.OtherWerewolvesIds = lobby.Game.Players
+                .Where(p => p.Role.Team == Team.Werewolves && p.Id != playerId)
+                .Select(p => p.Id)
+                .ToList();
+        }
+        return response;
     }
 
     public async Task<Lobby> MovePlayerUpAsync(string code, Guid requestingPlayerId, Guid targetPlayerId)
@@ -222,8 +238,8 @@ public class LobbyService : ILobbyService
                 HasAbility = lobby.ActivePlayerHasAbility(),
                 RemainingSeconds = 0,
                 SubmittedActions = null//lobby.NightSession.SubmittedActions
-                    //.Where(kv => kv.Value != null && kv.Value.Targets.Any())
-                    //.ToDictionary(kv => kv.Key.Owner, kv => kv.Value.Targets.First()) // TODO: FIX THIS
+                                       //.Where(kv => kv.Value != null && kv.Value.Targets.Any())
+                                       //.ToDictionary(kv => kv.Key.Owner, kv => kv.Value.Targets.First()) // TODO: FIX THIS
             };
         }
         else if (lobby.DaySession != null && !lobby.DaySession.Resolved)
