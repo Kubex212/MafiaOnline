@@ -1,12 +1,13 @@
-﻿using MafiaOnline.Api.Hubs;
+﻿using MafiaOnline.Api.Dtos;
+using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Api.Utils;
-using MafiaOnline.Api.Dtos;
 using MafiaOnline.Engine;
+using MafiaOnline.Engine.Night;
+using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
 using static MafiaOnline.Engine.Game;
-using MafiaOnline.Engine.Roles;
 
 namespace MafiaOnline.Api.Services;
 
@@ -236,7 +237,11 @@ public class LobbyService : ILobbyService
                 ActivePlayerId = lobby.NightSession.ActivePlayer?.Id.ToString(),
                 ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
                 HasAbility = lobby.ActivePlayerHasAbility(),
-                RemainingSeconds = 0,
+                RemainingSeconds = 0, // TODO: calculate remaining time based on when the night turn started or store it somewhere
+                AlivePlayers = lobby.Players.Where(p => lobby.Game!.Players.First(ep => ep.Id == p.Id).IsAlive)
+                    .OrderBy(p => p.SeatIndex)
+                    .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
+                    .ToList(),
                 SubmittedActions = null//lobby.NightSession.SubmittedActions
                                        //.Where(kv => kv.Value != null && kv.Value.Targets.Any())
                                        //.ToDictionary(kv => kv.Key.Owner, kv => kv.Value.Targets.First()) // TODO: FIX THIS
@@ -246,10 +251,22 @@ public class LobbyService : ILobbyService
         {
             response.GamePhase = "day";
 
+            // Determine enshrouded players from last night, if any
+            var enshrouded = new List<Guid>();
+            var last = lobby.Game?.LastNightResult;
+            if (last != null)
+            {
+                foreach (var ev in last.Events)
+                {
+                    if (ev is DraculaEnshroudedEvent d)
+                        enshrouded.Add(d.TargetId);
+                }
+            }
+
             response.Day = new DayState
             {
                 DurationSeconds = lobby.Game!.Config.Day.DurationSeconds,
-                RemainingSeconds = 0,
+                RemainingSeconds = 0, // TODO: calculate remaining time based on when the day started or store it somewhere
                 ShowVoteTargets = lobby.Game!.Config.Day.ShowVoteTargets,
                 AlivePlayers = lobby.Players.Where(p => lobby.Game!.Players.First(ep => ep.Id == p.Id).IsAlive)
                     .OrderBy(p => p.SeatIndex)
@@ -257,7 +274,7 @@ public class LobbyService : ILobbyService
                     .ToList(),
 
                 Votes = lobby.DaySession.Votes.ToDictionary(k => k.Key, v => v.Value),
-                EnshroudedPlayer = null // TODO: fill this
+                Enshrouded = enshrouded
             };
         }
         else if (lobby.Game?.Phase == GamePhase.Finished)

@@ -99,15 +99,17 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                         role: t('innocent'),
                     }));
                 } else if (info.type === 'DogTamer') {
-                    setLog( t('dogClue', {
+                    setLog(t('dogClue', {
                         barked: info.clue ? t('dogBarked') : t('dogQuiet'),
                     }));
                 } else if (info.type === 'Seer') {
-                    setLog( t('seerClueLong', {
+                    setLog(t('seerClueLong', {
                         a: String(info.data.SubjectAName),
                         b: String(info.data.SubjectBName),
                         relation: info.clue ? t('sameTeam') : t('differentTeams'),
                     }));
+                } else if (info.type === 'Trailer') {
+                    setLog(t('trailerClueLong', { dir: t(info.clue) }));
                 }
             } catch { /* no clue for this role */ }
         },
@@ -175,14 +177,16 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
 
     const seatStates: TableSeatState[] = seats.map(seat => {
         const isAlive = !deadIds.includes(seat.id);
+        const isMe = seat.id === myPlayerId;
+
         return {
             seat,
-            isMe: seat.id === myPlayerId,
+            isMe: isMe,
             isActive: seat.id === activeTurn?.activePlayerId && !resolved,
             isAlive,
             isSelected: selectedTargets.includes(seat.id),
             isTargetable: isMyTurn && !resolved && isAlive && seat.id !== myPlayerId && !submitting,
-            isAnotherWerewolf: otherWerewolvesIds?.includes(seat.id),
+            isWerewolf: otherWerewolvesIds?.includes(seat.id) || (isMe && myRole.teamId === 1),
         };
     });
 

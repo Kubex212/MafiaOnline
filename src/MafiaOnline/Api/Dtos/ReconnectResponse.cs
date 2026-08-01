@@ -35,7 +35,7 @@ public class DayState
     public ShowDayVotes ShowVoteTargets { get; set; }
     public List<SeatInfoResponse> AlivePlayers { get; set; } = new();
     public Dictionary<Guid, Guid>? Votes { get; set; }
-    public Guid? EnshroudedPlayer { get; set; }
+    public List<Guid> Enshrouded { get; set; } = new();
 }
 
 public class NightState
@@ -43,6 +43,7 @@ public class NightState
     public string? ActivePlayerId { get; set; }
     public int ActiveSeatIndex { get; set; }
     public bool HasAbility { get; set; }
+    public List<SeatInfoResponse> AlivePlayers { get; set; } = new();
     public int RemainingSeconds { get; set; }
     public Dictionary<Guid, Guid>? SubmittedActions { get; set; }
 }

@@ -224,4 +224,17 @@ public class NightService : INightService
     private async Task<Lobby> GetLobby(string code)
         => await _repository.Get(code.ToUpperInvariant())
            ?? throw new InvalidOperationException("Lobby not found.");
+
+    public int GetTimerSeconds(string lobbyCode)
+    {
+        lock (_timers)
+        {
+            if (_timers.TryGetValue(lobbyCode, out var cts))
+            {
+                // Return the remaining time in seconds
+                return (int)(cts.Token.WaitHandle.WaitOne(0) ? 0 : TurnSeconds);
+            }
+        }
+        return 0;
+    }
 }

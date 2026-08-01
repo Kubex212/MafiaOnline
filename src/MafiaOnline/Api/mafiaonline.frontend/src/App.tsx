@@ -203,6 +203,11 @@ export default function App() {
                     setMyRole(data.myRole ? data.myRole : null);
                     setView(data.gamePhase);
                     setMessages([t('reconnected')]);
+
+                    const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
+                    const deadIdsFromReconnectData = data.seats.filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id);
+                    setDeadIds(deadIdsFromReconnectData);
+
                     await conn.invoke('JoinLobby', storedLobbyCode);
 
                     if (data.gamePhase === 'day' && data.day) {

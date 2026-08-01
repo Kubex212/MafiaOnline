@@ -325,6 +325,7 @@ export type ReconnectResponse = {
         activePlayerId?: string | null;
         activeSeatIndex: number;
         hasAbility: boolean;
+        alivePlayers: SeatInfo[];
         remainingSeconds: number;
         submittedActions?: Record<string, string>;
     };

@@ -127,7 +127,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             isTargetable: !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting && !isEnshrouded,
             hasVoted: votes[seat.id] !== undefined,
             isEnshrouded: isEnshrouded,
-            isAnotherWerewolf: otherWerewolvesIds?.includes(seat.id),
+            isWerewolf: otherWerewolvesIds?.includes(seat.id) || (isMe && myRole.teamId === 1),
         };
     });
 
