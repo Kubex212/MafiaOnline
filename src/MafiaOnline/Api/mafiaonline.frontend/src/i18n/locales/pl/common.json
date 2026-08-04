@@ -192,5 +192,7 @@
   "townGoal": "Znajdź i wygnaj wszystkie wilkołaki, zanim wioska opustoszeje.",
   "wolfGoal": "Pożeraj mieszkańców, wtapiaj się w dzień i nie daj się złapać.",
   "meetTheRoles": "Poznaj role",
-  "landingFoot": "Najlepiej z przyjaciółmi i na rozmowie głosowej. Wpisz nick powyżej i otwórz stół."
+  "landingFoot": "Najlepiej z przyjaciółmi i na rozmowie głosowej. Wpisz nick powyżej i otwórz stół.",
+  "orLoginWith": "lub zaloguj się przez",
+  "loginWithDiscord": "Zaloguj przez Discord"
 }

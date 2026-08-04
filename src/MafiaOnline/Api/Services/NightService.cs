@@ -10,8 +10,8 @@ namespace MafiaOnline.Api.Services;
 public interface INightService
 {
     Task BeginNightAsync(string lobbyCode);
-    Task SubmitActionAsync(string lobbyCode, Guid actorId, NightAction action);
-    Task SkipTurnAsync(string lobbyCode, Guid actorId);
+    Task SubmitActionAsync(string lobbyCode, Guid userId, NightAction action);
+    Task SkipTurnAsync(string lobbyCode, Guid userId);
 }
 
 public class NightService : INightService
@@ -40,29 +40,25 @@ public class NightService : INightService
         await AdvanceTurnAsync(lobby);
     }
 
-    public async Task SubmitActionAsync(string lobbyCode, Guid actorId, NightAction action)
+    public async Task SubmitActionAsync(string lobbyCode, Guid userId, NightAction action)
     {
         var lobby = await GetLobby(lobbyCode);
-        // Determine action type from data
+        var actorId = GetActorId(lobby, userId);
         var actionType = action.ActionType;
 
-        // ability submission — may be final or partial depending on role
         lobby.NightSession!.SubmitAction(actorId, action);
         await _repository.Update(lobby);
 
         if (actionType == ActionType.Attack)
         {
-            // broadcast to werewolf team if config allows showing kill votes
             var cfg = lobby.Config?.Werewolf;
             if (cfg?.ShowKillVotesToTeam ?? true)
             {
-                // find the attack target id from stored action
                 var attackTarget = action.Targets.FirstOrDefault();
 
                 if (action.Targets.Any())
                 {
                     var targetName = lobby.Players.FirstOrDefault(p => p.Id == attackTarget)?.Nickname ?? "?";
-                    // TODO: create connection manager and send to only werewolf team instead of all clients - possible cheating
                     await _hub.Clients.Group(lobby.Code).SendAsync("WerewolfAttackCast", new
                     {
                         actorId,
@@ -71,7 +67,7 @@ public class NightService : INightService
                         targetName
                     });
                 }
-            }          
+            }
         }
 
         if (ShouldAdvance(lobby, actorId))
@@ -85,25 +81,26 @@ public class NightService : INightService
         return;
     }
 
-    private bool ShouldAdvance(Lobby lobby, Guid actorId)
+    private bool ShouldAdvance(Lobby lobby, Guid userId)
     {
         // determine if this is the second action of a werewolf (attack + ability) or if the player has no ability and thus should advance
-        var isWerewolf = lobby.Game?.Players.FirstOrDefault(p => p.Id == actorId)?.Role.TeamId == 1;
+        var isWerewolf = lobby.Game?.Players.FirstOrDefault(p => p.Id == userId)?.Role.TeamId == 1;
         var hasAbility = lobby.ActivePlayerHasAbility();
 
         if(!isWerewolf || !hasAbility)
             return true;
 
         // check if the player has already submitted an attack
-        var submittedAttack = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == actorId && sa.Action.ActionType == ActionType.Attack);
-        var submittedAbility = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == actorId && sa.Action.ActionType == ActionType.Ability);
+        var submittedAttack = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == userId && sa.Action.ActionType == ActionType.Attack);
+        var submittedAbility = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == userId && sa.Action.ActionType == ActionType.Ability);
 
         return submittedAttack == true && submittedAbility == true;
     }
 
-    public async Task SkipTurnAsync(string lobbyCode, Guid actorId)
+    public async Task SkipTurnAsync(string lobbyCode, Guid userId)
     {
         var lobby = await GetLobby(lobbyCode);
+        var actorId = GetActorId(lobby, userId);
         lobby.NightSession!.Skip(actorId);
         await _repository.Update(lobby);
         CancelTimer(lobbyCode);
@@ -237,4 +234,8 @@ public class NightService : INightService
         }
         return 0;
     }
+
+    private static Guid GetActorId(Lobby lobby, Guid userId)
+        => lobby.Players.FirstOrDefault(p => p.UserId == userId)?.Id
+           ?? throw new InvalidOperationException("Player not found in lobby.");
 }

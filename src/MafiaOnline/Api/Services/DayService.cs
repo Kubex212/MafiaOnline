@@ -1,17 +1,18 @@
+using Api.Services;
 using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
+using MafiaOnline.Engine.Night;
+using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
 using System.Linq;
-using MafiaOnline.Engine.Roles;
-using MafiaOnline.Engine.Night;
 
 namespace MafiaOnline.Api.Services;
 
 public interface IDayService
 {
     Task BeginDayAsync(string lobbyCode);
-    Task CastVoteAsync(string lobbyCode, Guid voterId, Guid candidateId);
+    Task CastVoteAsync(string lobbyCode, Guid userId, Guid candidateId);
 }
 
 public class DayService : IDayService
@@ -20,12 +21,14 @@ public class DayService : IDayService
     private readonly IHubContext<LobbyHub> _hub;
     private readonly Lazy<INightService> _nightService;
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
+    private readonly IGameHistoryService _gameHistoryService;
 
-    public DayService(ILobbyRepository repository, IHubContext<LobbyHub> hub, Lazy<INightService> nightService)
+    public DayService(ILobbyRepository repository, IHubContext<LobbyHub> hub, Lazy<INightService> nightService, IGameHistoryService gameHistoryService)
     {
         _repository = repository;
         _hub = hub;
         _nightService = nightService;
+        _gameHistoryService = gameHistoryService;
     }
 
     public async Task BeginDayAsync(string lobbyCode)
@@ -78,12 +81,15 @@ public class DayService : IDayService
         }, CancellationToken.None);
     }
 
-    public async Task CastVoteAsync(string lobbyCode, Guid voterId, Guid candidateId)
+    public async Task CastVoteAsync(string lobbyCode, Guid userId, Guid candidateId)
     {
         var lobby = await GetLobby(lobbyCode);
 
         if (lobby.DaySession is null)
             throw new InvalidOperationException("No active day session.");
+
+        var voterId = lobby.Players.FirstOrDefault(p => p.UserId == userId)?.Id
+            ?? throw new InvalidOperationException("Player not found in lobby.");
 
         var alreadyVoted = lobby.DaySession.HasVoted(voterId);
         var votes = lobby.CastVote(voterId, candidateId);
@@ -91,15 +97,13 @@ public class DayService : IDayService
 
         var showTargets = lobby.Game!.Config.Day.ShowVoteTargets;
 
-        // Always broadcast that the voter has voted; conditionally include target
         await _hub.Clients.Group(lobby.Code).SendAsync("VoteCast", new
         {
             voterId,
-            candidateId = showTargets != Engine.Config.ShowDayVotes.Never ? (Guid?)candidateId : null, // TODO: don't send here if config is ShowDayVotes.AfterVotingEnds and not all voted yet - possible cheating
+            candidateId = showTargets != Engine.Config.ShowDayVotes.Never ? (Guid?)candidateId : null,
             totalVotesCast = votes.Count
         });
 
-        // If everyone has voted, resolve early
         if (lobby.DaySession.AllVoted)
         {
             CancelTimer(lobbyCode);
@@ -155,6 +159,8 @@ public class DayService : IDayService
         // Check game over
         if (lobby.Game!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
         {
+            await _gameHistoryService.RecordGameAsync(lobby);
+
             await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
             {
                 winner = lobby.Game.Winner.ToString()

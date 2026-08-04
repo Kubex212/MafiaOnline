@@ -3,12 +3,12 @@ import type {
     LobbyResponse, RoleResponse, SeatInfo,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
     DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload,
-    GameConfig,
+    GameConfig, MeResponse
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
-    updateConfig,
+    updateConfig, getOrCreateSession, getDiscordLoginUrl, getMe
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -17,13 +17,13 @@ import GameOver from './GameOver';
 import GameConfigPanel from './GameConfigPanel';
 import GameConfigView from './GameConfigView';
 import Landing from './Landing';
+import ProfileModal from './ProfileModal';
 import { useTranslation } from 'react-i18next';
 import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
 import { addLog, clearLog } from './gameLog';
 import startSound from './assets/audio/among-us-start-sound.mp3';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
-
 
 // Defer a callback until AFTER the pending React commit lands — this is how
 // we hand off initial NightTurnStarted / DayStarted payloads to phase
@@ -44,6 +44,7 @@ export default function App() {
     const [creating, setCreating] = useState(false);
     const [codeCopied, setCodeCopied] = useState(false);
     const [deadIds, setDeadIds] = useState<string[]>([]);
+    const [profileOpen, setProfileOpen] = useState(false);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -93,161 +94,174 @@ export default function App() {
 
     // ── SignalR wiring ────────────────────────────────────────────────────
     useEffect(() => {
-        const conn = createHubConnection();
-        connRef.current = conn;
+        let cancelled = false;
 
-        conn.on('PlayerJoined', async (nick: string) => {
-            setMessages(m => [...m, t('playerJoined', { nick })]);
-            const code = lobbyRef.current?.code;
-            if (code) {
-                try { setLobby(await getLobby(code)); } catch { /* ignore */ }
+        (async () => {
+            // Must have a token before we build the hub URL (token is embedded in it).
+            try { await getOrCreateSession(); } catch (err) { console.error('Session init failed', err); }
+            if (cancelled) return;
+
+            try {
+                const me = await getMe();
+                console.log('Loaded profile', JSON.stringify(me));
+                if (me.preferredNickname) setNickname(me.preferredNickname);
             }
-        });
-
-        conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
-            const prev = lobbyRef.current;
-            if (!prev) return;
-            const newPlayers = ordered.map(o => ({
-                id: o.id, nickname: o.nickname, isHost: o.isHost,
-                seatIndex: -1, lobbyPosition: o.lobbyPosition,
-            }));
-            setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
-        });
-
-        conn.on('ConfigUpdated', (cfg: GameConfig) => {
-            const prev = lobbyRef.current;
-            if (!prev) return;
-            setLobby({ ...prev, config: cfg });
-        });
-
-        conn.on('GameStarted', async (seatList: SeatInfo[]) => {
-            const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
-            setSeats(sorted);
-            seatsRef.current = sorted;
-            setDeadIds([]);
-            clearLog();
-            const code = lobbyRef.current?.code;
-            const pid = myPlayerIdRef.current;
-            if (code && pid) {
-                try {
-                    const myRoleResponse = await getMyRole(code, pid);
-                    setMyRole(myRoleResponse);
-                    myRoleRef.current = myRoleResponse;
-                    setView('role-reveal');
-                    const audio = new Audio(startSound);
-                    audio.play();
-                    setTimeout(() => setView('night'), 8000);
-                } catch { /* ignore */ }
+            catch (err) {
+                console.error('Profile load failed', err);
             }
-        });
 
-        conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
-            setView('night');
-            runAfterCommit(() => nightRef.current?.onTurnStarted(turn));
-        });
+            const conn = createHubConnection();
+            connRef.current = conn;
 
-        conn.on('NightResolved', (payload: NightResolvedPayload) => {
-            markDeadByNickname(payload.killed);
-            nightRef.current?.onNightResolved(payload);
-        });
-
-        conn.on('DayStarted', (payload: DayStartedPayload) => {
-            // Authoritative alive list — anyone missing from it is dead.
-            const alive = new Set(payload.alivePlayers.map(p => p.id));
-            const all = seatsRef.current ?? [];
-            setDeadIds(all.filter(s => !alive.has(s.id)).map(s => s.id));
-
-            pendingDayStartedRef.current = payload;
-            setView('day');
-        });
-
-        conn.on('VoteCast', (payload: VoteCastPayload) => {
-            dayRef.current?.onVoteCast(payload);
-        });
-
-        conn.on('DayResolved', (payload: DayResolvedPayload) => {
-            markDeadByNickname(payload.banished);
-            dayRef.current?.onDayResolved(payload);
-        });
-
-        conn.on('GameOver', (payload: GameOverPayload) => {
-            setGameOver(payload);
-            setView('gameover');
-        });
-
-        conn.on('WerewolfAttackCast', (payload: { actorId: string; actorName: string, targetId: string; targetName: string }) => {
-            // Only notify local werewolf players (client can inspect role)
-            if (myRoleRef.current?.teamId === 1) {
-                // Draw the kill vote as an arrow on the table (werewolves only).
-                nightRef.current?.onWerewolfAttackCast({
-                    actorId: payload.actorId, targetId: payload.targetId,
-                });
-                if (payload.actorId !== myPlayerIdRef.current) {
-                    nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
+            conn.on('PlayerJoined', async (nick: string) => {
+                setMessages(m => [...m, t('playerJoined', { nick })]);
+                const code = lobbyRef.current?.code;
+                if (code) {
+                    try { setLobby(await getLobby(code)); } catch { /* ignore */ }
                 }
-            }
-        });
+            });
 
-        conn.start()
-            .then(async () => {
-                setHubStarted(true);
-                const storedUserId = sessionStorage.getItem('userId');
-                const storedLobbyCode = sessionStorage.getItem('lobbyCode');
-                if (!storedUserId || !storedLobbyCode) return;
+            conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
+                const prev = lobbyRef.current;
+                if (!prev) return;
+                const newPlayers = ordered.map(o => ({
+                    id: o.id, nickname: o.nickname, isHost: o.isHost,
+                    seatIndex: -1, lobbyPosition: o.lobbyPosition,
+                }));
+                setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
+            });
 
-                try {
-                    const data = await reconnect(storedUserId, storedLobbyCode);
-                    setLobby(data.lobby);
-                    setMyPlayerId(storedUserId);
-                    setSeats(data.seats);
-                    setMyRole(data.myRole ? data.myRole : null);
-                    setView(data.gamePhase);
-                    setMessages([t('reconnected')]);
+            conn.on('ConfigUpdated', (cfg: GameConfig) => {
+                const prev = lobbyRef.current;
+                if (!prev) return;
+                setLobby({ ...prev, config: cfg });
+            });
 
-                    const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
-                    const deadIdsFromReconnectData = data.seats.filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id);
-                    setDeadIds(deadIdsFromReconnectData);
+            conn.on('GameStarted', async (seatList: SeatInfo[]) => {
+                const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
+                setSeats(sorted);
+                seatsRef.current = sorted;
+                setDeadIds([]);
+                clearLog();
+                const code = lobbyRef.current?.code;
+                if (code) {
+                    try {
+                        const myRoleResponse = await getMyRole(code);
+                        setMyRole(myRoleResponse);
+                        myRoleRef.current = myRoleResponse;
+                        setView('role-reveal');
+                        const audio = new Audio(startSound);
+                        audio.play();
+                        setTimeout(() => setView('night'), 8000);
+                    } catch { /* ignore */ }
+                }
+            });
 
-                    await conn.invoke('JoinLobby', storedLobbyCode);
+            conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
+                setView('night');
+                runAfterCommit(() => nightRef.current?.onTurnStarted(turn));
+            });
 
-                    if (data.gamePhase === 'day' && data.day) {
-                        const alive = new Set(data.day.alivePlayers.map(p => p.id));
-                        setDeadIds((data.seats ?? []).filter(s => !alive.has(s.id)).map(s => s.id));
-                        runAfterCommit(() => {
-                            dayRef.current?.onDayStarted({
-                                durationSeconds: data.day!.durationSeconds,
-                                showVoteTargets: data.day!.showVoteTargets,
-                                alivePlayers: data.day!.alivePlayers,
-                                enshrouded: data.day!.enshrouded ?? []
-                            });
-                            if (data.day!.votes) {
-                                Object.entries(data.day!.votes).forEach(([voterId, candidateId]) => {
-                                    dayRef.current?.onVoteCast({
-                                        voterId, candidateId,
-                                        totalVotesCast: Object.keys(data.day!.votes!).length,
-                                    });
-                                });
-                            }
-                        });
-                    } else if (data.gamePhase === 'night' && data.night) {
-                        runAfterCommit(() => {
-                            nightRef.current?.onTurnStarted({
-                                activePlayerId: data.night!.activePlayerId ?? '',
-                                activeSeatIndex: data.night!.activeSeatIndex,
-                                hasAbility: data.night!.hasAbility,
-                                timeoutSeconds: data.night!.remainingSeconds ?? 1000,
-                            });
-                        });
+            conn.on('NightResolved', (payload: NightResolvedPayload) => {
+                markDeadByNickname(payload.killed);
+                nightRef.current?.onNightResolved(payload);
+            });
+
+            conn.on('DayStarted', (payload: DayStartedPayload) => {
+                // Authoritative alive list — anyone missing from it is dead.
+                const alive = new Set(payload.alivePlayers.map(p => p.id));
+                const all = seatsRef.current ?? [];
+                setDeadIds(all.filter(s => !alive.has(s.id)).map(s => s.id));
+
+                pendingDayStartedRef.current = payload;
+                setView('day');
+            });
+
+            conn.on('VoteCast', (payload: VoteCastPayload) => {
+                dayRef.current?.onVoteCast(payload);
+            });
+
+            conn.on('DayResolved', (payload: DayResolvedPayload) => {
+                markDeadByNickname(payload.banished);
+                dayRef.current?.onDayResolved(payload);
+            });
+
+            conn.on('GameOver', (payload: GameOverPayload) => {
+                setGameOver(payload);
+                setView('gameover');
+            });
+
+            conn.on('WerewolfAttackCast', (payload: { actorId: string; actorName: string, targetId: string; targetName: string }) => {
+                // Only notify local werewolf players (client can inspect role)
+                if (myRoleRef.current?.teamId === 1) {
+                    // Draw the kill vote as an arrow on the table (werewolves only).
+                    nightRef.current?.onWerewolfAttackCast({
+                        actorId: payload.actorId, targetId: payload.targetId,
+                    });
+                    if (payload.actorId !== myPlayerIdRef.current) {
+                        nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
                     }
-                } catch (e) {
-                    sessionStorage.removeItem('userId');
-                    sessionStorage.removeItem('lobbyCode');
-                    console.error('Reconnection failed:', e);
                 }
-            })
-            .catch(err => console.error('Hub start error', err));
+            });
 
-        return () => { conn.stop().catch(() => { }); connRef.current = null; };
+            await conn.start();
+            if (cancelled) { conn.stop(); return; }
+            setHubStarted(true);
+
+            const storedLobbyCode = sessionStorage.getItem('lobbyCode');
+            if (!storedLobbyCode) return;
+
+            try {
+                const data = await reconnect(storedLobbyCode);
+                setLobby(data.lobby);
+                setMyPlayerId(data.myPlayerId);
+                setSeats(data.seats);
+                setMyRole(data.myRole ?? null);
+                setView(data.gamePhase);
+                setMessages([t('reconnected')]);
+
+                const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
+                setDeadIds((data.seats ?? []).filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id));
+
+                await conn.invoke('JoinLobby', storedLobbyCode);
+
+                if (data.gamePhase === 'day' && data.day) {
+                    const alive = new Set(data.day.alivePlayers.map(p => p.id));
+                    setDeadIds((data.seats ?? []).filter(s => !alive.has(s.id)).map(s => s.id));
+                    runAfterCommit(() => {
+                        dayRef.current?.onDayStarted({
+                            durationSeconds: data.day!.durationSeconds,
+                            showVoteTargets: data.day!.showVoteTargets,
+                            alivePlayers: data.day!.alivePlayers,
+                            enshrouded: data.day!.enshrouded ?? [],
+                        });
+                        if (data.day!.votes) {
+                            Object.entries(data.day!.votes).forEach(([voterId, candidateId]) => {
+                                dayRef.current?.onVoteCast({ voterId, candidateId, totalVotesCast: Object.keys(data.day!.votes!).length });
+                            });
+                        }
+                    });
+                } else if (data.gamePhase === 'night' && data.night) {
+                    runAfterCommit(() => {
+                        nightRef.current?.onTurnStarted({
+                            activePlayerId: data.night!.activePlayerId ?? '',
+                            activeSeatIndex: data.night!.activeSeatIndex,
+                            hasAbility: data.night!.hasAbility,
+                            timeoutSeconds: data.night!.remainingSeconds ?? 1000,
+                        });
+                    });
+                }
+            } catch (e) {
+                sessionStorage.removeItem('lobbyCode');
+                console.error('Reconnection failed:', e);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            connRef.current?.stop().catch(() => { });
+            connRef.current = null;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -265,7 +279,6 @@ export default function App() {
             const me = res.players.find(p => p.isHost)!;
             setMyPlayerId(me.id);
             setLobby(res);
-            sessionStorage.setItem('userId', me.id);
             sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('lobbyCreated', { code: res.code })]);
             await joinHubGroup(res.code);
@@ -279,7 +292,6 @@ export default function App() {
             const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
             setMyPlayerId(me.id);
             setLobby(res);
-            sessionStorage.setItem('userId', me.id);
             sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('joinedLobby', { code: res.code })]);
             await joinHubGroup(res.code);
@@ -287,20 +299,20 @@ export default function App() {
     }
 
     async function onStart() {
-        if (!lobby || !myPlayerId) return;
-        try { await startLobby(lobby.code, myPlayerId); }
+        if (!lobby) return;
+        try { await startLobby(lobby.code); }
         catch (e) { alert(String(e)); }
     }
 
-    async function withLobby(fn: (code: string, pid: string) => Promise<LobbyResponse>) {
-        if (!lobby || !myPlayerId) return;
-        try { setLobby(await fn(lobby.code, myPlayerId)); }
+    async function withLobby(fn: (code: string) => Promise<LobbyResponse>) {
+        if (!lobby) return;
+        try { setLobby(await fn(lobby.code)); }
         catch (e) { alert(String(e)); }
     }
 
     async function onConfigChange(config: GameConfig) {
-        if (!lobby || !myPlayerId) return;
-        try { await updateConfig(lobby.code, myPlayerId, config); }
+        if (!lobby) return;
+        try { await updateConfig(lobby.code, config); }
         catch (e) { alert(String(e)); }
     }
 
@@ -314,7 +326,6 @@ export default function App() {
     }
 
     function clearSession() {
-        sessionStorage.removeItem('userId');
         sessionStorage.removeItem('lobbyCode');
     }
 
@@ -452,6 +463,18 @@ export default function App() {
                                     maxLength={16} />
                             </label>
 
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <button
+                                    className="btn btn--ghost"
+                                    onClick={() => setProfileOpen(true)}>
+                                    👤 {t("profile")}
+                                </button>
+
+                                <div className={`status-dot ${hubStarted ? "" : "status-dot--off"}`}>
+                                    {hubStarted ? t("connected") : t("connecting")}
+                                </div>
+                            </div>
+
                             <button className="btn btn--primary btn--block"
                                 onClick={onCreate} disabled={creating || !nickname.trim()}>
                                 {creating ? (
@@ -483,9 +506,24 @@ export default function App() {
                                     {t('join')}
                                 </button>
                             </div>
+
+                            <div className="join-form__divider">{t('orLoginWith')}</div>
+
+                            <a className="btn btn--discord btn--block" href={getDiscordLoginUrl()}>
+                                <svg width="20" height="20" viewBox="0 0 127.14 96.36" aria-hidden fill="currentColor">
+                                    <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+                                </svg>
+                                {t('loginWithDiscord')}
+                            </a>
+
                         </div>
 
                         <Landing />
+
+                        <ProfileModal
+                            open={profileOpen}
+                            onClose={() => setProfileOpen(false)}
+                        />
                     </>
                 )}
 
@@ -516,7 +554,7 @@ export default function App() {
                                 </span>
                                 {isHost && (
                                     <button className="icon-btn"
-                                        onClick={() => withLobby((c, p) => shufflePlayers(c, p))}
+                                        onClick={() => withLobby((c) => shufflePlayers(c))}
                                         title={t('shuffle')}>
                                         🎲 {t('shuffle')}
                                     </button>
@@ -535,11 +573,11 @@ export default function App() {
                                             <span style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
                                                 <button className="icon-btn"
                                                     disabled={i === 0}
-                                                    onClick={() => withLobby((c, pid) => movePlayerUp(c, pid, p.id))}
+                                                    onClick={() => withLobby((c) => movePlayerUp(c, p.id))}
                                                     title={t('moveUp')}>▲</button>
                                                 <button className="icon-btn"
                                                     disabled={i === orderedPlayers.length - 1}
-                                                    onClick={() => withLobby((c, pid) => movePlayerDown(c, pid, p.id))}
+                                                    onClick={() => withLobby((c) => movePlayerDown(c, p.id))}
                                                     title={t('moveDown')}>▼</button>
                                             </span>
                                         )}

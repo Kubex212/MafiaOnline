@@ -192,5 +192,7 @@
   "townGoal": "Find and banish every werewolf before the village is emptied.",
   "wolfGoal": "Devour the villagers, blend in by day, and never get caught.",
   "meetTheRoles": "Meet the roles",
-  "landingFoot": "Best with friends and a voice call. Pick a name above and open a table."
+  "landingFoot": "Best with friends and a voice call. Pick a name above and open a table.",
+  "orLoginWith": "or continue with",
+  "loginWithDiscord": "Login with Discord"
 }

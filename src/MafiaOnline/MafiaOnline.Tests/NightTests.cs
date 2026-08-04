@@ -14,10 +14,10 @@ public class NightTests
     public void FirstPlayer_ShouldNotBeSkipped_DuringNight()
     {
         var lobby = new Lobby("TEST123");
-        var firstPlayer = new LobbyPlayer("Player1", true);
-        var secondPlayer = new LobbyPlayer("Player2", false);
-        var thirdPlayer = new LobbyPlayer("Player3", false);
-        var fourthPlayer = new LobbyPlayer("Player4", false);
+        var firstPlayer = new LobbyPlayer(Guid.NewGuid(), "Player1", true);
+        var secondPlayer = new LobbyPlayer(Guid.NewGuid(), "Player2", false);
+        var thirdPlayer = new LobbyPlayer(Guid.NewGuid(), "Player3", false);
+        var fourthPlayer = new LobbyPlayer(Guid.NewGuid(), "Player4", false);
 
         lobby.AddPlayer(firstPlayer);
         lobby.AddPlayer(secondPlayer);

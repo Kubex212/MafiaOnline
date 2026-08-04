@@ -11,4 +11,42 @@ public class MafiaDbContext : DbContext
     }
 
     public DbSet<LobbyEntity> Lobbies { get; set; }
+    public DbSet<UserEntity> Users { get; set; }
+    public DbSet<SessionEntity> Sessions { get; set; }
+    public DbSet<ExternalLoginEntity> ExternalLogins { get; set; }
+    public DbSet<GameHistoryEntity> GameHistory { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<SessionEntity>(b =>
+        {
+            b.HasIndex(s => s.TokenHash).IsUnique();
+            b.HasOne(s => s.User)
+             .WithMany()
+             .HasForeignKey(s => s.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExternalLoginEntity>(b =>
+        {
+            b.HasIndex(e => new { e.Provider, e.ProviderUserId }).IsUnique();
+            b.HasOne(e => e.User)
+             .WithMany()
+             .HasForeignKey(e => e.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GameHistoryEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => new { x.UserId, x.PlayedAtUtc });
+
+            e.Property(x => x.Role)
+                .HasConversion<int>(); // stores enum as int
+        });
+    }
 }

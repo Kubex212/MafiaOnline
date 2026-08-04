@@ -14,7 +14,6 @@ interface Props {
     myRole: RoleResponse;
     deadIds?: string[];
     config?: GameConfig | null;
-    /** Ids of fellow werewolves — empty unless the viewer is a werewolf. */
     otherWerewolvesIds?: string[];
 }
 
@@ -49,13 +48,9 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const [nightInfo, setNightInfo] = useState<AnyClueResponse | null>(null);
     const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    // actorId -> targetId, only ever populated for werewolf players
     const [wolfVotes, setWolfVotes] = useState<Record<string, string>>({});
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
     const setLog = (msg: string) => pushLog(msg, 'night');
-
-    // track whether we already submitted attack/ability for this turn
     const [attackSubmitted, setAttackSubmitted] = useState(false);
     const [abilitySubmitted, setAbilitySubmitted] = useState(false);
 
@@ -90,18 +85,13 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             else
                 setLog(t('quietNight'));
             try {
-                const info = await getPlayerNightInfo(lobbyCode, myPlayerId);
+                const info = await getPlayerNightInfo(lobbyCode);
                 setNightInfo(info);
                 if (!info) return;
                 if (info.type === 'Detective') {
-                    setLog(t('detectiveClueLong', {
-                        player: info.clue,
-                        role: t('innocent'),
-                    }));
+                    setLog(t('detectiveClueLong', { player: info.clue, role: t('innocent') }));
                 } else if (info.type === 'DogTamer') {
-                    setLog(t('dogClue', {
-                        barked: info.clue ? t('dogBarked') : t('dogQuiet'),
-                    }));
+                    setLog(t('dogClue', { barked: info.clue ? t('dogBarked') : t('dogQuiet') }));
                 } else if (info.type === 'Seer') {
                     setLog(t('seerClueLong', {
                         a: String(info.data.SubjectAName),
@@ -113,9 +103,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 }
             } catch { /* no clue for this role */ }
         },
-        addLog(message: string) {
-            setLog(message);
-        },
+        addLog(message: string) { setLog(message); },
         onWerewolfAttackCast({ actorId, targetId }) {
             setWolfVotes(prev => ({ ...prev, [actorId]: targetId }));
         },
@@ -126,7 +114,6 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const isMyTurn = activeTurn?.activePlayerId === myPlayerId;
     const minTargets = activeTurn?.minTargets ?? 0;
     const maxTargets = activeTurn?.maxTargets ?? 1;
-    const canAct = isMyTurn && !!activeTurn?.hasAbility && !submitting;
     const timeoutMax = activeTurn?.timeoutSeconds ?? TURN_SECONDS;
     const ringPct = 1 - timeLeft / timeoutMax;
     const ringLen = 2 * Math.PI * 22;
@@ -141,11 +128,10 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     }
 
     async function submitAttack() {
-        if (!isMyTurn || submitting) return;
-        if (selectedTargets.length === 0) return;
+        if (!isMyTurn || submitting || selectedTargets.length === 0) return;
         setSubmitting(true);
         try {
-            await submitNightAction(lobbyCode, myPlayerId, selectedTargets[0], ActionType.Attack);
+            await submitNightAction(lobbyCode, selectedTargets[0], ActionType.Attack);
             setAttackSubmitted(true);
             setWolfVotes(prev => ({ ...prev, [myPlayerId]: selectedTargets[0] }));
             setLog(t('attackSubmitted'));
@@ -154,11 +140,10 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     }
 
     async function submitAbility() {
-        if (!isMyTurn || submitting) return;
-        if (selectedTargets.length < minTargets) return;
+        if (!isMyTurn || submitting || selectedTargets.length < minTargets) return;
         setSubmitting(true);
         try {
-            await submitNightAction(lobbyCode, myPlayerId, selectedTargets, ActionType.Ability);
+            await submitNightAction(lobbyCode, selectedTargets, ActionType.Ability);
             setAbilitySubmitted(true);
             setLog(t('actionSubmitted'));
         } catch (e) { alert(String(e)); }
@@ -169,7 +154,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         if (!isMyTurn || submitting) return;
         setSubmitting(true);
         try {
-            await skipNightTurn(lobbyCode, myPlayerId);
+            await skipNightTurn(lobbyCode);
             setLog(t('skipped'));
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
@@ -178,10 +163,9 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const seatStates: TableSeatState[] = seats.map(seat => {
         const isAlive = !deadIds.includes(seat.id);
         const isMe = seat.id === myPlayerId;
-
         return {
             seat,
-            isMe: isMe,
+            isMe,
             isActive: seat.id === activeTurn?.activePlayerId && !resolved,
             isAlive,
             isSelected: selectedTargets.includes(seat.id),
@@ -195,7 +179,6 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         : myRole.teamId === 2 ? 'turn-banner--neutral'
         : 'turn-banner--town';
 
-    // Werewolves see each other's kill votes as blood-red arrows.
     const wolfArrows: VoteArrow[] = isWerewolf
         ? (Object.entries(wolfVotes) as [string, string][])
             .map(([fromId, toId]) => ({ fromId, toId, kind: 'attack' as const }))
@@ -203,10 +186,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-            {/* Role badge — expandable long description */}
             <RoleInfo role={myRole} config={config} />
 
-            {/* Turn banner */}
             {activeTurn && !resolved && (
                 <div className={`turn-banner ${teamClass} ${isMyTurn ? 'turn-banner--me' : ''}`}>
                     <div>
@@ -250,7 +231,6 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 onSeatClick={s => toggleTarget(s.id)}
             />
 
-            {/* Action controls */}
             {isMyTurn && !resolved && (
                 <div style={{ display: 'flex', gap: 12 }}>
                     {isWerewolf && (
@@ -260,7 +240,6 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                             {t('attack')}
                         </button>
                     )}
-
                     {activeTurn!.hasAbility && (
                         <button className="btn btn--primary"
                             disabled={abilitySubmitted || selectedTargets.length < minTargets || submitting}
@@ -268,14 +247,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                             {t('useAbility')}
                         </button>
                     )}
-
                     <button className="btn" disabled={submitting} onClick={handleSkip}>
                         {t('skip')}
                     </button>
                 </div>
             )}
 
-            {/* Resolution */}
             {resolved && (
                 <div className="resolution">
                     <div className="resolution__title">🌅 {t('dawn')}</div>
@@ -291,9 +268,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {nightInfo?.type === 'Detective' && (
                         <div className="resolution__clue">
                             🔍 {t('detectiveClueShort')} <b>{nightInfo.clue}</b> {t('is')}{' '}
-                            <b style={{ color: 'var(--town-2)' }}>
-                                {t('innocent')}
-                            </b>
+                            <b style={{ color: 'var(--town-2)' }}>{t('innocent')}</b>
                         </div>
                     )}
                     {nightInfo?.type === 'DogTamer' && (
@@ -316,7 +291,6 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 </div>
             )}
 
-            {/* Shared chronicle (night + day) */}
             <EventLog />
         </div>
     );

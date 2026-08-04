@@ -51,8 +51,8 @@ public class NightPoacherAndTrailerTests
         // Run resolver to collect automatic clues
         var result = resolver.Resolve(alive, new List<SubmittedNightAction>());
 
-        var trailerEvent = result.Events.OfType<TrailerClueEvent>().FirstOrDefault(e => e.TrailerId == trailer.Id);
+        var trailerEvent = result.Events.OfType<TrailerClueEvent>().FirstOrDefault(e => e.ClueOwnerId == trailer.Id);
         Assert.NotNull(trailerEvent);
-        Assert.True(trailerEvent.Direction == "Left" || trailerEvent.Direction == "Right" || trailerEvent.Direction == "None");
+        Assert.True(trailerEvent.Clue == "Left" || trailerEvent.Clue == "Right");
     }
 }

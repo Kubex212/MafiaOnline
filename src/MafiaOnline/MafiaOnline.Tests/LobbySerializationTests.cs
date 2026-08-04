@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using Xunit;
 using MafiaOnline.Api.Models;
 
@@ -13,7 +13,7 @@ public class LobbySerializationTests
         // arrange
         var lobby = new Lobby("ABC123");
 
-        var player = new LobbyPlayer("Bob", true);
+        var player = new LobbyPlayer(Guid.NewGuid(), "Bob", true);
         lobby.AddPlayer(player);
 
         // act
@@ -39,10 +39,10 @@ public class LobbySerializationTests
     {
         var lobby = new Lobby("ABC123");
 
-        lobby.AddPlayer(new LobbyPlayer("Bob", true));
-        lobby.AddPlayer(new LobbyPlayer("Alice", false));
-        lobby.AddPlayer(new LobbyPlayer("Tom", false));
-        lobby.AddPlayer(new LobbyPlayer("John", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Bob", true));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Alice", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Tom", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "John", false));
 
         lobby.Start(lobby.Players.First().Id);
 
@@ -62,10 +62,10 @@ public class LobbySerializationTests
     {
         var lobby = new Lobby("ABC123");
 
-        lobby.AddPlayer(new LobbyPlayer("Bob", true));
-        lobby.AddPlayer(new LobbyPlayer("Alice", false));
-        lobby.AddPlayer(new LobbyPlayer("Tom", false));
-        lobby.AddPlayer(new LobbyPlayer("John", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Bob", true));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Alice", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Tom", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "John", false));
 
         lobby.Start(lobby.Players.First().Id);
 
@@ -89,10 +89,10 @@ public class LobbySerializationTests
     {
         var lobby = new Lobby("ABC123");
 
-        lobby.AddPlayer(new LobbyPlayer("Bob", true));
-        lobby.AddPlayer(new LobbyPlayer("Alice", false));
-        lobby.AddPlayer(new LobbyPlayer("Tom", false));
-        lobby.AddPlayer(new LobbyPlayer("John", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Bob", true));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Alice", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Tom", false));
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "John", false));
 
         lobby.Start(lobby.Players.First().Id);
 
@@ -112,10 +112,10 @@ public class LobbySerializationTests
     public void Lobby_With_NightSession_Should_Serialize_And_Restore()
     {
         var lobby = new Lobby("ABC123");
-        var host = new LobbyPlayer("Host", true);
-        var p2 = new LobbyPlayer("Alice", false);
-        var p3 = new LobbyPlayer("Bob", false);
-        var p4 = new LobbyPlayer("Tom", false);
+        var host = new LobbyPlayer(Guid.NewGuid(), "Host", true);
+        var p2 = new LobbyPlayer(Guid.NewGuid(), "Alice", false);
+        var p3 = new LobbyPlayer(Guid.NewGuid(), "Bob", false);
+        var p4 = new LobbyPlayer(Guid.NewGuid(), "Tom", false);
 
         lobby.AddPlayer(host);
         lobby.AddPlayer(p2);
@@ -142,10 +142,10 @@ public class LobbySerializationTests
     public void Lobby_With_DaySession_Should_Serialize_And_Restore()
     {
         var lobby = new Lobby("ABC123");
-        var host = new LobbyPlayer("Host", true);
-        var p2 = new LobbyPlayer("Alice", false);
-        var p3 = new LobbyPlayer("Bob", false);
-        var p4 = new LobbyPlayer("Tom", false);
+        var host = new LobbyPlayer(Guid.NewGuid(), "Host", true);
+        var p2 = new LobbyPlayer(Guid.NewGuid(), "Alice", false);
+        var p3 = new LobbyPlayer(Guid.NewGuid(), "Bob", false);
+        var p4 = new LobbyPlayer(Guid.NewGuid(), "Tom", false);
 
         lobby.AddPlayer(host);
         lobby.AddPlayer(p2);
@@ -172,10 +172,10 @@ public class LobbySerializationTests
     public void Lobby_Game_Player_State_Restored_After_Serialization()
     {
         var lobby = new Lobby("ABC123");
-        var host = new LobbyPlayer("Host", true);
-        var p2 = new LobbyPlayer("Alice", false);
-        var p3 = new LobbyPlayer("Bob", false);
-        var p4 = new LobbyPlayer("Tom", false);
+        var host = new LobbyPlayer(Guid.NewGuid(), "Host", true);
+        var p2 = new LobbyPlayer(Guid.NewGuid(), "Alice", false);
+        var p3 = new LobbyPlayer(Guid.NewGuid(), "Bob", false);
+        var p4 = new LobbyPlayer(Guid.NewGuid(), "Tom", false);
 
         lobby.AddPlayer(host);
         lobby.AddPlayer(p2);

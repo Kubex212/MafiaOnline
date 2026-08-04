@@ -10,6 +10,8 @@ public class ReconnectResponse
 
     public string GamePhase { get; set; } = "lobby";
 
+    public Guid MyPlayerId { get; set; }
+
     public RoleResponse? MyRole { get; set; }
 
     public List<SeatInfoResponse>? Seats { get; set; }

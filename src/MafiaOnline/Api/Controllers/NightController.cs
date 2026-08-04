@@ -1,4 +1,5 @@
 using MafiaOnline.Api.Dtos;
+using MafiaOnline.Api.Identity;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Api.Services;
 using MafiaOnline.Engine.Night;
@@ -12,16 +13,18 @@ public class NightController : ControllerBase
 {
     private readonly INightService _nightService;
     private readonly ILobbyRepository _repository;
+    private readonly ICurrentUser _currentUser;
 
-    public NightController(INightService nightService, ILobbyRepository repository)
+    public NightController(INightService nightService, ILobbyRepository repository, ICurrentUser currentUser)
     {
         _nightService = nightService;
         _repository = repository;
+        _currentUser = currentUser;
     }
 
     /// <summary>Host calls this to kick off the night turn loop.</summary>
     [HttpPost("begin")]
-    public async Task<IActionResult> Begin(string code, [FromBody] StartLobbyRequest request)
+    public async Task<IActionResult> Begin(string code)
     {
         await _nightService.BeginNightAsync(code);
         return Ok();
@@ -31,17 +34,16 @@ public class NightController : ControllerBase
     [HttpPost("action")]
     public async Task<IActionResult> Action(string code, [FromBody] NightActionRequest request)
     {
-        // adapt to engine NightAction
         var action = new NightAction(request.Targets, request.ActionType);
-        await _nightService.SubmitActionAsync(code, request.ActorId, action);
+        await _nightService.SubmitActionAsync(code, _currentUser.UserId, action);
         return Ok();
     }
 
     /// <summary>Active player skips their turn.</summary>
     [HttpPost("skip")]
-    public async Task<IActionResult> Skip(string code, [FromBody] NightSkipRequest request)
+    public async Task<IActionResult> Skip(string code)
     {
-        await _nightService.SkipTurnAsync(code, request.ActorId);
+        await _nightService.SkipTurnAsync(code, _currentUser.UserId);
         return Ok();
     }
 
@@ -49,8 +51,8 @@ public class NightController : ControllerBase
     /// Private: detective/seer/dog-tamer fetches their clue after NightResolved fires.
     /// Returns 204 if no clue (e.g. player has no clue or config blocked it).
     /// </summary>
-    [HttpGet("clue/{playerId:guid}")]
-    public async Task<ActionResult<ClueResponse>> GetClue(string code, Guid playerId)
+    [HttpGet("clue")]
+    public async Task<ActionResult<ClueResponse>> GetClue(string code)
     {
         var lobby = await _repository.Get(code.ToUpperInvariant());
         if (lobby?.Game is null) return NotFound();
@@ -58,7 +60,9 @@ public class NightController : ControllerBase
         var result = lobby.Game.LastNightResult;
         if (result is null) return NoContent();
 
-        // find proper clue event for this player, if any; return 204 if none
+        var playerId = lobby.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId)?.Id;
+        if (playerId is null) return NotFound();
+
         var clueEvent = result.Events.OfType<ClueEvent>().SingleOrDefault(e => e.ClueOwnerId == playerId);
         if (clueEvent is null) return NoContent();
 

@@ -105,7 +105,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         if (!selectedTarget || hasVoted || !amAlive || submitting) return;
         setSubmitting(true);
         try {
-            await castVote(lobbyCode, myPlayerId, selectedTarget);
+            await castVote(lobbyCode, selectedTarget);
             setMyVote(selectedTarget);
             setLog(t('yourVoteCast'));
         } catch (e) { alert(String(e)); }

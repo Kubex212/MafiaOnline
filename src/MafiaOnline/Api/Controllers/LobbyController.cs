@@ -1,4 +1,5 @@
 ﻿using MafiaOnline.Api.Dtos;
+using MafiaOnline.Api.Identity;
 using MafiaOnline.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,10 +10,12 @@ namespace MafiaOnline.Api.Controllers;
 public class LobbiesController : ControllerBase
 {
     private readonly ILobbyService _lobbyService;
+    private readonly ICurrentUser _currentUser;
 
-    public LobbiesController(ILobbyService lobbyService)
+    public LobbiesController(ILobbyService lobbyService, ICurrentUser currentUser)
     {
         _lobbyService = lobbyService;
+        _currentUser = currentUser;
     }
 
     [HttpPost]
@@ -42,17 +45,17 @@ public class LobbiesController : ControllerBase
     }
 
     [HttpPost("{code}/start")]
-    public async Task<ActionResult<LobbyResponse>> Start(string code, StartLobbyRequest request)
+    public async Task<ActionResult<LobbyResponse>> Start(string code)
     {
-        var lobby = await _lobbyService.StartLobbyAsync(code, request.PlayerId);
+        var lobby = await _lobbyService.StartLobbyAsync(code);
 
          return Ok(LobbyResponse.FromLobby(lobby));
     }
 
-    [HttpGet("{code}/role/{playerId:guid}")]
-    public async Task<ActionResult<RoleResponse>> GetRole(string code, Guid playerId)
+    [HttpGet("{code}/role")]
+    public async Task<ActionResult<RoleResponse>> GetRole(string code)
     {
-        var role = await _lobbyService.GetPlayerRole(code, playerId);
+        var role = await _lobbyService.GetPlayerRole(code);
 
         return Ok(role);
     }
@@ -60,35 +63,35 @@ public class LobbiesController : ControllerBase
     [HttpPost("{code}/order/move-up")]
     public async Task<ActionResult<LobbyResponse>> MoveUp(string code, MovePlayerRequest request)
     {
-        var lobby = await _lobbyService.MovePlayerUpAsync(code, request.RequestingPlayerId, request.TargetPlayerId);
+        var lobby = await _lobbyService.MovePlayerUpAsync(code, request.TargetPlayerId);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
     [HttpPost("{code}/order/move-down")]
     public async Task<ActionResult<LobbyResponse>> MoveDown(string code, MovePlayerRequest request)
     {
-        var lobby = await _lobbyService.MovePlayerDownAsync(code, request.RequestingPlayerId, request.TargetPlayerId);
+        var lobby = await _lobbyService.MovePlayerDownAsync(code, request.TargetPlayerId);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
     [HttpPost("{code}/order/shuffle")]
-    public async Task<ActionResult<LobbyResponse>> Shuffle(string code, ShufflePlayersRequest request)
+    public async Task<ActionResult<LobbyResponse>> Shuffle(string code)
     {
-        var lobby = await _lobbyService.ShufflePlayersAsync(code, request.RequestingPlayerId);
+        var lobby = await _lobbyService.ShufflePlayersAsync(code);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
     [HttpPost("{code}/reconnect")]
-    public async Task<ActionResult<ReconnectResponse>> Reconnect(string code, ReconnectRequest request)
+    public async Task<ActionResult<ReconnectResponse>> Reconnect(string code)
     {
-        var response = await _lobbyService.ReconnectPlayerAsync(code, request.UserId);
+        var response = await _lobbyService.ReconnectPlayerAsync(code);
         return Ok(response);
     }
 
     [HttpPost("{code}/config")]
     public async Task<ActionResult<LobbyResponse>> UpdateConfig(string code, UpdateConfigRequest request)
     {
-        var lobby = await _lobbyService.UpdateConfigAsync(code, request.RequestingPlayerId, request.Config);
+        var lobby = await _lobbyService.UpdateConfigAsync(code, request.Config);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 }
