@@ -62,13 +62,13 @@ public class StartGameCommand : GameCommand
 /// </summary>
 public class ResolveNightCommand : GameCommand
 {
-    public ResolveNightCommand(IReadOnlyList<SubmittedNightAction> actions)
+    public ResolveNightCommand(IReadOnlyList<NightAction> actions)
         : base(Guid.Empty)
     {
         Actions = actions;
     }
 
-    public IReadOnlyList<SubmittedNightAction> Actions { get; }
+    public IReadOnlyList<NightAction> Actions { get; }
 
     internal override void Execute(Game game)
     {

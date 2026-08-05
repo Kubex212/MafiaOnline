@@ -2,17 +2,17 @@ namespace MafiaOnline.Engine.Night;
 
 public sealed class NightAction
 {
+    public Guid Actor { get; }
     public IReadOnlyList<Guid> Targets { get; }
     public ActionType ActionType { get; }
 
-    public NightAction(IEnumerable<Guid> targets, ActionType actionType)
+    public NightAction(Guid actor, IEnumerable<Guid> targets, ActionType actionType)
     {
+        Actor = actor;
         Targets = targets?.ToList() ?? new List<Guid>();
         ActionType = actionType;
     }
 }
-
-public record SubmittedNightAction(Guid Owner, NightAction Action);
 
 public class ActionData
 {

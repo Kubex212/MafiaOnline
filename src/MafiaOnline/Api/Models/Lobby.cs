@@ -140,6 +140,11 @@ public class Lobby
     {
         if (Game is null) throw new InvalidOperationException("Game not started.");
 
+        Game.Turns.Add(new GameTurn
+        {
+            Index = Game.Turns.Count + 1
+        });
+
         var alive = _players.Where(p => Game.Players.First(ep => ep.Id == p.Id).IsAlive);
         NightSession = new NightSession(alive);
     }

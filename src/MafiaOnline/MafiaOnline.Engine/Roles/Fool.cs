@@ -7,9 +7,10 @@ namespace MafiaOnline.Engine.Roles;
 /// </summary>
 public class Fool : IRole, IWinCondition
 {
-    public RoleType Type => RoleType.Villager; // neutral type placeholder
+    public RoleType Type => RoleType.Fool; // neutral type placeholder
     public string Name => "Fool";
     public int TeamId => 2; // neutral
+    public Team Team => Team.Neutral;
 
     public bool Evaluate(Game game, Player roleOwner)
     {

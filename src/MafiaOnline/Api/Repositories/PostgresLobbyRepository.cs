@@ -43,7 +43,9 @@ public class PostgresLobbyRepository : ILobbyRepository
         if (entity == null)
             return null;
 
-        var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings);
+        var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings)!;
+        lobby.Game?.Initialize();
+
         return lobby;
     }
 

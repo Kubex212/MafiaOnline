@@ -18,4 +18,29 @@ public class GameConfig
 
     // Configuration for werewolf team behaviour (shared kill vote etc.)
     public WerewolfConfig Werewolf { get; set; } = new();
+    public static GameConfig GetDefault()
+    {
+        return new GameConfig
+        {
+            Roles = new RoleSelectionConfig
+            {
+                Guardian = true,
+                Detective = true,
+                DogTamer = true,
+                Poacher = true,
+                Trailer = true,
+                Seer = true,
+                Fool = true,
+                Dracula = true
+            },
+            WerewolfCount = 1,
+            TurnDurationSeconds = 30,
+            Guardian = new GuardianConfig(),
+            Detective = new DetectiveConfig(),
+            DogTamer = new DogTamerConfig(),
+            Day = new DayConfig(),
+            Poacher = new PoacherConfig(),
+            Werewolf = new WerewolfConfig()
+        };
+    }
 }

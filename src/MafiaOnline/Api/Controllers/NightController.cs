@@ -34,8 +34,7 @@ public class NightController : ControllerBase
     [HttpPost("action")]
     public async Task<IActionResult> Action(string code, [FromBody] NightActionRequest request)
     {
-        var action = new NightAction(request.Targets, request.ActionType);
-        await _nightService.SubmitActionAsync(code, _currentUser.UserId, action);
+        await _nightService.SubmitActionAsync(code, _currentUser.UserId, request.Targets, request.ActionType);
         return Ok();
     }
 

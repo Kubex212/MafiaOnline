@@ -1,4 +1,5 @@
 using MafiaOnline.Engine.Night;
+using System.Numerics;
 
 namespace MafiaOnline.Engine.Roles;
 
@@ -32,17 +33,22 @@ public abstract class NightAbility()
     /// <summary>
     /// Whether the ability can target the acting player.
     /// </summary>
-    public virtual bool CanTargetSelf => false;
+    protected virtual bool CanTargetSelf => false;
 
     /// <summary>
     /// If the ability is used, how long should it be before it can be used again? Null means no cooldown.
     /// </summary>
-    public virtual int? Cooldown => null;
+    protected virtual int? Cooldown => null;
 
     /// <summary>
     /// When should the ability be available for the first time? Null means it is available from the start of the game.
     /// </summary>
-    public virtual int? NightsDelay => null;
+    protected virtual int? NightsDelay => null;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    protected virtual int TargetCooldown => 0;
 
     /// <summary>
     /// Execute the ability for <paramref name="actor"/> using the already-submitted
@@ -56,7 +62,35 @@ public abstract class NightAbility()
     public virtual void Apply(Player actor, Guid? targetId, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
         // Default behavior: wrap single target into a NightAction and call new Apply.
-        NightAction? action = targetId is null ? null : new NightAction(new[] { targetId.Value }, ActionType.Ability);
+        NightAction? action = targetId is null ? null : new NightAction(actor.Id, new[] { targetId.Value }, ActionType.Ability);
         Apply(actor, action, context, alivePlayers);
+    }
+
+    public HashSet<Guid> GetForbiddenTargets(Player actor, IReadOnlyList<Player> players, IReadOnlyList<NightAction> previousActions)
+    {
+        var forbidden = new HashSet<Guid>();
+
+        if (!CanTargetSelf)
+            forbidden.Add(actor.Id);
+
+        // Add any other game-specific restrictions here (e.g., cannot target dead players)
+        foreach (var player in players)
+        {
+            if (!player.IsAlive)
+                forbidden.Add(player.Id);
+
+            
+        }
+
+        var previousActionsForTargetCooldown = previousActions.TakeLast(TargetCooldown);
+        foreach (var action in previousActionsForTargetCooldown)
+        {
+            foreach (var target in action.Targets)
+            {
+                forbidden.Add(target);
+            }
+        }
+
+        return forbidden;
     }
 }

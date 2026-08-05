@@ -14,10 +14,10 @@ public class NightSession
     private List<LobbyPlayer> _turnOrder;
 
     [JsonProperty]
-    private readonly List<SubmittedNightAction> _submittedActions = new();
+    private readonly List<NightAction> _submittedActions = new();
 
     [Newtonsoft.Json.JsonConstructor]
-    public NightSession(List<LobbyPlayer> turnOrder, List<SubmittedNightAction>? submittedActions, int currentTurnIndex)
+    public NightSession(List<LobbyPlayer> turnOrder, List<NightAction>? submittedActions, int currentTurnIndex)
     {
         _turnOrder = turnOrder ?? new List<LobbyPlayer>();
         if (submittedActions is not null)
@@ -44,13 +44,13 @@ public class NightSession
 
     public LobbyPlayer? ActivePlayer => IsFinished ? null : _turnOrder[CurrentTurnIndex];
 
-    public IReadOnlyList<SubmittedNightAction> SubmittedActions => _submittedActions;
+    public IReadOnlyList<NightAction> SubmittedActions => _submittedActions;
 
     /// <summary>Record a full action for the current player and advance the turn (legacy).</summary>
-    public void SubmitAction(Guid actorId, Engine.Night.NightAction action)
+    public void SubmitAction(NightAction action)
     {
-        AssertIsActivePlayer(actorId);
-        _submittedActions.Add(new (actorId, action));
+        AssertIsActivePlayer(action.Actor);
+        _submittedActions.Add(action);
     }
 
     /// <summary>Skip the current player's turn (no action recorded), then advance.</summary>

@@ -14,6 +14,7 @@ public class Detective : IRole, IHasNightAbility
     }
 
     public RoleType Type => RoleType.Detective;
+    public Team Team => Team.Villagers;
     public string Name => "Detective";
     public int TeamId => 0;
 

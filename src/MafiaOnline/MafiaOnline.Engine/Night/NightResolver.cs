@@ -18,9 +18,12 @@ public class NightResolver
     /// </param>
     public NightResult Resolve(
         IReadOnlyList<Player> alivePlayers,
-        IReadOnlyList<SubmittedNightAction> submittedActions,
-        GameConfig? config = null)
+        IReadOnlyList<NightAction> submittedActions,
+        GameConfig config = null)
     {
+        if(config is null)
+            config = GameConfig.GetDefault();
+
         var context = new NightContext();
 
         // Build list of ability slots. Include per-role abilities and a team-shared werewolf attack
@@ -52,7 +55,7 @@ public class NightResolver
             if (!ability.IsAutomatic)
             {
                 var expectedActionType = ability is WerewolfAttackAbility ? ActionType.Attack : ActionType.Ability;
-                action = submittedActions.SingleOrDefault(action => action.Owner == player.Id && action.Action.ActionType == expectedActionType)?.Action;
+                action = submittedActions.SingleOrDefault(action => action.Actor == player.Id && action.ActionType == expectedActionType);
             }
 
             // Skip non-automatic abilities for which no action was submitted
@@ -61,11 +64,11 @@ public class NightResolver
             ability.Apply(player, action, context, alivePlayers);
         }
 
-        return BuildResult(context, alivePlayers, config);
+        return BuildResult(context, alivePlayers, config, submittedActions);
     }
 
 
-    private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> alivePlayers, GameConfig? config)
+    private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> alivePlayers, GameConfig config, IReadOnlyList<NightAction> actions)
     {
         var events = new List<NightEvent>();
         var killed = new List<Guid>();
@@ -117,8 +120,11 @@ public class NightResolver
             {
                 if (protectedPlayerIds.Contains(chosen))
                 {
-                    var guardianEntry = context.GuardianProtections.FirstOrDefault(kvp => kvp.Value == chosen);
-                    events.Add(new AttackBlockedEvent(chosen, guardianEntry.Key));
+                    if (config?.Guardian?.AnnounceSuccessfulProtection == true)
+                    {
+                        var guardianEntry = context.GuardianProtections.FirstOrDefault(kvp => kvp.Value == chosen);
+                        events.Add(new AttackBlockedEvent(chosen, guardianEntry.Key));
+                    }
                 }
                 else
                 {
@@ -127,10 +133,6 @@ public class NightResolver
                 }
             }
         }
-
-        var deceiverEvents = context.Events.OfType<DeceiverEvent>().ToList();
-        var deceiverTargets = deceiverEvents.Select(e => e.TargetId).FirstOrDefault();
-        var clueEvents = context.Events.OfType<ClueEvent>().ToList();
 
         // After initial kills, resolve poacher traps: if a trapped player was killed by werewolves,
         // one of the attacking werewolves (or any living werewolf) also dies.
@@ -162,14 +164,14 @@ public class NightResolver
             }
         }
 
-        // Resolve detective clues — fire after kill resolution so subject's alive state is accurate
-        foreach (var (detectiveId, subjectId) in context.DetectiveClues)
+        // Resolve detective clue — fire after kill resolution so subject's alive state is accurate
+        if(context.DetectiveClue is not null)
         {
-            var subject = alivePlayers.FirstOrDefault(p => p.Id == subjectId);
-            if (subject is null) continue;
+            var clue = context.DetectiveClue;
+            var subject = alivePlayers.FirstOrDefault(p => p.Id == clue.VillagerId)!;
+            var werewolf = alivePlayers.FirstOrDefault(p => p.Id == clue.WerewolfId)!;
 
-            bool isWerewolf = subject.Role.TeamId != 0;
-            events.Add(new DetectiveClueEvent(detectiveId, subject.Nickname, subject.Nickname)); // TODO: insert a werewolf
+            events.Add(new DetectiveClueEvent(clue.DetectiveId, subject.Nickname, werewolf.Nickname));
         }
 
         foreach(var (dogTamerId, shouldBark) in context.DogTamerClues)
@@ -192,10 +194,20 @@ public class NightResolver
         // Include any events directly registered in context
         events.AddRange(context.Events);
 
+        var deceiverEvents = context.Events.OfType<DeceiverEvent>().ToList();
+        var deceiverTarget = deceiverEvents.Select(e => e.TargetId).FirstOrDefault();
+        var clueEvents = events.OfType<ClueEvent>().ToList();
+        var deceiverTargetClue = clueEvents.FirstOrDefault(e => e.ClueOwnerId == deceiverTarget);
+        if(deceiverTargetClue != null)
+        {
+            deceiverTargetClue.ReverseClue();
+        }
+
         return new NightResult
         {
             Events = events,
-            Killed = killed
+            Killed = killed,
+            Actions = actions
         };
     }
 }

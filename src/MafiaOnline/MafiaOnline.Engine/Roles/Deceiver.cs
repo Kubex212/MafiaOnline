@@ -7,7 +7,8 @@ namespace MafiaOnline.Engine.Roles;
 /// </summary>
 public class Deceiver : IRole, IHasNightAbility
 {
-    public RoleType Type => RoleType.Werewolf;
+    public RoleType Type => RoleType.Deceiver;
+    public Team Team => Team.Werewolves;
     public string Name => "Deceiver";
     public int TeamId => 1;
 
@@ -30,7 +31,6 @@ public class DeceiverAbility : NightAbility
         var target = alivePlayers.FirstOrDefault(p => p.Id == targetId);
         if (target is null) return;
 
-        // Add an event so that UI can learn about enshrouded targets if needed
         context.AddEvent(new DeceiverEvent(actor.Id, targetId));
     }
 }

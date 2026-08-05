@@ -1,3 +1,5 @@
+using MafiaOnline.Engine.Roles;
+
 namespace MafiaOnline.Engine.Night;
 
 /// <summary>
@@ -22,7 +24,7 @@ public class NightContext
     /// <summary>
     /// PlayerId (detective) -> the player pointed at them this night.
     /// </summary>
-    internal Dictionary<Guid, Guid> DetectiveClues { get; } = new();
+    internal DetectiveClue? DetectiveClue { get; set; } = null;
 
     /// <summary>
     /// PlayerId (dog tamer) -> whether the dog barked.

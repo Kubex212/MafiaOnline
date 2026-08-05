@@ -48,6 +48,7 @@ export const ROLE_SIGILS: Record<string, string> = {
     Trailer: '🐾',
     Villager: '🌾',
     Dracula: '🧛',
+    Deceiver: '🦹‍'
 };
 
 /** Sigil lookup tolerant of casing / spacing differences. */

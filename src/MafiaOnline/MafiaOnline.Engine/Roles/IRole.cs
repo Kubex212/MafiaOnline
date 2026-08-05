@@ -6,6 +6,7 @@ public enum RoleType
 {
     Villager,
     Werewolf,
+    Deceiver,
     Guardian,
     Detective,
     DogTamer,
@@ -14,6 +15,30 @@ public enum RoleType
     Dracula,
     Seer,
     Fool
+}
+
+public static class RoleTypeExtensions
+{
+    public static Team GetTeam(this RoleType roleType)
+    {
+        return roleType switch
+        {
+            RoleType.Villager => Team.Villagers,
+            RoleType.Guardian => Team.Villagers,
+            RoleType.Detective => Team.Villagers,
+            RoleType.DogTamer => Team.Villagers,
+            RoleType.Poacher => Team.Villagers,
+            RoleType.Trailer => Team.Villagers,
+            RoleType.Seer => Team.Villagers,
+
+            RoleType.Werewolf => Team.Werewolves,
+            RoleType.Dracula => Team.Werewolves,
+            RoleType.Deceiver => Team.Werewolves,
+
+            RoleType.Fool => Team.Neutral,
+            _ => throw new ArgumentOutOfRangeException(nameof(roleType), $"Unhandled role type: {roleType}")
+        };
+    }
 }
 
 public enum Team

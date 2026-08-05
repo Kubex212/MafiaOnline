@@ -17,6 +17,7 @@ public class Guardian : IRole, IHasNightAbility
     }
 
     public RoleType Type => RoleType.Guardian;
+    public Team Team => Team.Villagers;
     public string Name => "Guardian";
     public int TeamId => 0;
 

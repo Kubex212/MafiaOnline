@@ -42,25 +42,28 @@ public class Game
     public GameWinner Winner { get => _winner; internal set => _winner = value; }
 
     [JsonProperty]
-    private NightResult? _lastNightResult;
-    public NightResult? LastNightResult { get => _lastNightResult; internal set => _lastNightResult = value; }
+     private readonly List<GameTurn> _turns = new();
+    public List<GameTurn> Turns => _turns;
+    
+    [JsonIgnore]
+    public NightResult? LastNightResult { get => _turns.LastOrDefault()?.Night; }
 
-    [JsonProperty]
-    private DayResult? _lastDayResult;
-    public DayResult? LastDayResult { get => _lastDayResult; internal set => _lastDayResult = value; }
+    [JsonIgnore]
+    public DayResult? LastDayResult { get => _turns.LastOrDefault()?.Day; }
 
     public void Execute(GameCommand command) => command.Execute(this);
 
     // ── Night ──────────────────────────────────────────────────────────────
 
-    internal void ResolveNightWithActions(IReadOnlyList<SubmittedNightAction> actions)
+    internal void ResolveNightWithActions(IReadOnlyList<NightAction> actions)
     {
         if (Phase != GamePhase.Night)
             throw new InvalidOperationException("Not currently the night phase.");
 
         var alivePlayers = _players.Where(p => p.IsAlive).ToList();
         var resolver = new NightResolver();
-        LastNightResult = resolver.Resolve(alivePlayers, actions);
+        var nightResult = resolver.Resolve(alivePlayers, actions, Config);
+        Turns.Last().Night = nightResult;
 
         foreach (var killedId in LastNightResult.Killed)
             _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
@@ -82,9 +85,10 @@ public class Game
         var alivePlayers = _players.Where(p => p.IsAlive).Select(p => p.Id).ToList();
         var enshroudedPlayers = LastNightResult!.Events.OfType<DraculaEnshroudedEvent>().Select(e => e.TargetId).ToHashSet();
         var resolver = new DayResolver();
-        LastDayResult = resolver.Resolve(votes, alivePlayers, Config.Day, enshroudedPlayers);
+        var dayResult = resolver.Resolve(votes, alivePlayers, Config.Day, enshroudedPlayers);
+        Turns.Last().Day = dayResult;
 
-        foreach (var banishedId in LastDayResult.Banished)
+        foreach (var banishedId in LastDayResult!.Banished)
             _players.FirstOrDefault(p => p.Id == banishedId)?.Kill();
 
         CheckWinCondition();
@@ -153,28 +157,29 @@ public class Game
         for (int i = 0; i < ordered.Count; i++)
             ordered[i].SeatIndex = i;
 
-        var specialRolesToAssign = new List<IRole>();
+        var specialRolesToAssign = new List<RoleType>();
 
         // villager roles
-        if (Config.Roles.Guardian) specialRolesToAssign.Add(new Guardian(Config.Guardian));
-        if (Config.Roles.Detective) specialRolesToAssign.Add(new Detective(Config.Detective));
-        if (Config.Roles.DogTamer) specialRolesToAssign.Add(new DogTamer(Config.DogTamer));
-        if (Config.Roles.Poacher) specialRolesToAssign.Add(new Poacher(Config.Poacher));
-        if (Config.Roles.Trailer) specialRolesToAssign.Add(new Trailer());
-        if (Config.Roles.Seer) specialRolesToAssign.Add(new Seer());
+        if (Config.Roles.Guardian) specialRolesToAssign.Add(RoleType.Guardian);
+        if (Config.Roles.Detective) specialRolesToAssign.Add(RoleType.Detective);
+        if (Config.Roles.DogTamer) specialRolesToAssign.Add(RoleType.DogTamer);
+        if (Config.Roles.Poacher) specialRolesToAssign.Add(RoleType.Poacher);
+        if (Config.Roles.Trailer) specialRolesToAssign.Add(RoleType.Trailer);
+        if (Config.Roles.Seer) specialRolesToAssign.Add(RoleType.Seer);
 
         // neutral roles
-        if (Config.Roles.Fool) specialRolesToAssign.Add(new Fool());
+        if (Config.Roles.Fool) specialRolesToAssign.Add(RoleType.Fool);
 
-        var specialRolesSet = new HashSet<IRole>(specialRolesToAssign);
-        var werewolfRolesToAssign = new List<IRole>();
+        var specialRolesSet = new HashSet<RoleType>(specialRolesToAssign);
+        var werewolfRolesToAssign = new List<RoleType>();
 
         // werewolf roles
-        if (Config.Roles.Dracula) werewolfRolesToAssign.Add(new Dracula());
+        if (Config.Roles.Dracula) werewolfRolesToAssign.Add(RoleType.Dracula);
+        if (Config.Roles.Deceiver) werewolfRolesToAssign.Add(RoleType.Deceiver);
 
         var werewolfRoleCount = werewolfRolesToAssign.Count;
         for (int i = 0; i < Config.WerewolfCount - werewolfRoleCount; i++)
-            werewolfRolesToAssign.Add(new Werewolf());
+            werewolfRolesToAssign.Add(RoleType.Werewolf);
 
 
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
@@ -189,7 +194,7 @@ public class Game
             var playerIndex = shuffledIndices[i];
             var werewolfRole = werewolfRolesToAssign[i];
 
-            ordered[playerIndex].AssignRole(werewolfRole);
+            ordered[playerIndex].InitializeRole(werewolfRole, Config);
             unassignedPlayers.Remove(playerIndex);
         }
 
@@ -201,17 +206,17 @@ public class Game
             var playerIndex = shuffledIndices[i + offset];
             var role = specialRolesToAssign[i];
 
-            ordered[playerIndex].AssignRole(role);
+            ordered[playerIndex].InitializeRole(role, Config);
             unassignedPlayers.Remove(playerIndex);
             specialRolesSet.Remove(role);
         }
 
         foreach (var playerIndex in unassignedPlayers)
-            ordered[playerIndex].AssignRole(new Villager());
+            ordered[playerIndex].InitializeRole(RoleType.Villager, Config);
 
         if(Config.Werewolf.ShowAlibi)
         {
-            var unusedSpecialVillagerRoles = specialRolesSet.Where(r => r.Team == Team.Villagers).ToList();
+            var unusedSpecialVillagerRoles = specialRolesSet.Where(r => r.GetTeam() == Team.Villagers).ToList();
 
             // if there are more werewolves than unused special villager roles, some werewolves will not get an alibi
 
@@ -222,14 +227,50 @@ public class Game
                 var werewolf = werewolves[i];
                 var randomIndex = new Random().Next(unusedSpecialVillagerRoles.Count);
 
-                werewolf.Alibi = unusedSpecialVillagerRoles[randomIndex].Type;
+                werewolf.Alibi = unusedSpecialVillagerRoles[randomIndex];
                 unusedSpecialVillagerRoles.RemoveAt(randomIndex);
             }
         }
     }
+
+    // public
+    public void Initialize()
+    {
+        foreach (var player in _players)
+            player.InitializeRole(player.RoleType, _config);
+    }
+
+    public List<Guid> GetForbiddenTargets(Guid playerId)
+    {
+        var player = _players.FirstOrDefault(p => p.Id == playerId);
+
+        if (player is null)
+            throw new InvalidOperationException("Player not found in game.");
+
+        var forbiddenTargets = new List<Guid>();
+        if (player.Role is IHasNightAbility nightRole && !nightRole.NightAbility.IsAutomatic)
+        {
+            var ability = nightRole.NightAbility;
+            if (ability is not null)
+            {
+                var previousActions = Turns.Select(t => t.Night).Where(n => n is not null).SelectMany(n => n!.Actions).Where(a => a.Actor == playerId).ToList();
+                forbiddenTargets.AddRange(ability.GetForbiddenTargets(player, _players, previousActions));
+            }
+        }
+        return forbiddenTargets;
+    }
 }
 
 public record PlayerNightInfo(string Type, Dictionary<string, object> Data);
+
+public class GameTurn
+{
+    public int Index { get; set; }
+
+    public NightResult? Night { get; set; }
+
+    public DayResult? Day { get; set; }
+}
 
 public enum GamePhase
 {

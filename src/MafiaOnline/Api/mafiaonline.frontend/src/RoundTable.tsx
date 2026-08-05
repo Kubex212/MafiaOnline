@@ -179,7 +179,7 @@ export default function RoundTable({
                             </text>
                         )}
                         {isMe && isAlive && (
-                            <text y={17} textAnchor="middle" fill="var(--accent-2)"
+                            <text y={-10} textAnchor="middle" fill="var(--accent-2)"
                                 fontSize={9} fontStyle="italic">({t('you')})</text>
                         )}
                         {isSelected && (

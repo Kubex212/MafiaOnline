@@ -6,7 +6,7 @@ namespace MafiaOnline.Engine.Night;
 public class NightResult
 {
     public IReadOnlyList<NightEvent> Events { get; init; } = [];
-
+    public IReadOnlyList<NightAction> Actions { get; init; } = [];
     /// <summary>Ids of players who were killed and must be eliminated from the game.</summary>
     public IReadOnlyList<Guid> Killed { get; init; } = [];
 }

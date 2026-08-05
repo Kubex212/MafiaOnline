@@ -15,6 +15,7 @@ public class DogTamer : IRole, IHasNightAbility
     }
 
     public RoleType Type => RoleType.DogTamer;
+    public Team Team => Team.Villagers;
     public string Name => "DogTamer";
     public int TeamId => 0;
     public NightAbility NightAbility { get; }

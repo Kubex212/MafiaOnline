@@ -1,6 +1,7 @@
 ﻿using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
+using MafiaOnline.Engine;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
@@ -10,7 +11,7 @@ namespace MafiaOnline.Api.Services;
 public interface INightService
 {
     Task BeginNightAsync(string lobbyCode);
-    Task SubmitActionAsync(string lobbyCode, Guid userId, NightAction action);
+    Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType);
     Task SkipTurnAsync(string lobbyCode, Guid userId);
 }
 
@@ -40,13 +41,13 @@ public class NightService : INightService
         await AdvanceTurnAsync(lobby);
     }
 
-    public async Task SubmitActionAsync(string lobbyCode, Guid userId, NightAction action)
+    public async Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType)
     {
         var lobby = await GetLobby(lobbyCode);
         var actorId = GetActorId(lobby, userId);
-        var actionType = action.ActionType;
+        var action = new NightAction(actorId, targets, actionType);
 
-        lobby.NightSession!.SubmitAction(actorId, action);
+        lobby.NightSession!.SubmitAction(action);
         await _repository.Update(lobby);
 
         if (actionType == ActionType.Attack)
@@ -64,7 +65,7 @@ public class NightService : INightService
                         actorId,
                         actorName = lobby.Players.FirstOrDefault(p => p.Id == actorId)?.Nickname ?? "?",
                         targetId = attackTarget,
-                        targetName
+                        targetName,
                     });
                 }
             }
@@ -91,8 +92,8 @@ public class NightService : INightService
             return true;
 
         // check if the player has already submitted an attack
-        var submittedAttack = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == userId && sa.Action.ActionType == ActionType.Attack);
-        var submittedAbility = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Owner == userId && sa.Action.ActionType == ActionType.Ability);
+        var submittedAttack = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Actor == userId && sa.ActionType == ActionType.Attack);
+        var submittedAbility = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Actor == userId && sa.ActionType == ActionType.Ability);
 
         return submittedAttack == true && submittedAbility == true;
     }
@@ -142,7 +143,8 @@ public class NightService : INightService
             hasAbility,
             timeoutSeconds  = turnSeconds,
             minTargets,
-            maxTargets
+            maxTargets,
+            forbiddenTargets = lobby.Game!.GetForbiddenTargets(active.Id)
         });
 
         var cts = new CancellationTokenSource();

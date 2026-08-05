@@ -9,7 +9,7 @@ public class PoacherTrapAbility(PoacherConfig config) : NightAbility()
 
     public override int MinTargets => 1;
     public override int MaxTargets => 1;
-    public override bool CanTargetSelf => config.AllowSelfTarget;
+    protected override bool CanTargetSelf => config.AllowSelfTarget;
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {

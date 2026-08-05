@@ -65,6 +65,7 @@ export type RoleSelection = {
     seer: boolean;
     fool: boolean;
     dracula: boolean;
+    deceiver: boolean;
 };
 
 export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';
@@ -137,6 +138,7 @@ export type NightTurnStarted = {
     timeoutSeconds: number;
     minTargets?: number;
     maxTargets?: number;
+    forbiddenTargets?: string[];
 };
 
 export type NightResolvedPayload = { killed: string[]; attackBlocked: boolean; };

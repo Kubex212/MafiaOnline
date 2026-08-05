@@ -15,24 +15,38 @@ public class DetectiveInvestigateAbility(DetectiveConfig config) : NightAbility(
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
-        // Candidates: alive players other than the detective himself
-        var candidates = alivePlayers
-            .Where(p => p.Id != actor.Id)
+        // Candidates: alive villagers other than the detective himself
+        var villagerCandidates = alivePlayers
+            .Where(p => p.Id != actor.Id && p.Role.Team == Team.Villagers)
             .ToList();
 
-        if (candidates.Count == 0) return;
+        if (villagerCandidates.Count == 0) return;
 
         // Pick a random candidate
         var random = new Random();
-        var subject = candidates[random.Next(candidates.Count)];
+        var subject = villagerCandidates[random.Next(villagerCandidates.Count)];
 
-        bool isWerewolf = subject.Role.TeamId != 0;
-        if (!config.CanRevealWerewolves && isWerewolf)
+        // Candidates: alive werewolves (possibility in case the detective is a deceiver's target)
+        var werewolfCandidates = alivePlayers
+            .Where(p => p.Role.Team == Team.Werewolves)
+            .ToList();
+
+        if (werewolfCandidates.Count == 0) return;
+
+        var werewolf = werewolfCandidates[random.Next(werewolfCandidates.Count)];
+
+        context.DetectiveClue = new DetectiveClue()
         {
-            // Config says don't reveal werewolves — skip this night's clue
-            return;
-        }
-
-        context.DetectiveClues[actor.Id] = subject.Id;
+            DetectiveId = actor.Id,
+            VillagerId = subject.Id,
+            WerewolfId = werewolf.Id
+        };
     }
+}
+
+public class DetectiveClue
+{ 
+    public Guid DetectiveId { get; set; }
+    public Guid VillagerId { get; set; }
+    public Guid WerewolfId { get; set; }
 }

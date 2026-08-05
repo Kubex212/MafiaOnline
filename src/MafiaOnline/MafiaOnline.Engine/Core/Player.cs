@@ -1,4 +1,7 @@
-﻿using MafiaOnline.Engine.Roles;
+﻿using MafiaOnline.Engine.Config;
+using MafiaOnline.Engine.Core;
+using MafiaOnline.Engine.Roles;
+using Newtonsoft.Json;
 
 namespace MafiaOnline.Engine;
 
@@ -13,8 +16,12 @@ public class Player(Guid id, string nickname)
 
     public bool IsConnected { get; set; } = true;
 
-    // Allow JSON to restore the assigned role
-    public IRole Role { get; set; } = null!;
+    [JsonProperty]
+    public RoleType RoleType { get; private set; }
+
+    [JsonIgnore]
+    public IRole Role { get; private set; }
+
 
     /// <summary>
     /// The player's position around the table, assigned once at the start of the game.
@@ -25,14 +32,14 @@ public class Player(Guid id, string nickname)
     // Persist the last trap target set by a Poacher so MustAlternate can be enforced
     public Guid? LastPoacherTrapTarget { get; set; }
 
-    public void AssignRole(IRole role)
-    {
-        Role = role;
-    }
-
     public void Kill()
     {
         IsAlive = false;
+    }
+    public void InitializeRole(RoleType type, GameConfig config)
+    {
+        RoleType = type;
+        Role = RoleFactory.Create(type, config);
     }
 
     public RoleType? Alibi { get; set; } = null;

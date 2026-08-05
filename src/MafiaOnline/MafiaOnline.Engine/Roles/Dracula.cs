@@ -8,7 +8,8 @@ namespace MafiaOnline.Engine.Roles;
 /// </summary>
 public class Dracula : IRole, IHasNightAbility
 {
-    public RoleType Type => RoleType.Werewolf;
+    public RoleType Type => RoleType.Dracula;
+    public Team Team => Team.Werewolves;
     public string Name => "Dracula";
     public int TeamId => 1;
 
@@ -19,8 +20,8 @@ public class DraculaEnshroudAbility : NightAbility
 {
     public DraculaEnshroudAbility() : base() { }
 
+    protected override bool CanTargetSelf => true;
     public override bool IsAutomatic => false;
-
     public override int MinTargets => 1;
     public override int MaxTargets => 1;
 

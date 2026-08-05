@@ -15,7 +15,8 @@ public class Seer : IRole, IHasNightAbility
         NightAbility = new SeerInvestigateAbility();
     }
 
-    public RoleType Type => RoleType.Detective; // reuse detective type or add new RoleType if desired
+    public RoleType Type => RoleType.Seer;
+    public Team Team => Team.Villagers;
     public string Name => "Seer";
     public int TeamId => 0;
 
