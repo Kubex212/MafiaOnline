@@ -39,6 +39,10 @@ export function getDiscordLoginUrl(): string {
     return '/api/auth/discord';
 }
 
+export function getGoogleLoginUrl(): string {
+    return '/api/auth/google';
+}
+
 function authHeaders(): Record<string, string> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const token = getStoredToken();

@@ -41,15 +41,13 @@ public class Game
     private GameWinner _winner = GameWinner.None;
     public GameWinner Winner { get => _winner; internal set => _winner = value; }
 
-    [JsonProperty]
-     private readonly List<GameTurn> _turns = new();
-    public List<GameTurn> Turns => _turns;
-    
-    [JsonIgnore]
-    public NightResult? LastNightResult { get => _turns.LastOrDefault()?.Night; }
+    public List<GameTurn> Turns { get; private set; } = new();
 
     [JsonIgnore]
-    public DayResult? LastDayResult { get => _turns.LastOrDefault()?.Day; }
+    public NightResult? LastNightResult { get => Turns.LastOrDefault()?.Night; }
+
+    [JsonIgnore]
+    public DayResult? LastDayResult { get => Turns.LastOrDefault()?.Day; }
 
     public void Execute(GameCommand command) => command.Execute(this);
 

@@ -6,17 +6,18 @@ interface Props {
     payload: GameOverPayload;
     myRoleLabel: string;
     myRole: string;
+    myTeam: number;
 }
 
-export default function GameOver({ payload, myRoleLabel, myRole }: Props) {
+export default function GameOver({ payload, myRoleLabel, myRole, myTeam }: Props) {
     const { t } = useTranslation();
 
     let won = false;
     if (payload.winner === 'Fool') {
         won = myRole === 'Fool';
     } else {
-        won = (payload.winner === 'Villagers' && myRole !== 'Werewolf')
-            || (payload.winner === 'Werewolves' && myRole === 'Werewolf');
+        won = (payload.winner === 'Villagers' && myTeam === 0)
+            || (payload.winner === 'Werewolves' && myTeam === 1);
     }
 
     const icon = payload.winner === 'Villagers' ? '🌾'
@@ -32,7 +33,7 @@ export default function GameOver({ payload, myRoleLabel, myRole }: Props) {
         <div className="gameover">
             <div className="gameover__icon" style={{ color }}>{icon}</div>
             <div className="gameover__title" style={{ color, textShadow: `0 0 40px ${color}` }}>
-                {t(payload.winner)} {t('teamWins')}
+                {t(payload.winner)} {payload.winner === 'Fool' ? t('neutralWins') : t('teamWins')}
             </div>
             <div className={`gameover__verdict ${verdictClass}`}>
                 {won ? '🎉 ' + t('youWon') : t('youLost')}

@@ -55,3 +55,8 @@ export const ROLE_SIGILS: Record<string, string> = {
 export function roleSigil(roleName: string) {
     return ROLE_SIGILS[roleKeyBase(roleName)] ?? ROLE_SIGILS[roleName] ?? '🌾';
 }
+
+/** i18n key for a role's display name, tolerant of casing / spacing. */
+export function roleLabelKey(roleName: string) {
+    return roleKeyBase(roleName);
+}

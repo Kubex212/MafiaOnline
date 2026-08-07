@@ -22,14 +22,6 @@ public class NightController : ControllerBase
         _currentUser = currentUser;
     }
 
-    /// <summary>Host calls this to kick off the night turn loop.</summary>
-    [HttpPost("begin")]
-    public async Task<IActionResult> Begin(string code)
-    {
-        await _nightService.BeginNightAsync(code);
-        return Ok();
-    }
-
     /// <summary>Active player submits a targeted action.</summary>
     [HttpPost("action")]
     public async Task<IActionResult> Action(string code, [FromBody] NightActionRequest request)

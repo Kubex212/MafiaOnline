@@ -8,7 +8,7 @@ import type {
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
-    updateConfig, getOrCreateSession, getDiscordLoginUrl, getMe
+    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -18,10 +18,11 @@ import GameConfigPanel from './GameConfigPanel';
 import GameConfigView from './GameConfigView';
 import Landing from './Landing';
 import ProfileModal from './ProfileModal';
+import TopBar from './TopBar';
 import { useTranslation } from 'react-i18next';
 import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
 import { addLog, clearLog } from './gameLog';
-import startSound from './assets/audio/among-us-start-sound.mp3';
+import { playSound, cueYourTurn } from './sound';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
@@ -87,8 +88,8 @@ export default function App() {
 
     // One chronicle for the whole game — mark each phase change in it.
     useEffect(() => {
-        if (view === 'night') addLog(t('nightFalls'), 'night');
-        else if (view === 'day') addLog(t('dayBreaks'), 'day');
+        if (view === 'night') { addLog(t('nightFalls'), 'night'); playSound('night-start'); }
+        else if (view === 'day') { addLog(t('dayBreaks'), 'day'); playSound('day-start'); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view]);
 
@@ -150,8 +151,7 @@ export default function App() {
                         setMyRole(myRoleResponse);
                         myRoleRef.current = myRoleResponse;
                         setView('role-reveal');
-                        const audio = new Audio(startSound);
-                        audio.play();
+                        playSound('game-start');
                         setTimeout(() => setView('night'), 8000);
                     } catch { /* ignore */ }
                 }
@@ -159,11 +159,13 @@ export default function App() {
 
             conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
                 setView('night');
+                if (turn.activePlayerId && turn.activePlayerId === myPlayerIdRef.current) cueYourTurn();
                 runAfterCommit(() => nightRef.current?.onTurnStarted(turn));
             });
 
             conn.on('NightResolved', (payload: NightResolvedPayload) => {
                 markDeadByNickname(payload.killed);
+                playSound('night-resolved');
                 nightRef.current?.onNightResolved(payload);
             });
 
@@ -183,6 +185,7 @@ export default function App() {
 
             conn.on('DayResolved', (payload: DayResolvedPayload) => {
                 markDeadByNickname(payload.banished);
+                playSound('day-resolved');
                 dayRef.current?.onDayResolved(payload);
             });
 
@@ -281,6 +284,7 @@ export default function App() {
             setLobby(res);
             sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('lobbyCreated', { code: res.code })]);
+            playSound('create-lobby');
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
         finally { setCreating(false); }
@@ -294,6 +298,7 @@ export default function App() {
             setLobby(res);
             sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('joinedLobby', { code: res.code })]);
+            playSound('join-lobby');
             await joinHubGroup(res.code);
         } catch (e) { alert(String(e)); }
     }
@@ -342,6 +347,17 @@ export default function App() {
     const otherWerewolvesIds = otherWerewolvesSeats.map(s => s.id);
 
     const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
+    const iAmDead = !!myPlayerId && deadIds.includes(myPlayerId);
+    const spectatorClass = iAmDead ? ' is-spectating' : '';
+    const SpectatorBanner = () => iAmDead ? (
+        <div className="spectator-banner" role="status">
+            <span aria-hidden>💀</span>
+            <span className="spectator-banner__text">
+                <strong>{t('youAreDead')}</strong>
+                <small>{t('youAreWatching')}</small>
+            </span>
+        </div>
+    ) : null;
     const orderedPlayers = lobby
         ? [...lobby.players].sort((a, b) => a.lobbyPosition - b.lobbyPosition)
         : [];
@@ -351,7 +367,7 @@ export default function App() {
         clearSession();
         return (
             <div className="phase"><div className="phase__inner">
-                <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} />
+                <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} myTeam={myRole.teamId} />
             </div></div>
         );
     }
@@ -397,8 +413,10 @@ export default function App() {
     // ── NIGHT PHASE ──────────────────────────────────────────────────────
     if (view === 'night' && seats && myPlayerId && myRole) {
         return (
-            <div className="phase"><div className="phase__inner">
+            <div className={`phase${spectatorClass}`}><div className="phase__inner">
                 <div className="phase-veil phase-veil--night" key="veil-night" aria-hidden />
+                <TopBar showStatus={false} compact />
+                <SpectatorBanner />
                 <h2 className="phase__title">
                     🌙 {t('nightPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
@@ -418,8 +436,10 @@ export default function App() {
     // ── DAY PHASE ────────────────────────────────────────────────────────
     if (view === 'day' && seats && myPlayerId && myRole) {
         return (
-            <div className="phase"><div className="phase__inner">
+            <div className={`phase${spectatorClass}`}><div className="phase__inner">
                 <div className="phase-veil phase-veil--day" key="veil-day" aria-hidden />
+                <TopBar showStatus={false} compact />
+                <SpectatorBanner />
                 <h2 className="phase__title">
                     ☀ {t('dayPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
@@ -448,6 +468,8 @@ export default function App() {
             <div className="phase__inner">
                 {!lobby && (
                     <>
+                        <TopBar connected={hubStarted} onProfile={() => setProfileOpen(true)} />
+
                         <header className="lobby-hero">
                             <div className="lobby-hero__eyebrow">◆ {t('villageOfSecrets')} ◆</div>
                             <h1 className="lobby-hero__title">{t('appTitle')}</h1>
@@ -462,18 +484,6 @@ export default function App() {
                                     disabled={creating}
                                     maxLength={16} />
                             </label>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <button
-                                    className="btn btn--ghost"
-                                    onClick={() => setProfileOpen(true)}>
-                                    👤 {t("profile")}
-                                </button>
-
-                                <div className={`status-dot ${hubStarted ? "" : "status-dot--off"}`}>
-                                    {hubStarted ? t("connected") : t("connecting")}
-                                </div>
-                            </div>
 
                             <button className="btn btn--primary btn--block"
                                 onClick={onCreate} disabled={creating || !nickname.trim()}>
@@ -516,6 +526,16 @@ export default function App() {
                                 {t('loginWithDiscord')}
                             </a>
 
+                            <a className="btn btn--google btn--block" href={getGoogleLoginUrl()}>
+                                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+                                    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.4 17.7 9.5 24 9.5z" />
+                                    <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.1h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.7 6c4.5-4.2 6.4-10.1 6.4-17.3z" />
+                                    <path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.7 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z" />
+                                    <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.7-5.8l-7.7-6c-2.1 1.4-4.8 2.4-8 2.4-6.3 0-11.6-3.9-13.5-9.4l-7.9 6.2C6.5 42.6 14.6 48 24 48z" />
+                                </svg>
+                                {t('loginWithGoogle')}
+                            </a>
+
                         </div>
 
                         <Landing />
@@ -523,12 +543,14 @@ export default function App() {
                         <ProfileModal
                             open={profileOpen}
                             onClose={() => setProfileOpen(false)}
+                            onSaved={name => { if (name) setNickname(name); }}
                         />
                     </>
                 )}
 
                 {lobby && (
                     <div className="lobby-room">
+                        <TopBar showStatus={false} compact onProfile={() => setProfileOpen(true)} />
                         <div className="lobby-room__header">
                             <div>
                                 <button className="lobby-room__code" onClick={copyCode}
@@ -567,8 +589,8 @@ export default function App() {
                                         className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''}`}>
                                         <span className="seat-num">{i + 1}</span>
                                         <span className="player-name">{p.nickname}</span>
-                                        {p.isHost && <span className="tag">{t('host')}</span>}
-                                        {p.id === myPlayerId && <span className="tag tag--you">{t('you')}</span>}
+                                        {p.isHost && <span className="lobby-tag">{t('host')}</span>}
+                                        {p.id === myPlayerId && <span className="lobby-tag tag--you">{t('you')}</span>}
                                         {isHost && !lobby.started && (
                                             <span style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
                                                 <button className="icon-btn"
@@ -620,6 +642,11 @@ export default function App() {
                                 ))}
                             </div>
                         )}
+                        <ProfileModal
+                            open={profileOpen}
+                            onClose={() => setProfileOpen(false)}
+                            onSaved={name => { if (name) setNickname(name); }}
+                        />
                     </div>
                 )}
             </div>

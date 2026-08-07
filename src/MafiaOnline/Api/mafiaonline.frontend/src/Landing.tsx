@@ -14,10 +14,10 @@ export default function Landing() {
     const [openRoles, setOpenRoles] = useState(false);
 
     const steps = [
-        { icon: '✉', title: t('step1Title'), body: t('step1Body') },
+        { icon: '📨', title: t('step1Title'), body: t('step1Body') },
         { icon: '🎭', title: t('step2Title'), body: t('step2Body') },
         { icon: '🌙', title: t('step3Title'), body: t('step3Body') },
-        { icon: '☀', title: t('step4Title'), body: t('step4Body') },
+        { icon: '🌞', title: t('step4Title'), body: t('step4Body') },
     ];
 
     return (
