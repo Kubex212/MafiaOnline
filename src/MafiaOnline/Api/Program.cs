@@ -104,6 +104,60 @@ namespace Api
                         ctx.HandleResponse();
                     }
                 };
+            })
+            .AddOAuth("Google", options =>
+            {
+                options.ClientId = builder.Configuration["Google:ClientId"]!;
+                options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
+
+                options.AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
+                options.TokenEndpoint = "https://oauth2.googleapis.com/token";
+                options.UserInformationEndpoint = "https://openidconnect.googleapis.com/v1/userinfo";
+
+                options.Scope.Add("openid");
+                options.Scope.Add("profile");
+                options.Scope.Add("email");
+
+                options.CallbackPath = "/api/auth/google/callback";
+
+                options.Events = new OAuthEvents
+                {
+                    OnCreatingTicket = async ctx =>
+                    {
+                        var request = new HttpRequestMessage(
+                            HttpMethod.Get,
+                            ctx.Options.UserInformationEndpoint);
+
+                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
+
+                        var response = await ctx.Backchannel.SendAsync(request);
+                        response.EnsureSuccessStatusCode();
+
+                        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+                        var root = doc.RootElement;
+
+                        if (root.TryGetProperty("sub", out var id))
+                            ctx.Identity!.AddClaim( new Claim(ClaimTypes.NameIdentifier, id.GetString()!));
+
+                        if (root.TryGetProperty("name", out var name))
+                            ctx.Identity!.AddClaim(new Claim(ClaimTypes.Name, name.GetString()!));
+                    },
+
+                    OnTicketReceived = async ctx =>
+                    {
+                        var providerUserId = ctx.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                        var sessionService = ctx.HttpContext.RequestServices.GetRequiredService<ISessionService>();
+                        var externalAuth = ctx.HttpContext.RequestServices.GetRequiredService<IExternalAuthService>();
+
+                        var userId = await externalAuth.FindOrCreateUserAsync("Google", providerUserId);
+                        var session = await sessionService.CreateForUserAsync(userId);
+
+                        ctx.Response.Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
+
+                        ctx.HandleResponse();
+                    }
+                };
             });
 
             builder.Services.AddSignalR();

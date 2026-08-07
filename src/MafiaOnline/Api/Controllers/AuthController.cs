@@ -12,6 +12,7 @@ public class AuthController : ControllerBase
 {
     private const string TokenHeader = "X-Session-Token";
     private const string DiscordScheme = "Discord";
+    private const string GoogleScheme = "Google";
     private readonly ISessionService _sessionService;
     private readonly ICurrentUser _currentUser;
     private readonly IExternalAuthService _externalAuth;
@@ -55,6 +56,40 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpGet("discord/callback")]
     public async Task<IActionResult> DiscordCallback()
+    {
+        var result = await HttpContext.AuthenticateAsync(DiscordScheme);
+        if (!result.Succeeded)
+            return BadRequest("Discord authentication failed.");
+
+        var providerUserId = result.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? throw new InvalidOperationException("No NameIdentifier claim from Discord.");
+
+        var userId = await _externalAuth.FindOrCreateUserAsync("Discord", providerUserId);
+        var session = await _sessionService.CreateForUserAsync(userId);
+
+        // Redirect to frontend — the JS will pick up the token from the URL query string
+        return Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
+    }
+
+    /// <summary>
+    /// Redirects the browser to Google's OAuth2 authorization page.
+    /// </summary>
+    [HttpGet("google")]
+    public IActionResult GoogleLogin()
+    {
+        var props = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action(nameof(GoogleCallback), "Auth")
+        };
+        return Challenge(props, GoogleScheme);
+    }
+
+    /// <summary>
+    /// Google redirects back here after the user approves.
+    /// Creates/finds the user, issues a session token, and redirects to the frontend with the token in the URL.
+    /// </summary>
+    [HttpGet("google/callback")]
+    public async Task<IActionResult> GoogleCallback()
     {
         var result = await HttpContext.AuthenticateAsync(DiscordScheme);
         if (!result.Succeeded)
