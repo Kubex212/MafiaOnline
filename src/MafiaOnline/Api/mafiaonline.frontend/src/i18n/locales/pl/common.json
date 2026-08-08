@@ -150,12 +150,12 @@
   "fool": "Głupiec",
 
   "canProtectSelf": "Może chronić siebie",
-  "canProtectSamePlayerConsecutively": "Może utrzymywać cel",
+  "mustAlternate": "Musi zmieniać cel",
+  "announceProtection": "Ogłaszaj ochronę",
   "canRevealWerewolves": "Może wykryć wilkołaki",
   "dogTamerRange": "Zasięg",
   "dogTamerNumWerewolves": "Wilkołaki do szczekania",
   "allowSelfTarget": "Może celować w siebie",
-  "mustAlternate": "Musi zmieniać cel",
   "shouldGetAlibi": "Powinien otrzymać alibi",
 
   "villageOfSecrets": "Gra towarzyska oparta na blefach i dedukcji",

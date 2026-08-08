@@ -120,7 +120,7 @@ public class NightResolver
             {
                 if (protectedPlayerIds.Contains(chosen))
                 {
-                    if (config?.Guardian?.AnnounceSuccessfulProtection == true)
+                    if (config?.Guardian?.AnnounceProtection == true)
                     {
                         var guardianEntry = context.GuardianProtections.FirstOrDefault(kvp => kvp.Value == chosen);
                         events.Add(new AttackBlockedEvent(chosen, guardianEntry.Key));

@@ -12,13 +12,13 @@ public class GuardianConfig
     public bool CanProtectSelf { get; set; } = false;
 
     /// <summary>
-    /// Whether the Guardian can protect the same player on consecutive nights.
+    /// Whether the Guardian must switch targets on consecutive nights.
     /// Default: true.
     /// </summary>
-    public bool CanProtectSamePlayerConsecutively { get; set; } = false;
+    public bool MustAlternate { get; set; } = true;
 
     /// <summary>
     /// Should the lobby be notified when the Guardian successfully protects a player from an attack?
     /// </summary>
-    public bool AnnounceSuccessfulProtection { get; set; } = false;
+    public bool AnnounceProtection { get; set; } = false;
 }

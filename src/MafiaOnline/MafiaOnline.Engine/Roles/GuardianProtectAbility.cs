@@ -10,7 +10,7 @@ public class GuardianProtectAbility(GuardianConfig config) : NightAbility()
 {
     public override bool IsAutomatic => false;
     protected override bool CanTargetSelf => config.CanProtectSelf;
-    protected override int TargetCooldown => config.CanProtectSamePlayerConsecutively ? 0 : 1;
+    protected override int TargetCooldown => config.MustAlternate ? 1 : 0;
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {

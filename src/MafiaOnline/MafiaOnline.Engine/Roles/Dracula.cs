@@ -21,6 +21,7 @@ public class DraculaEnshroudAbility : NightAbility
     public DraculaEnshroudAbility() : base() { }
 
     protected override bool CanTargetSelf => true;
+    protected override int TargetCooldown => 1;
     public override bool IsAutomatic => false;
     public override int MinTargets => 1;
     public override int MaxTargets => 1;
@@ -33,7 +34,6 @@ public class DraculaEnshroudAbility : NightAbility
         if (target is null) return;
 
         context.Enshrouded.Add(targetId);
-        // Add an event so that UI can learn about enshrouded targets if needed
         context.AddEvent(new DraculaEnshroudedEvent(actor.Id, targetId));
     }
 }

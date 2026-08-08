@@ -97,8 +97,10 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                     <div className="role-card__sub">
                                         <label><span>{t('canProtectSelf')}</span>
                                             <Flag on={config.guardian.canProtectSelf} t={t} /></label>
-                                        <label><span>{t('canProtectSamePlayerConsecutively')}</span>
-                                            <Flag on={config.guardian.canProtectSamePlayerConsecutively} t={t} /></label>
+                                        <label><span>{t('mustAlternate')}</span>
+                                            <Flag on={config.guardian.mustAlternate} t={t} /></label>
+                                        <label><span>{t('announceProtection')}</span>
+                                            <Flag on={config.guardian.announceProtection} t={t} /></label>
                                     </div>
                                 )}
                                 {key === 'detective' && enabled && (

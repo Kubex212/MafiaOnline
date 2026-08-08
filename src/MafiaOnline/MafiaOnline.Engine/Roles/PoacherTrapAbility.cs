@@ -5,11 +5,11 @@ namespace MafiaOnline.Engine.Roles;
 
 public class PoacherTrapAbility(PoacherConfig config) : NightAbility()
 {
+    protected override bool CanTargetSelf => config.AllowSelfTarget;
+    protected override int TargetCooldown => config.MustAlternate ? 1 : 0;
     public override bool IsAutomatic => false;
-
     public override int MinTargets => 1;
     public override int MaxTargets => 1;
-    protected override bool CanTargetSelf => config.AllowSelfTarget;
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
@@ -23,16 +23,6 @@ public class PoacherTrapAbility(PoacherConfig config) : NightAbility()
         // enforce self-target config
         if (!CanTargetSelf && actor.Id == targetId) return;
 
-        // enforce must-alternate
-        if (config.MustAlternate && actor.LastPoacherTrapTarget == targetId)
-        {
-            // ignore repeating trap
-            return;
-        }
-
         context.PoacherTraps[actor.Id] = targetId;
-
-        // persist last trap target for alternating behaviour
-        actor.LastPoacherTrapTarget = targetId;
     }
 }

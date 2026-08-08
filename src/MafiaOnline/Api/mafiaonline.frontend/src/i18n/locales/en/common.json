@@ -151,12 +151,12 @@
   "fool": "Fool",
 
   "canProtectSelf": "Can protect themselves",
-  "canProtectSamePlayerConsecutively": "Can protect the same player twice in a row",
+  "mustAlternate": "Must alternate targets",
+  "announceProtection": "Announce protection",
   "canRevealWerewolves": "Guardian can reveal werewolves",
   "dogTamerRange": "Dog Tamer range",
   "dogTamerNumWerewolves": "Werewolves for the dog to bark",
   "allowSelfTarget": "Can target themselves",
-  "mustAlternate": "Must alternate targets every turn",
   "shouldGetAlibi": "Should obtain alibi",
 
   "villageOfSecrets": "A party game based on bluffing and deduction",

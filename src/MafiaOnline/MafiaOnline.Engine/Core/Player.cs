@@ -29,8 +29,6 @@ public class Player(Guid id, string nickname)
     /// </summary>
     public int SeatIndex { get; set; }
 
-    // Persist the last trap target set by a Poacher so MustAlternate can be enforced
-    public Guid? LastPoacherTrapTarget { get; set; }
 
     public void Kill()
     {

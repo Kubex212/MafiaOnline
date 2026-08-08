@@ -98,7 +98,7 @@ export const DEFAULT_WEREWOLF_CONFIG: WerewolfConfig = {
     alibi: true,
 };
 
-export type GuardianConfig = { canProtectSelf: boolean; canProtectSamePlayerConsecutively: boolean; };
+export type GuardianConfig = { canProtectSelf: boolean; mustAlternate: boolean; announceProtection: boolean };
 export type DetectiveConfig = { canRevealWerewolves: boolean; };
 export type DogTamerConfig = { range: number; numWerewolves: number; };
 export type PoacherConfig = { allowSelfTarget: boolean; mustAlternate: boolean; };

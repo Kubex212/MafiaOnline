@@ -164,10 +164,16 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                                             onChange={e => updateNested('guardian', { canProtectSelf: e.target.checked })} />
                                     </label>
                                     <label>
-                                        <span>{t('canProtectSamePlayerConsecutively')}</span>
+                                        <span>{t('mustAlternate')}</span>
                                         <input type="checkbox"
-                                            checked={local.guardian.canProtectSamePlayerConsecutively}
-                                            onChange={e => updateNested('guardian', { canProtectSamePlayerConsecutively: e.target.checked })} />
+                                            checked={local.guardian.mustAlternate}
+                                            onChange={e => updateNested('guardian', { mustAlternate: e.target.checked })} />
+                                    </label>
+                                    <label>
+                                        <span>{t('announceProtection')}</span>
+                                        <input type="checkbox"
+                                            checked={local.guardian.announceProtection}
+                                            onChange={e => updateNested('guardian', { announceProtection: e.target.checked })} />
                                     </label>
                                 </div>
                             )}
