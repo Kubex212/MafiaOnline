@@ -5,15 +5,18 @@ namespace MafiaOnline.Engine.Roles;
 public enum RoleType
 {
     Villager,
-    Werewolf,
-    Deceiver,
     Guardian,
     Detective,
     DogTamer,
     Poacher,
     Trailer,
-    Dracula,
     Seer,
+
+    Werewolf,
+    Dracula,
+    Deceiver,
+    Ghost,
+
     Fool
 }
 
@@ -34,6 +37,7 @@ public static class RoleTypeExtensions
             RoleType.Werewolf => Team.Werewolves,
             RoleType.Dracula => Team.Werewolves,
             RoleType.Deceiver => Team.Werewolves,
+            RoleType.Ghost => Team.Werewolves,
 
             RoleType.Fool => Team.Neutral,
             _ => throw new ArgumentOutOfRangeException(nameof(roleType), $"Unhandled role type: {roleType}")
@@ -54,15 +58,8 @@ public interface IRole
 
     string Name { get; }
 
-    /// <summary>
-    /// 0 = Town, 1 = Werewolves.
-    /// </summary>
-    int TeamId { get; }
-
-    // New convenience property exposing a Team enum while remaining
-    // backward-compatible with existing TeamId usages. Default
-    // implementation converts TeamId to Team.
-    Team Team => (Team)TeamId;
+    Team Team { get; }
+    Team VisibleTeam => Team;
 }
 
 public interface IWerewolfRole : IRole

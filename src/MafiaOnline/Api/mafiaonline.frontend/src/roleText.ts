@@ -16,6 +16,8 @@ const DESC_BASE: Record<string, string> = {
     trailer: 'Trailer',
     poacher: 'Poacher',
     dracula: 'Dracula',
+    deceiver: 'Deceiver',
+    ghost: 'Ghost'
 };
 
 /** "Dog Tamer" / "dogTamer" -> "Dogtamer" so it matches the i18n resource keys. */
@@ -48,7 +50,8 @@ export const ROLE_SIGILS: Record<string, string> = {
     Trailer: '🐾',
     Villager: '🌾',
     Dracula: '🧛',
-    Deceiver: '🦹‍'
+    Deceiver: '🦹‍',
+    Ghost: '👻'
 };
 
 /** Sigil lookup tolerant of casing / spacing differences. */

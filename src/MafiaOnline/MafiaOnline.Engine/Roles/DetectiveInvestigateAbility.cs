@@ -17,7 +17,7 @@ public class DetectiveInvestigateAbility(DetectiveConfig config) : NightAbility(
     {
         // Candidates: alive villagers other than the detective himself
         var villagerCandidates = alivePlayers
-            .Where(p => p.Id != actor.Id && p.Role.Team == Team.Villagers)
+            .Where(p => p.Id != actor.Id && p.Role.VisibleTeam == Team.Villagers)
             .ToList();
 
         if (villagerCandidates.Count == 0) return;
@@ -28,12 +28,18 @@ public class DetectiveInvestigateAbility(DetectiveConfig config) : NightAbility(
 
         // Candidates: alive werewolves (possibility in case the detective is a deceiver's target)
         var werewolfCandidates = alivePlayers
-            .Where(p => p.Role.Team == Team.Werewolves)
+            .Where(p => p.Role.VisibleTeam == Team.Werewolves)
             .ToList();
 
-        if (werewolfCandidates.Count == 0) return;
-
-        var werewolf = werewolfCandidates[random.Next(werewolfCandidates.Count)];
+        Player werewolf;
+        if (werewolfCandidates.Count == 0) // in case there is only a Ghost
+        {
+            werewolf = subject;
+        }
+        else
+        {
+            werewolf = werewolfCandidates[random.Next(werewolfCandidates.Count)];
+        }
 
         context.DetectiveClue = new DetectiveClue()
         {

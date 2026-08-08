@@ -6,8 +6,6 @@
 public class Villager : IRole
 {
     public RoleType Type => RoleType.Villager;
-
     public string Name => "Villager";
-
-    public int TeamId => 0;
+    public Team Team => Team.Villagers;
 }

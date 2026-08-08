@@ -15,9 +15,9 @@ public class GameConfig
     public DogTamerConfig DogTamer { get; set; } = new();
     public DayConfig Day { get; set; } = new();
     public PoacherConfig Poacher { get; set; } = new();
+    public GhostConfig Ghost { get; set; } = new();
 
-    // Configuration for werewolf team behaviour (shared kill vote etc.)
-    public WerewolfConfig Werewolf { get; set; } = new();
+    public WerewolfConfig Werewolf { get; set; } = new();// Configuration for werewolf team behaviour (shared kill vote etc.)
     public static GameConfig GetDefault()
     {
         return new GameConfig
@@ -31,7 +31,9 @@ public class GameConfig
                 Trailer = true,
                 Seer = true,
                 Fool = true,
-                Dracula = true
+                Dracula = true,
+                Deceiver = true,
+                Ghost = true
             },
             WerewolfCount = 1,
             TurnDurationSeconds = 30,
@@ -40,7 +42,8 @@ public class GameConfig
             DogTamer = new DogTamerConfig(),
             Day = new DayConfig(),
             Poacher = new PoacherConfig(),
-            Werewolf = new WerewolfConfig()
+            Werewolf = new WerewolfConfig(),
+            Ghost = new GhostConfig()
         };
     }
 }

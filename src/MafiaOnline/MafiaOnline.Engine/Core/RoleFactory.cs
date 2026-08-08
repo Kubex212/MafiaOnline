@@ -19,6 +19,7 @@ public static class RoleFactory
 
             RoleType.Dracula => new Dracula(),
             RoleType.Deceiver => new Deceiver(),
+            RoleType.Ghost => new Ghost(config.Ghost),
 
             RoleType.Fool => new Fool(),
 

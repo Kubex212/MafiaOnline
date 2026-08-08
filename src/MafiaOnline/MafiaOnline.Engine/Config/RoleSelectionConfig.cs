@@ -14,4 +14,5 @@ public class RoleSelectionConfig
     public bool Fool { get; set; } = true;
     public bool Dracula { get; set; } = true;
     public bool Deceiver { get; set; } = true;
+    public bool Ghost { get; set; } = true;
 }

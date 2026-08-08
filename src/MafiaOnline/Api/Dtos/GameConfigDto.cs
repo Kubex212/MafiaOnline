@@ -13,6 +13,7 @@ public class GameConfigDto
     public DayConfig Day { get; set; } = new();
     public PoacherConfig Poacher { get; set; } = new();
     public WerewolfConfig Werewolf { get; set; } = new();
+    public GhostConfig Ghost { get; set; } = new();
 
     public static GameConfigDto FromConfig(GameConfig config)
     {
@@ -27,7 +28,9 @@ public class GameConfigDto
                 Trailer = config.Roles.Trailer,
                 Seer = config.Roles.Seer,
                 Fool = config.Roles.Fool,
-                Dracula = config.Roles.Dracula
+                Dracula = config.Roles.Dracula,
+                Deceiver = config.Roles.Deceiver,
+                Ghost = config.Roles.Ghost
             },
             WerewolfCount = config.WerewolfCount,
             TurnDurationSeconds = config.TurnDurationSeconds,
@@ -36,7 +39,8 @@ public class GameConfigDto
             DogTamer = config.DogTamer,
             Day = config.Day,
             Poacher = config.Poacher,
-            Werewolf = config.Werewolf
+            Werewolf = config.Werewolf,
+            Ghost = config.Ghost
         };
     }
 
@@ -53,7 +57,9 @@ public class GameConfigDto
                 Trailer = Roles.Trailer,
                 Seer = Roles.Seer,
                 Fool = Roles.Fool,
-                Dracula = Roles.Dracula
+                Dracula = Roles.Dracula,
+                Deceiver = Roles.Deceiver,
+                Ghost = Roles.Ghost,
             },
             WerewolfCount = WerewolfCount,
             TurnDurationSeconds = TurnDurationSeconds,
@@ -62,7 +68,8 @@ public class GameConfigDto
             DogTamer = DogTamer,
             Day = Day,
             Poacher = Poacher,
-            Werewolf = Werewolf
+            Werewolf = Werewolf,
+            Ghost = Ghost,
         };
     }
 }
@@ -78,4 +85,5 @@ public class RoleSelectionDto
     public bool Fool { get; set; } = true;
     public bool Dracula { get; set; } = true;
     public bool Deceiver { get; set; } = true;
+    public bool Ghost { get; set; } = true;
 }

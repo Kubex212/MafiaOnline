@@ -85,7 +85,7 @@ public class NightService : INightService
     private bool ShouldAdvance(Lobby lobby, Guid userId)
     {
         // determine if this is the second action of a werewolf (attack + ability) or if the player has no ability and thus should advance
-        var isWerewolf = lobby.Game?.Players.FirstOrDefault(p => p.Id == userId)?.Role.TeamId == 1;
+        var isWerewolf = lobby.Game?.Players.FirstOrDefault(p => p.Id == userId)?.Role.Team == Team.Werewolves;
         var hasAbility = lobby.ActivePlayerHasAbility();
 
         if(!isWerewolf || !hasAbility)

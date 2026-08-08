@@ -51,6 +51,8 @@ public class Game
 
     public void Execute(GameCommand command) => command.Execute(this);
 
+    public DateTime StartedAtUtc { get; } = DateTime.UtcNow;
+
     // ── Night ──────────────────────────────────────────────────────────────
 
     internal void ResolveNightWithActions(IReadOnlyList<NightAction> actions)
@@ -174,6 +176,7 @@ public class Game
         // werewolf roles
         if (Config.Roles.Dracula) werewolfRolesToAssign.Add(RoleType.Dracula);
         if (Config.Roles.Deceiver) werewolfRolesToAssign.Add(RoleType.Deceiver);
+        if (Config.Roles.Ghost) werewolfRolesToAssign.Add(RoleType.Ghost);
 
         var werewolfRoleCount = werewolfRolesToAssign.Count;
         for (int i = 0; i < Config.WerewolfCount - werewolfRoleCount; i++)
@@ -289,8 +292,8 @@ public enum GameStatus
 
 public enum GameWinner
 {
-    None,
     Villagers,
     Werewolves,
-    Fool
+    Fool,
+    None,
 }

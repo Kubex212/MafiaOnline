@@ -17,8 +17,9 @@ public class WerewolfAttackAbility : NightAbility
     {
         if (action is null || action.Targets.Count == 0) return;
         var targetId = action.Targets[0];
+
         // Only allow attacking living players who are not on werewolf team
-        var target = alivePlayers.FirstOrDefault(p => p.Id == targetId && p.Role.TeamId != actor.Role.TeamId);
+        var target = alivePlayers.FirstOrDefault(p => p.Id == targetId && p.Role.Team != Team.Werewolves);
         if (target is null) return;
 
         context.WerewolfAttacks[actor.Id] = targetId;

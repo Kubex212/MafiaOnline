@@ -23,7 +23,7 @@ public class TrailerPassiveAbility() : NightAbility()
             if (p.Id == actor.Id)
                 continue;
 
-            if (p.Role.TeamId != 1)
+            if (p.Role.VisibleTeam != Team.Werewolves)
                 continue;
 
             var clockwise = (i - myIndex + n) % n;
@@ -39,8 +39,8 @@ public class TrailerPassiveAbility() : NightAbility()
         string dir;
         if (bestLeft == int.MaxValue && bestRight == int.MaxValue)
         {
-            // no werewolves alive
-            dir = "None";
+            // only Ghost alive - no info
+            dir = (new Random().Next(2) == 0) ? "Left" : "Right";
         }
         else if (bestLeft < bestRight) dir = "Left";
         else if (bestRight < bestLeft) dir = "Right";

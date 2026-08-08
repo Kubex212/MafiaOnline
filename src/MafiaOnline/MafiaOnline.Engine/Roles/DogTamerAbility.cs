@@ -6,6 +6,7 @@ namespace MafiaOnline.Engine.Roles;
 /// <summary>
 /// Dog tamer as a dog that will bark if there are exactly N werewolves in range.
 /// The dog tamer will investigate the player and their neighbors, up to this range (range is per direction).
+/// So if the range is 2 and N is 1, the dog tamer will bark if there is exactly 1 werewolf in the 5 players (themselves and 2 on each side).
 /// </summary>
 public class DogTamerAbility(DogTamerConfig config) : NightAbility()
 {
@@ -13,9 +14,6 @@ public class DogTamerAbility(DogTamerConfig config) : NightAbility()
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {
-        // Dog Tamer examines up to 'Range' neighbors around a chosen target.
-        // Historically this ability ignored explicit targets and used the actor's seat index
-        // to pick a subject, so preserve that behaviour for now.
 
         var numWerewolves = 0;
         var range = config.Range;
@@ -26,7 +24,7 @@ public class DogTamerAbility(DogTamerConfig config) : NightAbility()
             var idx = seat + offset;
             if (idx < 0 || idx >= alivePlayers.Count) continue;
             var p = alivePlayers[idx];
-            if (p.Role.TeamId != 0) numWerewolves++;
+            if (p.Role.VisibleTeam == Team.Werewolves) numWerewolves++;
         }
 
         context.DogTamerClues[actor.Id] = (numWerewolves == config.NumWerewolves);

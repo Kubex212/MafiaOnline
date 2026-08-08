@@ -3,7 +3,7 @@ import type {
     LobbyResponse, RoleResponse, SeatInfo,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
     DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload,
-    GameConfig, MeResponse
+    GameConfig
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,

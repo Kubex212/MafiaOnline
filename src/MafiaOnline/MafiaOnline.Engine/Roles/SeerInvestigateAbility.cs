@@ -22,7 +22,7 @@ public class SeerInvestigateAbility() : NightAbility()
         var pb = alivePlayers.FirstOrDefault(p => p.Id == b);
         if (pa is null || pb is null) return;
 
-        bool sameTeam = pa.Role.TeamId == pb.Role.TeamId;
+        bool sameTeam = pa.Role.VisibleTeam == pb.Role.VisibleTeam;
         context.AddEvent(new SeerClueEvent(actor.Id, a, b, sameTeam));
     }
 }

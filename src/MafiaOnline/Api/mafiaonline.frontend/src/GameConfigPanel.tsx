@@ -10,7 +10,7 @@ type GameConfigPanelProps = {
 };
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool', 'dracula', 'deceiver'
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool', 'dracula', 'deceiver', 'ghost'
 ];
 
 export default function GameConfigPanel({ config, onChange }: GameConfigPanelProps) {
@@ -212,6 +212,16 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                                         <input type="checkbox"
                                             checked={local.poacher.mustAlternate}
                                             onChange={e => updateNested('poacher', { mustAlternate: e.target.checked })} />
+                                    </label>
+                                </div>
+                            )}
+                            {key === 'ghost' && local.roles.ghost && (
+                                <div className="role-card__sub">
+                                    <label>
+                                        <span>{t('shouldGetAlibi')}</span>
+                                        <input type="checkbox"
+                                            checked={local.ghost.shouldGetAlibi}
+                                            onChange={e => updateNested('ghost', { shouldGetAlibi: e.target.checked })} />
                                     </label>
                                 </div>
                             )}

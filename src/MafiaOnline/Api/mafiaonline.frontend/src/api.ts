@@ -70,6 +70,7 @@ export type RoleSelection = {
     fool: boolean;
     dracula: boolean;
     deceiver: boolean;
+    ghost: boolean;
 };
 
 export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';
@@ -101,6 +102,7 @@ export type GuardianConfig = { canProtectSelf: boolean; canProtectSamePlayerCons
 export type DetectiveConfig = { canRevealWerewolves: boolean; };
 export type DogTamerConfig = { range: number; numWerewolves: number; };
 export type PoacherConfig = { allowSelfTarget: boolean; mustAlternate: boolean; };
+export type GhostConfig = { shouldGetAlibi: boolean; };
 
 export type GameConfig = {
     roles: RoleSelection;
@@ -112,6 +114,7 @@ export type GameConfig = {
     day: DayConfig;
     poacher: PoacherConfig;
     werewolf?: WerewolfConfig;
+    ghost: GhostConfig;
 };
 
 export type LobbyResponse = {

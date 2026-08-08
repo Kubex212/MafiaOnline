@@ -27,7 +27,7 @@ public class GameHistoryService : IGameHistoryService
             if (player.UserId == Guid.Empty)
                 continue;
 
-            var enginePlayer = lobby.Game?.Players.SingleOrDefault(p => p.Id == player.Id)!;
+            var enginePlayer = lobby.Game!.Players.SingleOrDefault(p => p.Id == player.Id)!;
             _db.GameHistory.Add(new GameHistoryEntity
             {
                 Id = Guid.NewGuid(),
@@ -37,16 +37,16 @@ public class GameHistoryService : IGameHistoryService
                 PlayedAtUtc = now,
 
                 Role = enginePlayer.Role.Type,
-                TeamId = enginePlayer.Role.TeamId,
+                TeamId = (int)enginePlayer.Role.Team,
 
-                Won = enginePlayer.Role.TeamId == (int)lobby.Game!.Winner,
+                Won = (int)enginePlayer.Role.Team == (int)lobby.Game!.Winner,
                 Survived = enginePlayer.IsAlive,
 
                 PlayerCount = lobby.Players.Count,
 
-                DayCount = 0, // TODO: fill this
+                DayCount = lobby.Game.Turns?.Count ?? 0,
 
-                //Duration = now - game.StartedAtUtc
+                Duration = now - lobby.Game.StartedAtUtc
             });
         }
 

@@ -141,7 +141,7 @@ public class LobbyService : ILobbyService
         {
             Name = enginePlayer.Role.Name,
             TeamName = enginePlayer.Role.Team.ToString(),
-            TeamId = enginePlayer.Role.TeamId,
+            TeamId = (int)enginePlayer.Role.Team,
             Alibi = enginePlayer.Alibi.ToString()
         };
 
@@ -223,7 +223,7 @@ public class LobbyService : ILobbyService
                 {
                     Name = enginePlayer.Role.Name,
                     TeamName = enginePlayer.Role.Team.ToString(),
-                    TeamId = enginePlayer.Role.TeamId
+                    TeamId = (int)enginePlayer.Role.Team
                 };
             }
 

@@ -128,14 +128,14 @@ public class LobbySerializationTests
 
         var active = lobby.NightSession!.ActivePlayer!;
         // submit an action and advance
-        lobby.NightSession.SubmitAction(active.Id, new Engine.Night.NightAction(new List<Guid> { p2.Id }, Engine.Night.ActionType.Ability));
+        lobby.NightSession.SubmitAction(new Engine.Night.NightAction(active.Id, new List<Guid> { p2.Id }, Engine.Night.ActionType.Ability));
 
         var json = JsonConvert.SerializeObject(lobby, Settings);
         var restored = JsonConvert.DeserializeObject<Lobby>(json, Settings);
 
         Assert.NotNull(restored);
         Assert.NotNull(restored!.NightSession);
-        Assert.True(restored.NightSession.SubmittedActions.SingleOrDefault(sa => sa.Owner == active.Id && sa.Action.ActionType == Engine.Night.ActionType.Ability) != null);
+        Assert.True(restored.NightSession.SubmittedActions.SingleOrDefault(sa => sa.Actor == active.Id && sa.ActionType == Engine.Night.ActionType.Ability) != null);
     }
 
     [Fact]

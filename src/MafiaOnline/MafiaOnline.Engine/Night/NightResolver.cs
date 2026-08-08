@@ -32,7 +32,7 @@ public class NightResolver
         foreach (var player in alivePlayers.OrderBy(p => p.SeatIndex))
         {
             // Werewolf team: each member gets the shared attack ability slot
-            if (player.Role.TeamId == 1)
+            if (player.Role.Team == Team.Werewolves)
             {
                 slots.Add((player, new WerewolfAttackAbility()));
             }
@@ -153,7 +153,7 @@ public class NightResolver
             else
             {
                 // no direct attacker (edge case) — pick any alive werewolf
-                var anyWerewolf = alivePlayers.FirstOrDefault(p => p.Role.TeamId == 1);
+                var anyWerewolf = alivePlayers.FirstOrDefault(p => p.Role.Team == Team.Werewolves);
                 if (anyWerewolf is not null) werewolfToDie = anyWerewolf.Id;
             }
 

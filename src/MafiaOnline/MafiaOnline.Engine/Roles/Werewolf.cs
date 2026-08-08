@@ -7,5 +7,5 @@ public class Werewolf : IRole
 {
     public RoleType Type => RoleType.Werewolf;
     public string Name => "Werewolf";
-    public int TeamId => 1;
+    public Team Team => Team.Werewolves;
 }

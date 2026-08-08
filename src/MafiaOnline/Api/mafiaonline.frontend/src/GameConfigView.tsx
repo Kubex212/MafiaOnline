@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import RoleHint from './RoleHint';
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool', 'dracula', 'deceiver'
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'fool', 'dracula', 'deceiver', 'ghost'
 ];
 
 function Flag({ on, t }: { on: boolean; t: (k: string) => string }) {
@@ -56,7 +56,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 </div>
                 <div className="config__row">
                     <span>{t('drawResolution')}</span>
-                    <span className="config__value">{t(config.day.drawResolution)}</span>
+                    <span className="config__value">{t('draw' + config.day.drawResolution)}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('showVoteTargets')}</span>
@@ -68,7 +68,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 <h4 className="config__section-title">{t('werewolfSettings')}</h4>
                 <div className="config__row">
                     <span>{t('werewolfDrawResolution')}</span>
-                    <span className="config__value">{t(werewolf.drawResolution)}</span>
+                    <span className="config__value">{t('draw' + werewolf.drawResolution)}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('werewolfShowVoteTargets')}</span>
@@ -121,6 +121,12 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                             <Flag on={config.poacher.allowSelfTarget} t={t} /></label>
                                         <label><span>{t('mustAlternate')}</span>
                                             <Flag on={config.poacher.mustAlternate} t={t} /></label>
+                                    </div>
+                                )}
+                                {key === 'ghost' && enabled && (
+                                    <div className="role-card__sub">
+                                        <label><span>{t('shouldGetAlibi')}</span>
+                                            <Flag on={config.ghost.shouldGetAlibi} t={t} /></label>
                                     </div>
                                 )}
                             </div>
