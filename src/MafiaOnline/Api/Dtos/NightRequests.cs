@@ -12,5 +12,6 @@ public class NightSkipRequest { }
 
 public class DayVoteRequest
 {
-    public Guid CandidateId { get; set; }
+    // Nullable to represent skip/abstain
+    public Guid? CandidateId { get; set; }
 }

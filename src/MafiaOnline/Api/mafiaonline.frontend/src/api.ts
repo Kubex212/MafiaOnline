@@ -334,7 +334,7 @@ export async function shufflePlayers(code: string): Promise<LobbyResponse> {
     return res.json();
 }
 
-export async function castVote(code: string, candidateId: string): Promise<void> {
+export async function castVote(code: string, candidateId: string | null): Promise<void> {
     const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/day/vote`, {
         method: 'POST',
         headers: authHeaders(),
@@ -398,7 +398,7 @@ export type ReconnectResponse = {
         remainingSeconds: number;
         showVoteTargets: ShowVotes;
         alivePlayers: SeatInfo[];
-        votes?: Record<string, string>;
+        votes?: Record<string, string | null>;
         enshrouded?: string[];
     };
     night?: {

@@ -180,7 +180,7 @@ public class Lobby
     /// Cast a vote. Returns the updated vote map so the service can broadcast it.
     /// When <see cref="DaySession.AllVoted"/> is true the caller should resolve immediately.
     /// </summary>
-    public IReadOnlyDictionary<Guid, Guid> CastVote(Guid voterId, Guid candidateId)
+    public IReadOnlyDictionary<Guid, Guid?> CastVote(Guid voterId, Guid? candidateId)
     {
         if (DaySession is null) throw new InvalidOperationException("No active day session.");
         DaySession.CastVote(voterId, candidateId);
@@ -192,7 +192,12 @@ public class Lobby
         if (Game is null) throw new InvalidOperationException("Game not started.");
         if (DaySession is null) throw new InvalidOperationException("No active day session.");
 
-        Game.Execute(new ResolveDayCommand(DaySession.Votes));
+        // Convert nullable votes map to non-null map expected by engine (exclude skips)
+        var votesForEngine = DaySession.Votes
+            .Where(kvp => kvp.Value.HasValue)
+            .ToDictionary(k => k.Key, v => v.Value!.Value);
+
+        Game.Execute(new ResolveDayCommand(votesForEngine));
         DaySession = null;
         return Game.LastDayResult!;
     }

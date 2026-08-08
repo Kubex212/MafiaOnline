@@ -12,7 +12,7 @@ namespace MafiaOnline.Api.Services;
 public interface IDayService
 {
     Task BeginDayAsync(string lobbyCode);
-    Task CastVoteAsync(string lobbyCode, Guid userId, Guid candidateId);
+    Task CastVoteAsync(string lobbyCode, Guid userId, Guid? candidateId);
 }
 
 public class DayService : IDayService
@@ -81,7 +81,7 @@ public class DayService : IDayService
         }, CancellationToken.None);
     }
 
-    public async Task CastVoteAsync(string lobbyCode, Guid userId, Guid candidateId)
+    public async Task CastVoteAsync(string lobbyCode, Guid userId, Guid? candidateId)
     {
         var lobby = await GetLobby(lobbyCode);
 

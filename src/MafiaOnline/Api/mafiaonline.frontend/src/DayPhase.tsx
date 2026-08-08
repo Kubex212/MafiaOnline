@@ -34,7 +34,8 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [showVoteTargets, setShowVoteTargets] = useState<ShowVotes>('Never');
     const [timeLeft, setTimeLeft] = useState(180);
     const [votes, setVotes] = useState<Record<string, string | null>>({});
-    const [myVote, setMyVote] = useState<string | null>(null);
+    // undefined = not voted yet, null = skipped, string = candidate id
+    const [myVote, setMyVote] = useState<string | null | undefined>(undefined);
     const [resolved, setResolved] = useState<DayResolvedPayload | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
@@ -45,13 +46,12 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
 
     useImperativeHandle(ref, () => ({
         onDayStarted(payload: DayStartedPayload) {
-            //alert(payload);
             setAlivePlayers([...payload.alivePlayers].sort((a, b) => a.seatIndex - b.seatIndex));
             setDuration(payload.durationSeconds);
             setShowVoteTargets((payload.showVoteTargets ?? 'Never') as ShowVotes);
             setTimeLeft(payload.durationSeconds);
             setVotes({});
-            setMyVote(null);
+            setMyVote(undefined);
             setSelectedTarget(null);
             setResolved(null);
             setSubmitting(false);
@@ -89,7 +89,10 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             }, 1000);
             if (state.votes) {
                 setVotes(state.votes);
-                if (state.votes[myPlayerId] !== undefined) setMyVote(state.votes[myPlayerId] as string | null);
+                if (Object.prototype.hasOwnProperty.call(state.votes, myPlayerId))
+                    setMyVote(state.votes[myPlayerId] as string | null);
+                else
+                    setMyVote(undefined);
             }
         },
     }), [allSeats, t, myPlayerId]);
@@ -97,7 +100,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
     const amAlive = alivePlayers.some(p => p.id === myPlayerId);
-    const hasVoted = myVote !== null;
+    const hasVoted = myVote !== undefined;
     const pct = duration > 0 ? timeLeft / duration : 0;
     const barColor = pct > 0.5 ? 'var(--town-2)' : pct > 0.2 ? '#c9a24c' : 'var(--danger-2)';
 
@@ -112,8 +115,18 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         finally { setSubmitting(false); }
     }
 
+    async function handleSkip() {
+        if (hasVoted || !amAlive || submitting) return;
+        setSubmitting(true);
+        try {
+            await castVote(lobbyCode, null);
+            setMyVote(null);
+            setLog(t('yourVoteCast'));
+        } catch (e) { alert(String(e)); }
+        finally { setSubmitting(false); }
+    }
+
     const seatStates: TableSeatState[] = allSeats.map(seat => {
-        // Fall back to the App-level dead list before DayStarted has landed.
         const isAlive = alivePlayers.length > 0
             ? alivePlayers.some(p => p.id === seat.id) && !deadIds.includes(seat.id)
             : !deadIds.includes(seat.id);
@@ -179,11 +192,16 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             />
 
             {!resolved && amAlive && !hasVoted && (
-                <button className="btn btn--danger"
-                    disabled={!selectedTarget || submitting}
-                    onClick={handleVote}>
-                    🔥 {t('banish')} {chosenName}
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn--danger"
+                        disabled={!selectedTarget || submitting}
+                        onClick={handleVote}>
+                        🔥 {t('banish')} {chosenName}
+                    </button>
+                    <button className="btn" disabled={submitting} onClick={handleSkip}>
+                        ➖ {t('skipVote')}
+                    </button>
+                </div>
             )}
 
             {resolved && (

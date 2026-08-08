@@ -36,7 +36,7 @@ public class DayState
     public int RemainingSeconds { get; set; }
     public ShowDayVotes ShowVoteTargets { get; set; }
     public List<SeatInfoResponse> AlivePlayers { get; set; } = new();
-    public Dictionary<Guid, Guid>? Votes { get; set; }
+    public Dictionary<Guid, Guid?>? Votes { get; set; }
     public List<Guid> Enshrouded { get; set; } = new();
 }
 

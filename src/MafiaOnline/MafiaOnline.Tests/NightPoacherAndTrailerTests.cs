@@ -14,10 +14,21 @@ public class NightPoacherAndTrailerTests
     public void PoacherTrap_Triggers_WerewolfDeath_WhenVictimKilled()
     {
         // Arrange: build players seat-ordered: 0 Poacher, 1 Werewolf A, 2 Town victim, 3 Werewolf B
-        var poacher = new Player(Guid.NewGuid(), "Poacher") { Role = new Poacher(), SeatIndex = 0 };
-        var wolfA = new Player(Guid.NewGuid(), "WolfA") { Role = new Werewolf(), SeatIndex = 1 };
-        var victim = new Player(Guid.NewGuid(), "Victim") { Role = new Villager(), SeatIndex = 2 };
-        var wolfB = new Player(Guid.NewGuid(), "WolfB") { Role = new Werewolf(), SeatIndex = 3 };
+        var poacher = new Player(Guid.NewGuid(), "Poacher");
+        poacher.InitializeRole(RoleType.Poacher, new Engine.Config.GameConfig());
+        poacher.SeatIndex = 0;
+
+        var wolfA = new Player(Guid.NewGuid(), "WolfA");
+        wolfA.InitializeRole(RoleType.Werewolf, new Engine.Config.GameConfig());
+        wolfA.SeatIndex = 1;
+
+        var victim = new Player(Guid.NewGuid(), "Victim");
+        victim.InitializeRole(RoleType.Villager, new Engine.Config.GameConfig());
+        victim.SeatIndex = 2;
+
+        var wolfB = new Player(Guid.NewGuid(), "WolfB");
+        wolfB.InitializeRole(RoleType.Werewolf, new Engine.Config.GameConfig());
+        wolfB.SeatIndex = 3;
 
         var alive = new List<Player> { poacher, wolfA, victim, wolfB };
 
@@ -42,9 +53,17 @@ public class NightPoacherAndTrailerTests
     public void Trailer_Gives_LeftOrRight_Clue()
     {
         // Arrange: seat order 0 Trailer, 1 Werewolf, 2 Villager
-        var trailer = new Player(Guid.NewGuid(), "Trailer") { Role = new Trailer(), SeatIndex = 0 };
-        var wolf = new Player(Guid.NewGuid(), "Wolf") { Role = new Werewolf(), SeatIndex = 1 };
-        var vill = new Player(Guid.NewGuid(), "Vill") { Role = new Villager(), SeatIndex = 2 };
+        var trailer = new Player(Guid.NewGuid(), "Trailer");
+        trailer.InitializeRole(RoleType.Trailer, new Engine.Config.GameConfig());
+        trailer.SeatIndex = 0;
+
+        var wolf = new Player(Guid.NewGuid(), "Wolf");
+        wolf.InitializeRole(RoleType.Werewolf, new Engine.Config.GameConfig());
+        wolf.SeatIndex = 1;
+
+        var vill = new Player(Guid.NewGuid(), "Vill");
+        vill.InitializeRole(RoleType.Villager, new Engine.Config.GameConfig());
+        vill.SeatIndex = 2;
         var alive = new List<Player> { trailer, wolf, vill };
 
         var resolver = new NightResolver();
