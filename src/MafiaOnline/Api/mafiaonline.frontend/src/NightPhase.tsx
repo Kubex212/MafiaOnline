@@ -100,6 +100,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     }));
                 } else if (info.type === 'Trailer') {
                     setLog(t('trailerClueLong', { dir: t(info.clue) }));
+                } else if (info.type === 'Peeper') {
+                    setLog(t('peeperClueLong', { player: t(String(info.data.PlayerName)), is: t('peeperClue-' + info.clue) }));
                 }
             } catch { /* no clue for this role */ }
         },
@@ -287,6 +289,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {nightInfo?.type === 'Trailer' && (
                         <div className="resolution__clue">
                             🐾 {t('trailerClueLong', { dir: t(nightInfo.clue) })}.
+                        </div>
+                    )}
+                    {nightInfo?.type === 'Peeper' && (
+                        <div className="resolution__clue">
+                            👀 {t('peeperClueLong', { player: t(nightInfo.data.SubjectName), is: t('peeperClue-' + nightInfo.clue) })}.
                         </div>
                     )}
                 </div>

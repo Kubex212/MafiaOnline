@@ -7,7 +7,8 @@ public enum ClueType
     Detective,
     DogTamer,
     Seer,
-    Trailer
+    Trailer,
+    Peeper,
 }
 
 public abstract class NightEvent
@@ -52,7 +53,7 @@ public abstract class ClueEvent<T> : ClueEvent
 
     public override object DisplayedClue => IsReversed ? FakeClue! : Clue!;
 
-    protected ClueEvent()
+    protected ClueEvent() // TODO: is this contructor needed for JSON deserialization?
     {
     }
 
@@ -141,6 +142,35 @@ public sealed class TrailerClueEvent : ClueEvent<string>
     {
     }
 }
+
+public sealed class PeeperClueEvent : ClueEvent<bool>
+{
+    [JsonProperty]
+    public Guid Subject { get; private set; }
+    public override ClueType ClueType => ClueType.Peeper;
+
+    public PeeperClueEvent()
+    {
+    }
+
+    public PeeperClueEvent(Guid peeperId, Guid targetId, bool isVillager)
+        : base(peeperId, isVillager, !isVillager)
+    {
+        Subject = targetId;
+    }
+
+    public override Dictionary<string, object> GetAdditionalInfoDictionary(IReadOnlyCollection<Player> players)
+    {
+        var subjName = players.FirstOrDefault(p => p.Id == Subject)?.Nickname ?? "?";
+
+        return new Dictionary<string, object>
+        {
+            ["SubjectName"] = subjName,
+            ["Subject"] = Subject
+        };
+    }
+}
+
 public sealed class PlayerKilledEvent : NightEvent
 {
     public Guid PlayerId { get; }
@@ -176,4 +206,11 @@ public sealed class DeceiverEvent : NightEvent
     public Guid DeceiverId { get; }
     public Guid TargetId { get; }
     public DeceiverEvent(Guid deceiverId, Guid targetId) => (DeceiverId, TargetId) = (deceiverId, targetId);
+}
+
+public sealed class CharmerSleepEvent : NightEvent
+{
+    public Guid CharmerId { get; }
+    public Guid TargetId { get; }
+    public CharmerSleepEvent(Guid charmerId, Guid targetId) => (CharmerId, TargetId) = (charmerId, targetId);
 }

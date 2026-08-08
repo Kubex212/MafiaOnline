@@ -1,4 +1,5 @@
-﻿using MafiaOnline.Api.Hubs;
+﻿using MafiaOnline.Api.Dtos;
+using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
 using MafiaOnline.Engine;
@@ -13,6 +14,7 @@ public interface INightService
     Task BeginNightAsync(string lobbyCode);
     Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType);
     Task SkipTurnAsync(string lobbyCode, Guid userId);
+    Task<ClueResponse?> GetClueAsync(string lobbyCode, Guid userId);
 }
 
 public class NightService : INightService
@@ -240,4 +242,34 @@ public class NightService : INightService
     private static Guid GetActorId(Lobby lobby, Guid userId)
         => lobby.Players.FirstOrDefault(p => p.UserId == userId)?.Id
            ?? throw new InvalidOperationException("Player not found in lobby.");
+
+    public async Task<ClueResponse?> GetClueAsync(string code, Guid userId)
+    {
+        var lobby = await _repository.Get(code);
+
+        if (lobby?.Game is null)
+            return null;
+
+        var player = lobby.Players.FirstOrDefault(p => p.UserId == userId);
+        if (player is null)
+            throw new ArgumentException("player not found in lobby", nameof(userId));
+
+        var result = lobby.Game.LastNightResult;
+        if (result is null)
+            return null;
+
+        var clueEvent = result.Events
+            .OfType<ClueEvent>()
+            .SingleOrDefault(e => e.ClueOwnerId == player.Id);
+
+        if (clueEvent is null)
+            return null;
+
+        return new ClueResponse
+        {
+            Type = clueEvent.ClueType.ToString(),
+            Clue = clueEvent.DisplayedClue,
+            Data = clueEvent.GetAdditionalInfoDictionary(lobby.Game.Players)
+        };
+    }
 }

@@ -22,18 +22,17 @@ public class Player(Guid id, string nickname)
     [JsonIgnore]
     public IRole Role { get; private set; }
 
-
     /// <summary>
     /// The player's position around the table, assigned once at the start of the game.
     /// Night abilities with equal priority are resolved in ascending seat order.
     /// </summary>
     public int SeatIndex { get; set; }
 
-
     public void Kill()
     {
         IsAlive = false;
     }
+
     public void InitializeRole(RoleType type, GameConfig config)
     {
         RoleType = type;

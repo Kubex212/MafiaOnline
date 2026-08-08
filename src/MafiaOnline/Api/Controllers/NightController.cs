@@ -45,23 +45,11 @@ public class NightController : ControllerBase
     [HttpGet("clue")]
     public async Task<ActionResult<ClueResponse>> GetClue(string code)
     {
-        var lobby = await _repository.Get(code.ToUpperInvariant());
-        if (lobby?.Game is null) return NotFound();
+        var result = await _nightService.GetClueAsync(code.ToUpperInvariant(), _currentUser.UserId);
 
-        var result = lobby.Game.LastNightResult;
-        if (result is null) return NoContent();
+        if (result is null)
+            return NoContent();
 
-        var playerId = lobby.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId)?.Id;
-        if (playerId is null) return NotFound();
-
-        var clueEvent = result.Events.OfType<ClueEvent>().SingleOrDefault(e => e.ClueOwnerId == playerId);
-        if (clueEvent is null) return NoContent();
-
-        return Ok(new ClueResponse
-        {
-            Type = clueEvent.ClueType.ToString(),
-            Clue = clueEvent.DisplayedClue,
-            Data = clueEvent.GetAdditionalInfoDictionary(lobby.Game.Players)
-        });
+        return Ok(result);
     }
 }

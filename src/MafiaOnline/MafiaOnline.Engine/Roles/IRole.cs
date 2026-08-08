@@ -11,11 +11,13 @@ public enum RoleType
     Poacher,
     Trailer,
     Seer,
+    Peeper,
 
     Werewolf,
     Dracula,
     Deceiver,
     Ghost,
+    Charmer,
 
     Fool
 }
@@ -33,11 +35,13 @@ public static class RoleTypeExtensions
             RoleType.Poacher => Team.Villagers,
             RoleType.Trailer => Team.Villagers,
             RoleType.Seer => Team.Villagers,
+            RoleType.Peeper => Team.Villagers,
 
             RoleType.Werewolf => Team.Werewolves,
             RoleType.Dracula => Team.Werewolves,
             RoleType.Deceiver => Team.Werewolves,
             RoleType.Ghost => Team.Werewolves,
+            RoleType.Charmer => Team.Werewolves,
 
             RoleType.Fool => Team.Neutral,
             _ => throw new ArgumentOutOfRangeException(nameof(roleType), $"Unhandled role type: {roleType}")

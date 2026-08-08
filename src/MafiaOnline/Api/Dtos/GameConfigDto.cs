@@ -27,10 +27,12 @@ public class GameConfigDto
                 Poacher = config.Roles.Poacher,
                 Trailer = config.Roles.Trailer,
                 Seer = config.Roles.Seer,
+                Peeper = config.Roles.Peeper,
                 Fool = config.Roles.Fool,
                 Dracula = config.Roles.Dracula,
                 Deceiver = config.Roles.Deceiver,
-                Ghost = config.Roles.Ghost
+                Ghost = config.Roles.Ghost,
+                Charmer = config.Roles.Charmer,
             },
             WerewolfCount = config.WerewolfCount,
             TurnDurationSeconds = config.TurnDurationSeconds,
@@ -56,10 +58,12 @@ public class GameConfigDto
                 Poacher = Roles.Poacher,
                 Trailer = Roles.Trailer,
                 Seer = Roles.Seer,
+                Peeper = Roles.Peeper,
                 Fool = Roles.Fool,
                 Dracula = Roles.Dracula,
                 Deceiver = Roles.Deceiver,
                 Ghost = Roles.Ghost,
+                Charmer = Roles.Charmer,
             },
             WerewolfCount = WerewolfCount,
             TurnDurationSeconds = TurnDurationSeconds,
@@ -82,8 +86,10 @@ public class RoleSelectionDto
     public bool Poacher { get; set; } = true;
     public bool Trailer { get; set; } = true;
     public bool Seer { get; set; } = true;
+    public bool Peeper { get; set; } = true;
     public bool Fool { get; set; } = true;
     public bool Dracula { get; set; } = true;
     public bool Deceiver { get; set; } = true;
     public bool Ghost { get; set; } = true;
+    public bool Charmer { get; set; } = true;
 }

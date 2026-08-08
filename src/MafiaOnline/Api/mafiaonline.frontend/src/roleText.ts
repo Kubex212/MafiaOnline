@@ -48,10 +48,12 @@ export const ROLE_SIGILS: Record<string, string> = {
     DogTamer: '🐕',
     Poacher: '🪤',
     Trailer: '🐾',
+    Peeper: '👀',
     Villager: '🌾',
     Dracula: '🧛',
     Deceiver: '🦹‍',
-    Ghost: '👻'
+    Ghost: '👻',
+    Charmer: '😴',
 };
 
 /** Sigil lookup tolerant of casing / spacing differences. */

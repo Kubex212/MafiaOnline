@@ -16,10 +16,12 @@ public static class RoleFactory
             RoleType.Poacher => new Poacher(config.Poacher),
             RoleType.Trailer => new Trailer(),
             RoleType.Seer => new Seer(),
+            RoleType.Peeper => new Peeper(),
 
             RoleType.Dracula => new Dracula(),
             RoleType.Deceiver => new Deceiver(),
             RoleType.Ghost => new Ghost(config.Ghost),
+            RoleType.Charmer => new Charmer(),
 
             RoleType.Fool => new Fool(),
 

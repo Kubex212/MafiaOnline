@@ -65,7 +65,7 @@ public class Game
         var nightResult = resolver.Resolve(alivePlayers, actions, Config);
         Turns.Last().Night = nightResult;
 
-        foreach (var killedId in LastNightResult.Killed)
+        foreach (var killedId in LastNightResult!.Killed)
             _players.FirstOrDefault(p => p.Id == killedId)?.Kill();
 
         CheckWinCondition();
@@ -166,6 +166,7 @@ public class Game
         if (Config.Roles.Poacher) specialRolesToAssign.Add(RoleType.Poacher);
         if (Config.Roles.Trailer) specialRolesToAssign.Add(RoleType.Trailer);
         if (Config.Roles.Seer) specialRolesToAssign.Add(RoleType.Seer);
+        if (Config.Roles.Peeper) specialRolesToAssign.Add(RoleType.Peeper);
 
         // neutral roles
         if (Config.Roles.Fool) specialRolesToAssign.Add(RoleType.Fool);
@@ -177,11 +178,11 @@ public class Game
         if (Config.Roles.Dracula) werewolfRolesToAssign.Add(RoleType.Dracula);
         if (Config.Roles.Deceiver) werewolfRolesToAssign.Add(RoleType.Deceiver);
         if (Config.Roles.Ghost) werewolfRolesToAssign.Add(RoleType.Ghost);
+        if (Config.Roles.Charmer) werewolfRolesToAssign.Add(RoleType.Charmer);
 
         var werewolfRoleCount = werewolfRolesToAssign.Count;
         for (int i = 0; i < Config.WerewolfCount - werewolfRoleCount; i++)
             werewolfRolesToAssign.Add(RoleType.Werewolf);
-
 
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
 

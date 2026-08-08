@@ -44,9 +44,8 @@ public class NightResolver
             }
         }
 
-        // Sort by ability priority ascending, ties broken by seat index
         var abilitySlots = slots
-            .OrderBy(s => s.Player.SeatIndex)
+            .OrderBy(s => s.Ability is CharmerSleepAbility ? 0 : 1)
             .ToList();
 
         foreach (var (player, ability) in abilitySlots)
@@ -60,6 +59,9 @@ public class NightResolver
 
             // Skip non-automatic abilities for which no action was submitted
             if (!ability.IsAutomatic && action is null) continue;
+
+            // sleeping players cannot use abilities
+            if (context.SleepingPlayers.Contains(player.Id)) continue;
 
             ability.Apply(player, action, context, alivePlayers);
         }
@@ -191,6 +193,12 @@ public class NightResolver
             events.Add(new DraculaEnshroudedEvent(enshroudedId, enshroudedId)); // TODO: add the Dracula's ID to the event
         }
 
+        // Peeper self kills
+        foreach(var peeperId in context.PeeperKills)
+        {
+            killed.Add(peeperId);
+        }
+
         // Include any events directly registered in context
         events.AddRange(context.Events);
 
@@ -201,6 +209,16 @@ public class NightResolver
         if(deceiverTargetClue != null)
         {
             deceiverTargetClue.ReverseClue();
+        }
+
+        foreach(var sleepingId in context.SleepingPlayers)
+        {
+            // sleeping players don't get clues, so remove any clue events for them
+            var correspondingClueEvent = clueEvents.FirstOrDefault(e => e.ClueOwnerId == sleepingId);
+            if(correspondingClueEvent != null)
+            {
+                events.Remove(correspondingClueEvent);
+            }
         }
 
         return new NightResult

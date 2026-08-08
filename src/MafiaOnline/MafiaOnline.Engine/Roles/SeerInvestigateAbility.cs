@@ -4,7 +4,6 @@ namespace MafiaOnline.Engine.Roles;
 
 /// <summary>
 /// Seer ability — targets two players and learns whether they're on the same team.
-/// Priority 30: after attacks are resolved.
 /// </summary>
 public class SeerInvestigateAbility() : NightAbility()
 {

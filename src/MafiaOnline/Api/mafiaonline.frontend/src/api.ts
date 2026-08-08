@@ -67,10 +67,12 @@ export type RoleSelection = {
     poacher: boolean;
     trailer: boolean;
     seer: boolean;
+    peeper: boolean;
     fool: boolean;
     dracula: boolean;
     deceiver: boolean;
     ghost: boolean;
+    charmer: boolean;
 };
 
 export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';
@@ -154,7 +156,8 @@ export enum ClueType {
     Detective = "Detective",
     DogTamer = "DogTamer",
     Seer = "Seer",
-    Trailer = "Trailer"
+    Trailer = "Trailer",
+    Peeper = "Peeper",
 }
 
 export interface ClueResponse { type: ClueType; data: Record<string, unknown>; clue: unknown; }
@@ -165,9 +168,11 @@ export interface SeerClueResponse extends ClueResponse {
     data: { SubjectAName: string; SubjectBName: string; SubjectA: string; SubjectB: string; };
 }
 export interface TrailerClueResponse extends ClueResponse { type: ClueType.Trailer; clue: string; }
+export interface PeeperClueResponse extends ClueResponse { type: ClueType.Peeper; clue: boolean; }
+
 
 export type AnyClueResponse =
-    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse;
+    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;

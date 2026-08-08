@@ -46,6 +46,16 @@ public class NightContext
     /// </summary>
     internal HashSet<Guid> Enshrouded { get; } = new();
 
+    /// <summary>
+    /// Peeper self-kills — set of peeper IDs that were killed due to peeping on a werewolf. For now there should be only 1 peeper kill at once.
+    /// </summary>
+    internal HashSet<Guid> PeeperKills { get; } = new();
+
+    /// <summary>
+    /// Players put to sleep by Charmer. For now there should be only 1 sleeping player at once unless configured otherwise.
+    /// </summary>
+    internal HashSet<Guid> SleepingPlayers { get; } = new();
+
     // ---------- finalised outcomes (populated by NightResolver) ----------
 
     internal List<NightEvent> Events { get; } = new();
@@ -54,4 +64,5 @@ public class NightContext
     /// Add a custom NightEvent produced by an ability.
     /// </summary>
     public void AddEvent(NightEvent ev) => Events.Add(ev);
+
 }
