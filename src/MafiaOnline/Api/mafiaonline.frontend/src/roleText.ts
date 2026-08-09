@@ -15,9 +15,11 @@ const DESC_BASE: Record<string, string> = {
     fool: 'Fool',
     trailer: 'Trailer',
     poacher: 'Poacher',
+    peeper: 'Peeper',
     dracula: 'Dracula',
     deceiver: 'Deceiver',
-    ghost: 'Ghost'
+    ghost: 'Ghost',
+    charmer: 'Charmer',
 };
 
 /** "Dog Tamer" / "dogTamer" -> "Dogtamer" so it matches the i18n resource keys. */
