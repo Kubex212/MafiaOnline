@@ -37,6 +37,11 @@ namespace Api
             builder.Services.AddScoped<IGameHistoryService, GameHistoryService>();
             builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
+
             builder.Services.AddScoped(sp =>
                 new Lazy<IDayService>(() => sp.GetRequiredService<IDayService>()));
             builder.Services.AddScoped(sp =>
@@ -162,11 +167,6 @@ namespace Api
             });
 
             builder.Services.AddSignalR();
-
-            builder.Services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            });
 
 
             var app = builder.Build();
