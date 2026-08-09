@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
-    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload,
-    GameConfig
+    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
@@ -54,6 +53,11 @@ export default function App() {
     const nightRef = useRef<NightPhaseHandle | null>(null);
     const dayRef = useRef<DayPhaseHandle | null>(null);
     const pendingDayStartedRef = useRef<DayStartedPayload | null>(null);
+    const pendingNightStartedRef = useRef<NightTurnStarted | null>(null);
+    const pendingNightResolvedRef = useRef<NightResolvedPayload | null>(null);
+    const pendingWerewolfAttacksRef = useRef<{ actorId: string; actorName: string; targetId: string; targetName: string }[]>([]);
+    const pendingDayResolvedRef = useRef<DayResolvedPayload | null>(null);
+    const pendingVoteCastsRef = useRef<VoteCastPayload[]>([]);
     const myRoleRef = useRef<RoleResponse | null>(null);
 
     const { t } = useTranslation();
@@ -158,15 +162,26 @@ export default function App() {
             });
 
             conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
+                // Ensure the NightPhase component receives the turn even if it
+                // isn't mounted yet (mobile browsers may be slow to render).
+                pendingNightStartedRef.current = turn;
                 setView('night');
                 if (turn.activePlayerId && turn.activePlayerId === myPlayerIdRef.current) cueYourTurn();
-                runAfterCommit(() => nightRef.current?.onTurnStarted(turn));
+                // If already mounted, deliver immediately and clear the pending slot.
+                if (nightRef.current) {
+                    nightRef.current.onTurnStarted(turn);
+                    pendingNightStartedRef.current = null;
+                }
             });
 
             conn.on('NightResolved', (payload: NightResolvedPayload) => {
                 markDeadByNickname(payload.killed);
                 playSound('night-resolved');
-                nightRef.current?.onNightResolved(payload);
+                if (nightRef.current) {
+                    nightRef.current.onNightResolved(payload);
+                } else {
+                    pendingNightResolvedRef.current = payload;
+                }
             });
 
             conn.on('DayStarted', (payload: DayStartedPayload) => {
@@ -180,13 +195,21 @@ export default function App() {
             });
 
             conn.on('VoteCast', (payload: VoteCastPayload) => {
-                dayRef.current?.onVoteCast(payload);
+                if (dayRef.current) {
+                    dayRef.current.onVoteCast(payload);
+                } else {
+                    pendingVoteCastsRef.current = [...(pendingVoteCastsRef.current ?? []), payload];
+                }
             });
 
             conn.on('DayResolved', (payload: DayResolvedPayload) => {
                 markDeadByNickname(payload.banished);
                 playSound('day-resolved');
-                dayRef.current?.onDayResolved(payload);
+                if (dayRef.current) {
+                    dayRef.current.onDayResolved(payload);
+                } else {
+                    pendingDayResolvedRef.current = payload;
+                }
             });
 
             conn.on('GameOver', (payload: GameOverPayload) => {
@@ -198,11 +221,13 @@ export default function App() {
                 // Only notify local werewolf players (client can inspect role)
                 if (myRoleRef.current?.teamId === 1) {
                     // Draw the kill vote as an arrow on the table (werewolves only).
-                    nightRef.current?.onWerewolfAttackCast({
-                        actorId: payload.actorId, targetId: payload.targetId,
-                    });
-                    if (payload.actorId !== myPlayerIdRef.current) {
-                        nightRef.current?.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
+                    if (nightRef.current) {
+                        nightRef.current.onWerewolfAttackCast({ actorId: payload.actorId, targetId: payload.targetId });
+                        if (payload.actorId !== myPlayerIdRef.current) {
+                            nightRef.current.addLog(t('werewolfXAttackedY', { attacker: payload.actorName, target: payload.targetName }));
+                        }
+                    } else {
+                        pendingWerewolfAttacksRef.current = [...(pendingWerewolfAttacksRef.current ?? []), payload];
                     }
                 }
             });
@@ -231,28 +256,30 @@ export default function App() {
                 if (data.gamePhase === 'day' && data.day) {
                     const alive = new Set(data.day.alivePlayers.map(p => p.id));
                     setDeadIds((data.seats ?? []).filter(s => !alive.has(s.id)).map(s => s.id));
-                    runAfterCommit(() => {
-                        dayRef.current?.onDayStarted({
-                            durationSeconds: data.day!.durationSeconds,
-                            showVoteTargets: data.day!.showVoteTargets,
-                            alivePlayers: data.day!.alivePlayers,
-                            enshrouded: data.day!.enshrouded ?? [],
-                        });
-                        if (data.day!.votes) {
-                            Object.entries(data.day!.votes).forEach(([voterId, candidateId]) => {
-                                dayRef.current?.onVoteCast({ voterId, candidateId, totalVotesCast: Object.keys(data.day!.votes!).length });
-                            });
-                        }
-                    });
+
+                    // Use the pending/ref pattern instead of runAfterCommit
+                    pendingDayStartedRef.current = {
+                        durationSeconds: data.day.durationSeconds,
+                        showVoteTargets: data.day.showVoteTargets,
+                        alivePlayers: data.day.alivePlayers,
+                        enshrouded: data.day.enshrouded ?? [],
+                    };
+
+                    // Replay votes once DayPhase mounts
+                    if (data.day.votes) {
+                        const total = Object.keys(data.day.votes).length;
+                        pendingVoteCastsRef.current = Object.entries(data.day.votes).map(([voterId, candidateId]) => ({ voterId, candidateId, totalVotesCast: total }));
+                    }
                 } else if (data.gamePhase === 'night' && data.night) {
-                    runAfterCommit(() => {
-                        nightRef.current?.onTurnStarted({
-                            activePlayerId: data.night!.activePlayerId ?? '',
-                            activeSeatIndex: data.night!.activeSeatIndex,
-                            hasAbility: data.night!.hasAbility,
-                            timeoutSeconds: data.night!.remainingSeconds ?? 1000,
-                        });
-                    });
+                    // Use the pending/ref pattern instead of runAfterCommit
+                    pendingNightStartedRef.current = {
+                        activePlayerId: data.night.activePlayerId ?? '',
+                        activeSeatIndex: data.night.activeSeatIndex,
+                        hasAbility: data.night.hasAbility,
+                        timeoutSeconds: data.night.remainingSeconds ?? 1000,
+                        minTargets: undefined,
+                        maxTargets: undefined,
+                    } as NightTurnStarted;
                 }
             } catch (e) {
                 sessionStorage.removeItem('lobbyCode');
@@ -362,7 +389,7 @@ export default function App() {
         ? [...lobby.players].sort((a, b) => a.lobbyPosition - b.lobbyPosition)
         : [];
 
-    // ── GAME OVER ────────────────────────────────────────────────────────
+    // ── GAME OVER ───────────────────────────────────────────────────────
     if (view === 'gameover' && gameOver && myRole) {
         clearSession();
         return (
@@ -421,7 +448,30 @@ export default function App() {
                     🌙 {t('nightPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
                 </h2>
-                <NightPhase ref={nightRef}
+                <NightPhase ref={instance => {
+                    nightRef.current = instance;
+                    if (instance && pendingNightStartedRef.current) {
+                        instance.onTurnStarted(pendingNightStartedRef.current);
+                        pendingNightStartedRef.current = null;
+                    }
+
+                    // deliver any queued werewolf attack notifications
+                    if (instance && pendingWerewolfAttacksRef.current?.length) {
+                        pendingWerewolfAttacksRef.current.forEach(a => {
+                            instance.onWerewolfAttackCast({ actorId: a.actorId, targetId: a.targetId });
+                            if (a.actorId !== myPlayerIdRef.current) {
+                                instance.addLog(t('werewolfXAttackedY', { attacker: a.actorName, target: a.targetName }));
+                            }
+                        });
+                        pendingWerewolfAttacksRef.current = [];
+                    }
+
+                    // deliver pending night-resolved if present
+                    if (instance && pendingNightResolvedRef.current) {
+                        instance.onNightResolved(pendingNightResolvedRef.current);
+                        pendingNightResolvedRef.current = null;
+                    }
+                }}
                     lobbyCode={lobby!.code}
                     seats={seats}
                     myPlayerId={myPlayerId}
@@ -451,6 +501,18 @@ export default function App() {
                         if (instance && pendingDayStartedRef.current) {
                             instance.onDayStarted(pendingDayStartedRef.current);
                             pendingDayStartedRef.current = null;
+                        }
+
+                        // replay any votes that arrived while DayPhase wasn't mounted
+                        if (instance && pendingVoteCastsRef.current?.length) {
+                            pendingVoteCastsRef.current.forEach(v => instance.onVoteCast(v));
+                            pendingVoteCastsRef.current = [];
+                        }
+
+                        // deliver pending day-resolved if present
+                        if (instance && pendingDayResolvedRef.current) {
+                            instance.onDayResolved(pendingDayResolvedRef.current);
+                            pendingDayResolvedRef.current = null;
                         }
                     }}
                     lobbyCode={lobby!.code}
