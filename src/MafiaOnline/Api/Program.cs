@@ -9,6 +9,7 @@ using MafiaOnline.Api.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Security.Claims;
@@ -162,8 +163,13 @@ namespace Api
 
             builder.Services.AddSignalR();
 
-            var app = builder.Build();
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            });
 
+
+            var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
             {
@@ -192,6 +198,7 @@ namespace Api
             }
 
             app.UseHttpsRedirection();
+            app.UseForwardedHeaders();
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseMiddleware<SessionMiddleware>();
