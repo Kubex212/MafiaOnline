@@ -166,18 +166,29 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         const isAlive = !deadIds.includes(seat.id);
         const isMe = seat.id === myPlayerId;
         const isForbidden = activeTurn?.forbiddenTargets?.includes(seat.id) ?? false;
+        const canAct = isMyTurn && !resolved && !submitting;
+        const isViewerWerewolf = myRole.teamId === 1;
+        const isSeatWerewolf = otherWerewolvesIds?.includes(seat.id) || (seat.id === myPlayerId && myRole.teamId === 1);
+        const isTargetableByAbility = canAct && !isForbidden;
+        const isTargetableByAttack = canAct && isViewerWerewolf && isAlive && !isSeatWerewolf && !isMe;
         return {
             seat,
             isMe,
             isActive: seat.id === activeTurn?.activePlayerId && !resolved,
             isAlive,
             isSelected: selectedTargets.includes(seat.id),
-            isTargetable: isMyTurn && !resolved && !submitting && !isForbidden,
+            // ability-specific and attack-specific flags
+            isTargetableByAbility,
+            isTargetableByAttack,
+            // keep old single flag for compatibility
+            isTargetable: isTargetableByAbility || isTargetableByAttack,
             isWerewolf: otherWerewolvesIds?.includes(seat.id) || (isMe && myRole.teamId === 1),
         };
     });
 
     const isWerewolf = myRole.teamId === 1;
+    const selectedAllAttackable = selectedTargets.length > 0 && selectedTargets.every(id => seatStates.find(s => s.seat.id === id)?.isTargetableByAttack);
+    const selectedAllAbility = selectedTargets.length >= minTargets && selectedTargets.every(id => seatStates.find(s => s.seat.id === id)?.isTargetableByAbility);
     const teamClass = myRole.teamId === 1 ? 'turn-banner--wolf'
         : myRole.teamId === 2 ? 'turn-banner--neutral'
         : 'turn-banner--town';
@@ -238,14 +249,14 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 <div style={{ display: 'flex', gap: 12 }}>
                     {isWerewolf && (
                         <button className="btn btn--danger"
-                            disabled={attackSubmitted || selectedTargets.length === 0 || submitting}
+                            disabled={attackSubmitted || !selectedAllAttackable || submitting}
                             onClick={submitAttack}>
                             {t('attack')}
                         </button>
                     )}
                     {activeTurn!.hasAbility && (
                         <button className="btn btn--primary"
-                            disabled={abilitySubmitted || selectedTargets.length < minTargets || submitting}
+                            disabled={abilitySubmitted || !selectedAllAbility || submitting}
                             onClick={submitAbility}>
                             {t('useAbility')}
                         </button>

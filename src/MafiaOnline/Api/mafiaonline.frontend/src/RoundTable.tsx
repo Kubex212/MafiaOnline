@@ -13,6 +13,11 @@ export interface TableSeatState {
     isActive?: boolean;
     isAlive?: boolean;
     isSelected?: boolean;
+    /** Targetable for a role ability (e.g. Dracula enshroud) */
+    isTargetableByAbility?: boolean;
+    /** Targetable for an attack (werewolf kill). */
+    isTargetableByAttack?: boolean;
+    /** Targetable by day voting */
     isTargetable?: boolean;
     hasVoted?: boolean;
     isEnshrouded?: boolean;
@@ -116,7 +121,7 @@ export default function RoundTable({
                 const isActive = !!st?.isActive;
                 const isAlive = st?.isAlive ?? true;
                 const isSelected = !!st?.isSelected;
-                const isTargetable = !!st?.isTargetable;
+                const isTargetable = !!st?.isTargetableByAbility || !!st?.isTargetableByAttack || !!st?.isTargetable;
                 const hasVoted = !!st?.hasVoted;
                 const isEnshrouded = !!st?.isEnshrouded;
                 const displayAsWerewolf = !!st?.isWerewolf;

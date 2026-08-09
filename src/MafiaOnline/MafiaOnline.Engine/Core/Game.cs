@@ -51,7 +51,7 @@ public class Game
 
     public void Execute(GameCommand command) => command.Execute(this);
 
-    public DateTime StartedAtUtc { get; } = DateTime.UtcNow;
+    public DateTime StartedAtUtc { get; set; }
 
     // ── Night ──────────────────────────────────────────────────────────────
 

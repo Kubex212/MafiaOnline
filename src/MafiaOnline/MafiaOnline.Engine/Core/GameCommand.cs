@@ -52,6 +52,8 @@ public class StartGameCommand : GameCommand
 
         game.Status = GameStatus.InProgress;
         game.Phase = GamePhase.Night;
+
+        game.StartedAtUtc = DateTime.UtcNow;
     }
 }
 
