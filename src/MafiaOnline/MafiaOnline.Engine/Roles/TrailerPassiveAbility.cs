@@ -5,6 +5,8 @@ namespace MafiaOnline.Engine.Roles;
 public class TrailerPassiveAbility() : NightAbility()
 {
     public override bool IsAutomatic => true;
+    public override int MinTargets => 0;
+    public override int MaxTargets => 0;
 
     public override void Apply(Player actor, NightAction? action, NightContext context, IReadOnlyList<Player> alivePlayers)
     {

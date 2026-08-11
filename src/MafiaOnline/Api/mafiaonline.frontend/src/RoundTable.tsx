@@ -21,6 +21,7 @@ export interface TableSeatState {
     isTargetable?: boolean;
     hasVoted?: boolean;
     isEnshrouded?: boolean;
+    isAsleep?: boolean;
     /** Fellow werewolf (or self) — only ever set for viewers who are werewolves themselves. */
     isWerewolf?: boolean;
 }
@@ -124,6 +125,7 @@ export default function RoundTable({
                 const isTargetable = !!st?.isTargetableByAbility || !!st?.isTargetableByAttack || !!st?.isTargetable;
                 const hasVoted = !!st?.hasVoted;
                 const isEnshrouded = !!st?.isEnshrouded;
+                const isAsleep = !!st?.isAsleep;
                 const displayAsWerewolf = !!st?.isWerewolf;
 
                 const stroke = isSelected ? 'var(--accent)'
@@ -165,9 +167,9 @@ export default function RoundTable({
                         )}
                         {isAlive && (
                             <>
-                                <circle cx={22} cy={-22} r={10}
-                                    fill="rgba(0,0,0,0.5)" stroke={stroke} strokeWidth={1} />
-                                <text x={22} y={-18} textAnchor="middle"
+                                <circle cx={-21} cy={-21} r={10}
+                                    fill="rgba(0,0,0,0.6)" stroke={stroke} strokeWidth={1} />
+                                <text x={-21} y={-17} textAnchor="middle"
                                     fill="var(--accent-2)" fontSize={10} fontWeight={700}>
                                     {seat.seatIndex + 1}
                                 </text>
@@ -194,7 +196,6 @@ export default function RoundTable({
                         {hasVoted && isAlive && (
                             <text x={-22} y={-22} textAnchor="middle" fontSize={13}>✔️</text>
                         )}
-
                         {isEnshrouded && isAlive && (
                             <g className="seat-mist" pointerEvents="none" aria-hidden>
                                 <g filter="url(#mistBlur)">
@@ -204,6 +205,13 @@ export default function RoundTable({
                                 </g>
                                 <circle r={40} fill="none" stroke="var(--wolf)"
                                     strokeWidth={1} opacity={0.18} strokeDasharray="3 7" />
+                            </g>
+                        )}
+                        {isAsleep && isAlive && (
+                            <g className="seat-sleep" pointerEvents="none" aria-hidden>
+                                <text x={24} y={-25} fontSize={14} fontWeight={700}>Z</text>
+                                <text x={35} y={-35} fontSize={10} fontWeight={700}>z</text>
+                                <text x={43} y={-43} fontSize={7} fontWeight={700}>z</text>
                             </g>
                         )}
                     </g>

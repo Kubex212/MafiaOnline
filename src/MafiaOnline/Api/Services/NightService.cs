@@ -15,6 +15,7 @@ public interface INightService
     Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType);
     Task SkipTurnAsync(string lobbyCode, Guid userId);
     Task<ClueResponse?> GetClueAsync(string lobbyCode, Guid userId);
+    Task AdvanceTurnAsync(Lobby lobby);
 }
 
 public class NightService : INightService
@@ -110,9 +111,8 @@ public class NightService : INightService
         await AdvanceTurnAsync(lobby);
     }
 
-    // ── internals ──────────────────────────────────────────────────────────
 
-    private async Task AdvanceTurnAsync(Lobby lobby)
+    public async Task AdvanceTurnAsync(Lobby lobby)
     {
         if (lobby.NightSession is null || lobby.NightSession.IsFinished)
         {
@@ -166,7 +166,8 @@ public class NightService : INightService
 
                     var repository = scope.ServiceProvider.GetRequiredService<ILobbyRepository>();
                     await repository.Update(current);
-                    await AdvanceTurnAsync(current);
+                    var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
+                    await nightService.AdvanceTurnAsync(current);
                 }
             }
             catch (TaskCanceledException)
@@ -175,6 +176,9 @@ public class NightService : INightService
             }
         }, CancellationToken.None);
     }
+
+
+    // ── internals ──────────────────────────────────────────────────────────
 
     private async Task ResolveNightAsync(Lobby lobby)
     {

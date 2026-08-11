@@ -745,10 +745,11 @@ code {
 
 .reveal__role {
     font-family: var(--font-display);
-    font-size: clamp(3rem, 10vw, 6rem);
+    font-size: clamp(2rem, 10vw, 6rem);
     font-weight: 900;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    white-space: nowrap;
     animation: revealFade 0.8s var(--ease) both;
 }
 
@@ -921,6 +922,13 @@ code {
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 0.95rem;
+    line-height: 1;
+}
+
+@media (max-width: 600px) {
+    .ring__num {
+        transform: translateY(3px);
+    }
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -1667,6 +1675,35 @@ code {
     }
 }
 
+.seat-sleep text {
+    fill: var(--accent-2);
+    opacity: 0.85;
+}
+
+    .seat-sleep text:nth-child(1) {
+        animation: sleep-z 2s ease-in-out infinite;
+    }
+
+    .seat-sleep text:nth-child(2) {
+        animation: sleep-z 2s ease-in-out 0.4s infinite;
+    }
+
+    .seat-sleep text:nth-child(3) {
+        animation: sleep-z 2s ease-in-out 0.8s infinite;
+    }
+
+@keyframes sleep-z {
+    0%, 100% {
+        transform: translate(0, 3px);
+        opacity: 0.3;
+    }
+
+    50% {
+        transform: translate(2px, -3px);
+        opacity: 1;
+    }
+}
+
 /* Werewolf kill-vote arrows */
 .vote-arrow--attack {
     filter: drop-shadow(0 0 6px rgba(176, 58, 42, 0.75));
@@ -2381,5 +2418,254 @@ code {
 
     .spectator-banner {
         font-size: 1rem;
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Mobile polish — no horizontal scroll, phases fit one screen
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Nothing may push the layout wider than the viewport. */
+html {
+    overflow-x: hidden;
+}
+
+.phase, .phase__inner, .phase-stack {
+    min-width: 0;
+    max-width: 100%;
+}
+
+svg, img {
+    max-width: 100%;
+}
+
+/* Shared column layout for the Night/Day phase bodies. */
+.phase-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+}
+
+/* Action rows always wrap instead of overflowing. */
+.phase-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 480px;
+}
+
+    .phase-actions .btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+.btn__ellipsis {
+    max-width: 9ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Long role names must never widen the reveal screen. */
+.reveal__role, .gameover__title {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.reveal__pack, .reveal__alibi {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.lobby-room__code {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+/* The chronicle head is a toggle button on cramped screens. */
+.event-log__head {
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    font: inherit;
+    font-family: var(--font-display);
+    font-style: normal;
+    cursor: pointer;
+    gap: 8px;
+    text-align: left;
+    border-color: transparent;
+}
+
+    .event-log__head:disabled {
+        cursor: default;
+    }
+
+.event-log__peek {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-body);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.event-log__count {
+    flex: none;
+}
+
+.event-log__chev {
+    flex: none;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    transition: transform 0.25s var(--ease);
+}
+
+.event-log__head[aria-expanded='true'] .event-log__chev {
+    transform: rotate(180deg);
+}
+
+.event-log--collapsed {
+    padding-bottom: 2px;
+}
+
+    .event-log--collapsed .event-log__head {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 2px;
+    }
+
+/* Keep the round table from eating the whole viewport height. */
+@media (max-height: 900px) {
+    .table-svg {
+        max-width: min(480px, 58vh);
+    }
+}
+
+/* Short screens: tighten every vertical gap in a phase. */
+@media (max-height: 820px), (max-width: 700px) {
+    .phase {
+        padding: 12px 12px 20px;
+    }
+
+    .phase-stack {
+        gap: 10px;
+    }
+
+    .phase__title {
+        margin: 4px 0 10px;
+        font-size: 1.25rem;
+    }
+
+        .phase__title small {
+            font-size: 0.68rem;
+            margin-top: 2px;
+        }
+
+    .turn-banner {
+        padding: 9px 12px;
+    }
+
+    .ring {
+        width: 44px;
+        height: 44px;
+    }
+
+    .spectator-banner {
+        margin: 4px auto 6px;
+        padding: 7px 10px;
+    }
+
+    .topbar--compact {
+        margin: 0 auto 4px;
+    }
+}
+
+@media (max-width: 520px) {
+    /* Tally rows: no fixed-width label. */
+    .tally__row span:first-child {
+        width: auto;
+        max-width: 40%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .resolution {
+        padding: 12px 14px;
+    }
+
+    .lobby-room__header {
+        gap: 8px;
+    }
+
+    .lobby-room__code {
+        font-size: 1.25rem;
+        letter-spacing: 0.18em;
+    }
+
+    .join-form__row {
+        flex-wrap: wrap;
+    }
+
+        .join-form__row .input {
+            flex: 1 1 140px;
+        }
+
+    .config__num, .config__select {
+        width: auto;
+        max-width: 120px;
+        min-width: 72px;
+    }
+
+    .role-peek {
+        grid-template-columns: 1fr;
+    }
+
+    .modal {
+        max-height: 92vh;
+    }
+}
+
+/* Home top bar stays on one row on phones. */
+@media (max-width: 520px) {
+    .topbar {
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+        .topbar .status-dot {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .topbar .btn {
+            padding: 8px 10px;
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+            flex: none;
+        }
+}
+
+/* Very short screens — shrink the table further so actions stay reachable. */
+@media (max-height: 700px) {
+    .table-svg {
+        max-width: min(480px, 48vh);
+    }
+
+    .event-log__scroll {
+        max-height: 76px;
     }
 }

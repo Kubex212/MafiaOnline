@@ -40,15 +40,25 @@ public class DayService : IDayService
         var duration = lobby.Game!.Config.Day.DurationSeconds;
         var showTargets = lobby.Game.Config.Day.ShowVoteTargets;
 
-        // Determine enshrouded players from last night, if any
-        var enshrouded = new List<Guid>();
+        // determine enshrouded and sleeping players from last night, if any
         var last = lobby.Game?.LastNightResult;
+        var enshrouded = new List<Guid>();
         if (last != null)
         {
             foreach (var ev in last.Events)
             {
                 if (ev is DraculaEnshroudedEvent d)
                     enshrouded.Add(d.TargetId);
+            }
+        }
+
+        var asleep = new List<Guid>();
+        if (last != null)
+        {
+            foreach (var ev in last.Events)
+            {
+                if (ev is CharmerSleepEvent c)
+                    asleep.Add(c.TargetId);
             }
         }
 
@@ -63,7 +73,8 @@ public class DayService : IDayService
             durationSeconds = duration,
             showVoteTargets = showTargets.ToString(),
             alivePlayers,
-            enshrouded = enshrouded
+            enshrouded,
+            asleep
         });
 
         // Start day countdown timer

@@ -519,6 +519,9 @@ export default function App() {
                     allSeats={seats}
                     myPlayerId={myPlayerId}
                     myRole={myRole}
+                    deadIds={deadIds}
+                    otherWerewolvesIds={otherWerewolvesIds}
+                    config={lobby?.config}
                 />
             </div></div>
         );

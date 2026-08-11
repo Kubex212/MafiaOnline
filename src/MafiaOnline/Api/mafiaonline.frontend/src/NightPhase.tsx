@@ -199,7 +199,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         : [];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+        <div className="phase-stack">
             <RoleInfo role={myRole} config={config} />
 
             {activeTurn && !resolved && (
@@ -246,7 +246,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             />
 
             {isMyTurn && !resolved && (
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div className="phase-actions">
                     {isWerewolf && (
                         <button className="btn btn--danger"
                             disabled={attackSubmitted || !selectedAllAttackable || submitting}

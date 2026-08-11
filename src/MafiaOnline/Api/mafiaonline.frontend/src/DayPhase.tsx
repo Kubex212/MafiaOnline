@@ -40,6 +40,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [submitting, setSubmitting] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
     const [enshrouded, setEnshrouded] = useState<Set<string>>(new Set());
+    const [asleep, setAsleep] = useState<Set<string>>(new Set());
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const setLog = (msg: string) => pushLog(msg, 'day');
@@ -56,6 +57,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             setResolved(null);
             setSubmitting(false);
             setEnshrouded(new Set((payload.enshrouded ?? []).map(id => id)));
+            setAsleep(new Set((payload.asleep ?? []).map(id => id)));
 
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
@@ -132,6 +134,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             : !deadIds.includes(seat.id);
         const isMe = seat.id === myPlayerId;
         const isEnshrouded = enshrouded.has(seat.id);
+        const isAsleep = asleep.has(seat.id);
         return {
             seat,
             isMe,
@@ -139,7 +142,8 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             isSelected: seat.id === selectedTarget,
             isTargetable: !resolved && amAlive && !hasVoted && !isMe && isAlive && !submitting && !isEnshrouded,
             hasVoted: votes[seat.id] !== undefined,
-            isEnshrouded: isEnshrouded,
+            isEnshrouded,
+            isAsleep,
             isWerewolf: otherWerewolvesIds?.includes(seat.id) || (isMe && myRole.teamId === 1),
         };
     });
@@ -160,7 +164,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
         : '—';
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <div className="phase-stack">
             <RoleInfo role={myRole} config={config} />
 
             {!resolved && (
@@ -192,11 +196,11 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             />
 
             {!resolved && amAlive && !hasVoted && (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="phase-actions">
                     <button className="btn btn--danger"
                         disabled={!selectedTarget || submitting}
                         onClick={handleVote}>
-                        🔥 {t('banish')} {chosenName}
+                        🔥 {t('banish')} <span className="btn__ellipsis">{chosenName}</span>
                     </button>
                     <button className="btn" disabled={submitting} onClick={handleSkip}>
                         ➖ {t('skipVote')}

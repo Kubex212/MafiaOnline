@@ -259,6 +259,11 @@ public class Game
                 forbiddenTargets.AddRange(ability.GetForbiddenTargets(player, _players, previousActions));
             }
         }
+        else
+        {
+            // if the player has no night ability, they cannot target anyone
+            forbiddenTargets.AddRange(_players.Select(p => p.Id));
+        }
         return forbiddenTargets;
     }
 }

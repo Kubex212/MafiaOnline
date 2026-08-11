@@ -18,10 +18,9 @@ export async function getOrCreateSession(): Promise<{ userId: string }> {
     // If Discord just redirected back with ?token=xxx, store it and clean the URL
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get('token');
-    console.log('token: ', urlToken);
     if (urlToken) {
         storeToken(urlToken);
-        //window.history.replaceState({}, '', window.location.pathname);
+        window.history.replaceState({}, '', window.location.pathname);
     }
 
     const existing = getStoredToken();
@@ -182,6 +181,7 @@ export type DayStartedPayload = {
     durationSeconds: number;
     alivePlayers: SeatInfo[];
     enshrouded?: string[];
+    asleep?: string[];
     showVoteTargets: 'Always' | 'Never' | 'AfterVotingEnds';
 };
 
