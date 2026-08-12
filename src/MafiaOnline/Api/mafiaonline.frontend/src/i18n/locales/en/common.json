@@ -249,5 +249,10 @@
   "vibrationOn": "Vibration on",
   "vibrationOff": "Vibration off",
   "youAreDead": "You are dead",
-  "youAreWatching": "You are watching the rest of the game — you can no longer act or vote."
+  "youAreWatching": "You are watching the rest of the game — you can no longer act or vote.",
+
+  "backToMenu": "Back to menu",
+  "joinRematch": "Join rematch",
+  "waitForRematch": "Waiting for host to create rematch...",
+  "rematchCreated": "Rematch created: {{code}}"
 }

@@ -7,10 +7,15 @@ interface Props {
     myRoleLabel: string;
     myRole: string;
     myTeam: number;
+    isHost?: boolean;
+    rematchCode?: string | null;
+    onCreateRematch?: () => Promise<void>;
+    onJoinRematch?: () => Promise<void>;
 }
 
-export default function GameOver({ payload, myRoleLabel, myRole, myTeam }: Props) {
+export default function GameOver({ payload, myRoleLabel, myRole, myTeam, isHost, rematchCode, onCreateRematch, onJoinRematch }: Props) {
     const { t } = useTranslation();
+    console.log(isHost);
 
     let won = false;
     if (payload.winner === 'Fool') {
@@ -26,8 +31,12 @@ export default function GameOver({ payload, myRoleLabel, myRole, myTeam }: Props
 
     const verdictClass = won ? 'gameover__verdict--won' : 'gameover__verdict--lost';
     const color = payload.winner === 'Villagers' ? 'var(--town-2)'
-        : payload.winner === 'Werewolves' ? 'var(--danger-2)'
+        : payload.winner === 'Werewolves' ? 'var(--accent-2)'
         : 'var(--accent-2)';
+
+    function goHome() {
+        window.location.href = '/';
+    }
 
     return (
         <div className="gameover">
@@ -41,9 +50,20 @@ export default function GameOver({ payload, myRoleLabel, myRole, myTeam }: Props
             <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
                 {t('youPlayedAs')} <b style={{ color: 'var(--accent-2)' }}>{myRoleLabel}</b>
             </div>
-            <button className="btn btn--primary" onClick={() => window.location.reload()} style={{ marginTop: 16 }}>
-                {t('playAgain')}
-            </button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                <button className="btn" onClick={goHome}>
+                    {t('backToMenu')}
+                </button>
+                {isHost ? (
+                    <button className="btn btn--primary" onClick={onCreateRematch}>
+                        {t('playAgain')}
+                    </button>
+                ) : (
+                    <button className="btn btn--primary" onClick={onJoinRematch} disabled={!rematchCode}>
+                        {rematchCode ? t('joinRematch') : t('waitForRematch')}
+                    </button>
+                )}
+            </div>
         </div>
     );
 }

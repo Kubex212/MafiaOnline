@@ -16,4 +16,5 @@ public interface ILobbyService
     Task<Lobby> MovePlayerDownAsync(string code, Guid targetPlayerId);
     Task<Lobby> ShufflePlayersAsync(string code);
     Task<ReconnectResponse> ReconnectPlayerAsync(string code);
+    Task<Lobby> CreateRematchAsync(string code);
 }

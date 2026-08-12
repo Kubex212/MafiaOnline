@@ -503,3 +503,12 @@ export async function updateConfig(code: string, config: GameConfig): Promise<Lo
     if (!res.ok) throw new Error('Update config failed: ' + res.statusText);
     return res.json();
 }
+
+export async function createRematch(code: string): Promise<LobbyResponse> {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/rematch`, {
+        method: 'POST',
+        body: JSON.stringify({})
+    });
+    if (!res.ok) throw new Error('Rematch failed: ' + res.statusText);
+    return res.json();
+}

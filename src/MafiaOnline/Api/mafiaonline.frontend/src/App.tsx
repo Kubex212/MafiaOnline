@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type {
-    LobbyResponse, RoleResponse, SeatInfo,
+    LobbyResponse, RoleResponse, SeatInfo, PlayerResponse,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
     DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
-    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe
+    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe, createRematch
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -25,11 +25,6 @@ import { playSound, cueYourTurn } from './sound';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
-// Defer a callback until AFTER the pending React commit lands — this is how
-// we hand off initial NightTurnStarted / DayStarted payloads to phase
-// components that are just now being mounted for the first time.
-const runAfterCommit = (cb: () => void) => queueMicrotask(() => setTimeout(cb, 0));
-
 export default function App() {
     const [nickname, setNickname] = useState('Player' + Math.floor(Math.random() * 1000));
     const [lobby, setLobby] = useState<LobbyResponse | null>(null);
@@ -45,6 +40,12 @@ export default function App() {
     const [codeCopied, setCodeCopied] = useState(false);
     const [deadIds, setDeadIds] = useState<string[]>([]);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [rematchCode, setRematchCode] = useState<string | null>(null);
+
+    // mark rematchCode as used for TS
+    useEffect(() => {
+        if (rematchCode) console.debug('Rematch code available', rematchCode);
+    }, [rematchCode]);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -129,7 +130,7 @@ export default function App() {
             conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
                 const prev = lobbyRef.current;
                 if (!prev) return;
-                const newPlayers = ordered.map(o => ({
+                const newPlayers: PlayerResponse[] = ordered.map(o => ({
                     id: o.id, nickname: o.nickname, isHost: o.isHost,
                     seatIndex: -1, lobbyPosition: o.lobbyPosition,
                 }));
@@ -144,8 +145,8 @@ export default function App() {
 
             conn.on('GameStarted', async (seatList: SeatInfo[]) => {
                 const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
-                setSeats(sorted);
-                seatsRef.current = sorted;
+                setSeats(sorted as SeatInfo[]);
+                seatsRef.current = sorted as SeatInfo[];
                 setDeadIds([]);
                 clearLog();
                 const code = lobbyRef.current?.code;
@@ -232,6 +233,11 @@ export default function App() {
                 }
             });
 
+            conn.on('RematchCreated', (newCode: string) => {
+                setMessages(m => [...m, t('rematchCreated', { code: newCode })]);
+                setRematchCode(newCode);
+            });
+
             await conn.start();
             if (cancelled) { conn.stop(); return; }
             setHubStarted(true);
@@ -243,7 +249,7 @@ export default function App() {
                 const data = await reconnect(storedLobbyCode);
                 setLobby(data.lobby);
                 setMyPlayerId(data.myPlayerId);
-                setSeats(data.seats);
+                setSeats((data.seats ?? null) as SeatInfo[] | null);
                 setMyRole(data.myRole ?? null);
                 setView(data.gamePhase);
                 setMessages([t('reconnected')]);
@@ -367,7 +373,7 @@ export default function App() {
     // else can ever see the markers.
     const otherWerewolvesSeats: SeatInfo[] = (() => {
         if (!myRole || myRole.teamId !== 1 || !seats) return [];
-        const raw = myRole.otherWerewolvesIds ?? [];
+        const raw = (myRole.otherWerewolvesIds ?? []) as string[];
         const found = raw.map(id => seats.find(s => s.id === id)).filter((s): s is SeatInfo => !!s && s.id !== myPlayerId);
         return Array.from(new Map(found.map(s => [s.id, s])).values());
     })();
@@ -389,12 +395,55 @@ export default function App() {
         ? [...lobby.players].sort((a, b) => a.lobbyPosition - b.lobbyPosition)
         : [];
 
+    // Handlers for rematch creation/joining
+    async function createRematchHandler() {
+        // Use stored lobby code (the lobby that just finished)
+        const storedOld = sessionStorage.getItem('lobbyCode');
+        if (!storedOld) { alert('No lobby context'); return; }
+        try {
+            const newLobby = await createRematch(storedOld);
+            // Set lobby state to the newly created lobby and set current player id to host
+            setLobby(newLobby);
+            const hostPlayer = newLobby.players.find(p => p.isHost);
+            if (hostPlayer) setMyPlayerId(hostPlayer.id);
+            setMessages(m => [...m, t('rematchCreated', { code: newLobby.code })]);
+            setRematchCode(null);
+            setView('lobby');
+            // Join hub group for the new lobby so the host immediately receives hub events
+            try { await joinHubGroup(newLobby.code); } catch (e) { alert(String(e)); }
+        } catch (e) {
+            alert(String(e));
+        }
+    }
+
+    async function joinRematchHandler() {
+        // rematchCode must have been signalled via SignalR to clients
+        const code = rematchCode;
+        if (!code) { alert(t('waitForRematch')); return; }
+        try {
+            // Join the rematch lobby as a normal player using current nickname
+            const res = await joinLobby(code, nickname);
+            const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
+            setMyPlayerId(me.id);
+            setLobby(res);
+            setRematchCode(null);
+            setView('lobby');
+            setMessages(m => [...m, t('joinedLobby', { code: res.code })]);
+            // Join SignalR group
+            try { await joinHubGroup(res.code); } catch (e) { alert(String(e)); }
+        } catch (e) {
+            alert(String(e));
+        }
+    }
+
     // ── GAME OVER ───────────────────────────────────────────────────────
     if (view === 'gameover' && gameOver && myRole) {
-        clearSession();
+        // Do not clear session here — keep stored lobbyCode so rematch works
         return (
             <div className="phase"><div className="phase__inner">
-                <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} myTeam={myRole.teamId} />
+                <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} myTeam={myRole.teamId}
+                    isHost={isHost} rematchCode={rematchCode}
+                    onCreateRematch={createRematchHandler} onJoinRematch={joinRematchHandler} />
             </div></div>
         );
     }

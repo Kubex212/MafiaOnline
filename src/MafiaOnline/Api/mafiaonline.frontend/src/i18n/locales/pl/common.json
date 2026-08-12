@@ -249,5 +249,10 @@
   "vibrationOn": "Wibracje włączone",
   "vibrationOff": "Wibracje wyłączone",
   "youAreDead": "Nie żyjesz",
-  "youAreWatching": "Obserwujesz dalszą część gry — nie możesz już działać ani głosować."
+  "youAreWatching": "Obserwujesz dalszą część gry — nie możesz już działać ani głosować.",
+
+  "backToMenu": "Powrót do menu",
+  "joinRematch": "Dołącz do rewanżu",
+  "waitForRematch": "Oczekiwanie na gospodarza...",
+  "rematchCreated": "Rewanż utworzony: {{code}}"
 }

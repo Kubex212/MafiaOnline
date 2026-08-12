@@ -94,4 +94,12 @@ public class LobbiesController : ControllerBase
         var lobby = await _lobbyService.UpdateConfigAsync(code, request.Config);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
+
+    // Create a new lobby using the same configuration as an existing lobby (rematch)
+    [HttpPost("{code}/rematch")]
+    public async Task<ActionResult<LobbyResponse>> Rematch(string code)
+    {
+        var newLobby = await _lobbyService.CreateRematchAsync(code);
+        return Ok(LobbyResponse.FromLobby(newLobby));
+    }
 }

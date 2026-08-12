@@ -55,6 +55,53 @@ public class LobbyService : ILobbyService
         return lobby;
     }
 
+    public async Task<Lobby> CreateRematchAsync(string code)
+    {
+        _logger.LogInformation("CreateRematchAsync called for lobby={LobbyCode} by user={UserId}", code, _currentUser.UserId);
+
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Code is required.", nameof(code));
+
+        // Load existing lobby to copy config from
+        var existing = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        // Generate a new unique code
+        Lobby newLobby;
+        do
+        {
+            var newCode = LobbyCodeGenerator.Generate();
+            newLobby = new Lobby(newCode);
+        }
+        while (await _repository.Get(newLobby.Code) != null);
+
+        // Copy configuration from existing lobby
+        newLobby.UpdateConfig(existing.Config);
+
+        // Add current user as host
+        // Use the nickname from existing lobby if the same user was in original lobby, otherwise generic
+        var hostNick = existing.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId)?.Nickname ?? "Host";
+        newLobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, hostNick.Trim(), true));
+
+        await _repository.Create(newLobby);
+
+        _logger.LogInformation("Created rematch lobby {LobbyCode} from {OldCode} by user={UserId}", newLobby.Code, existing.Code, _currentUser.UserId);
+
+        // Notify players in the old lobby that a rematch has been created
+        try
+        {
+            await _hubContext.Clients
+                .Group(existing.Code)
+                .SendAsync("RematchCreated", newLobby.Code);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to notify old lobby {OldCode} about rematch {NewCode}", existing.Code, newLobby.Code);
+        }
+
+        return newLobby;
+    }
+
     public async Task<Lobby> JoinLobbyAsync(string code, string nickname)
     {
         _logger.LogInformation("JoinLobbyAsync called code={Code} nickname={Nickname} user={UserId}", code, nickname, _currentUser.UserId);
