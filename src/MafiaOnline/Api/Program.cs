@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
+using Serilog;
 
 namespace Api
 {
@@ -21,192 +22,216 @@ namespace Api
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            // Configure Serilog early so startup logs are captured
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Warning()
+                .Enrich.FromLogContext()
+                .WriteTo.Console()
+                .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
+                .CreateLogger();
 
-            builder.Services.AddControllers();
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-
-            builder.Services.AddDbContext<MafiaDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("MafiaDb")));
-
-            builder.Services.AddScoped<ILobbyRepository, PostgresLobbyRepository>();
-            builder.Services.AddScoped<ILobbyService, LobbyService>();
-            builder.Services.AddScoped<INightService, NightService>();
-            builder.Services.AddScoped<IDayService, DayService>();
-            builder.Services.AddScoped<IGameHistoryService, GameHistoryService>();
-            builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-
-            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            try
             {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            });
+                var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddScoped(sp =>
-                new Lazy<IDayService>(() => sp.GetRequiredService<IDayService>()));
-            builder.Services.AddScoped(sp =>
-                new Lazy<INightService>(() => sp.GetRequiredService<INightService>()));
+                // Replace default logging with Serilog
+                builder.Host.UseSerilog();
 
-            // Identity & sessions
-            builder.Services.AddScoped<ISessionService, SessionService>();
-            builder.Services.AddScoped<IExternalAuthService, ExternalAuthService>();
-            builder.Services.AddScoped<CurrentUser>();
-            builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+                builder.Services.AddControllers();
+                builder.Services.AddEndpointsApiExplorer();
+                builder.Services.AddSwaggerGen();
 
-            // Auth: cookie (needed to store OAuth state) + Discord OAuth
-            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie()
-            .AddOAuth("Discord", options =>
-            {
-                options.ClientId = builder.Configuration["Discord:ClientId"]!;
-                options.ClientSecret = builder.Configuration["Discord:ClientSecret"]!;
+                builder.Services.AddDbContext<MafiaDbContext>(options =>
+                    options.UseNpgsql(builder.Configuration.GetConnectionString("MafiaDb")));
 
-                options.AuthorizationEndpoint = "https://discord.com/oauth2/authorize";
-                options.TokenEndpoint = "https://discord.com/api/oauth2/token";
-                options.UserInformationEndpoint = "https://discord.com/api/users/@me";
+                builder.Services.AddScoped<ILobbyRepository, PostgresLobbyRepository>();
+                builder.Services.AddScoped<ILobbyService, LobbyService>();
+                builder.Services.AddScoped<INightService, NightService>();
+                builder.Services.AddScoped<IDayService, DayService>();
+                builder.Services.AddScoped<IGameHistoryService, GameHistoryService>();
+                builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
-                options.Scope.Add("identify");
-
-                options.CallbackPath = "/api/auth/discord/callback";
-
-                options.Events = new OAuthEvents
+                builder.Services.Configure<ForwardedHeadersOptions>(options =>
                 {
-                    OnCreatingTicket = async ctx =>
+                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                });
+
+                builder.Services.AddScoped(sp =>
+                    new Lazy<IDayService>(() => sp.GetRequiredService<IDayService>()));
+                builder.Services.AddScoped(sp =>
+                    new Lazy<INightService>(() => sp.GetRequiredService<INightService>()));
+
+                // Identity & sessions
+                builder.Services.AddScoped<ISessionService, SessionService>();
+                builder.Services.AddScoped<IExternalAuthService, ExternalAuthService>();
+                builder.Services.AddScoped<CurrentUser>();
+                builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+
+                // Auth: cookie (needed to store OAuth state) + Discord OAuth
+                builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie()
+                .AddOAuth("Discord", options =>
+                {
+                    options.ClientId = builder.Configuration["Discord:ClientId"]!;
+                    options.ClientSecret = builder.Configuration["Discord:ClientSecret"]!;
+
+                    options.AuthorizationEndpoint = "https://discord.com/oauth2/authorize";
+                    options.TokenEndpoint = "https://discord.com/api/oauth2/token";
+                    options.UserInformationEndpoint = "https://discord.com/api/users/@me";
+
+                    options.Scope.Add("identify");
+
+                    options.CallbackPath = "/api/auth/discord/callback";
+
+                    options.Events = new OAuthEvents
                     {
-                        var request = new HttpRequestMessage(HttpMethod.Get, ctx.Options.UserInformationEndpoint);
-                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
-                        var response = await ctx.Backchannel.SendAsync(request);
-                        response.EnsureSuccessStatusCode();
+                        OnCreatingTicket = async ctx =>
+                        {
+                            var request = new HttpRequestMessage(HttpMethod.Get, ctx.Options.UserInformationEndpoint);
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
+                            var response = await ctx.Backchannel.SendAsync(request);
+                            response.EnsureSuccessStatusCode();
 
-                        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-                        var root = doc.RootElement;
+                            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                            var root = doc.RootElement;
 
-                        if (root.TryGetProperty("id", out var id))
-                            ctx.Identity!.AddClaim(new Claim(ClaimTypes.NameIdentifier, id.GetString()!));
+                            if (root.TryGetProperty("id", out var id))
+                                ctx.Identity!.AddClaim(new Claim(ClaimTypes.NameIdentifier, id.GetString()!));
 
-                        if (root.TryGetProperty("username", out var username))
-                            ctx.Identity!.AddClaim(new Claim(ClaimTypes.Name, username.GetString()!));
-                    },
-                    OnTicketReceived = async ctx =>
+                            if (root.TryGetProperty("username", out var username))
+                                ctx.Identity!.AddClaim(new Claim(ClaimTypes.Name, username.GetString()!));
+                        },
+                        OnTicketReceived = async ctx =>
+                        {
+                            var providerUserId = ctx.Principal!
+                                .FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+                            var sessionService = ctx.HttpContext.RequestServices
+                                 .GetRequiredService<ISessionService>();
+                            var externalAuth = ctx.HttpContext.RequestServices
+                                 .GetRequiredService<IExternalAuthService>();
+
+                            var userId = await externalAuth.FindOrCreateUserAsync("Discord", providerUserId);
+                            var session = await sessionService.CreateForUserAsync(userId);
+
+                            // create/find your user
+                            // create session
+
+                            ctx.Response.Redirect(
+                                $"/?token={Uri.EscapeDataString(session.Token)}"
+                            );
+
+                            ctx.HandleResponse();
+                        }
+                    };
+                })
+                .AddOAuth("Google", options =>
+                {
+                    options.ClientId = builder.Configuration["Google:ClientId"]!;
+                    options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
+
+                    options.AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
+                    options.TokenEndpoint = "https://oauth2.googleapis.com/token";
+                    options.UserInformationEndpoint = "https://openidconnect.googleapis.com/v1/userinfo";
+
+                    options.Scope.Add("openid");
+                    options.Scope.Add("profile");
+                    options.Scope.Add("email");
+
+                    options.CallbackPath = "/api/auth/google/callback";
+
+                    options.Events = new OAuthEvents
                     {
-                        var providerUserId = ctx.Principal!
-                            .FindFirstValue(ClaimTypes.NameIdentifier)!;
+                        OnCreatingTicket = async ctx =>
+                        {
+                            var request = new HttpRequestMessage(
+                                HttpMethod.Get,
+                                ctx.Options.UserInformationEndpoint);
 
-                        var sessionService = ctx.HttpContext.RequestServices
-                             .GetRequiredService<ISessionService>();
-                        var externalAuth = ctx.HttpContext.RequestServices
-                             .GetRequiredService<IExternalAuthService>();
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
 
-                        var userId = await externalAuth.FindOrCreateUserAsync("Discord", providerUserId);
-                        var session = await sessionService.CreateForUserAsync(userId);
+                            var response = await ctx.Backchannel.SendAsync(request);
+                            response.EnsureSuccessStatusCode();
 
-                        // create/find your user
-                        // create session
+                            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
-                        ctx.Response.Redirect(
-                            $"/?token={Uri.EscapeDataString(session.Token)}"
-                        );
+                            var root = doc.RootElement;
 
-                        ctx.HandleResponse();
+                            if (root.TryGetProperty("sub", out var id))
+                                ctx.Identity!.AddClaim( new Claim(ClaimTypes.NameIdentifier, id.GetString()!));
+
+                            if (root.TryGetProperty("name", out var name))
+                                ctx.Identity!.AddClaim(new Claim(ClaimTypes.Name, name.GetString()!));
+                        },
+
+                        OnTicketReceived = async ctx =>
+                        {
+                            var providerUserId = ctx.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                            var sessionService = ctx.HttpContext.RequestServices.GetRequiredService<ISessionService>();
+                            var externalAuth = ctx.HttpContext.RequestServices.GetRequiredService<IExternalAuthService>();
+
+                            var userId = await externalAuth.FindOrCreateUserAsync("Google", providerUserId);
+                            var session = await sessionService.CreateForUserAsync(userId);
+
+                            ctx.Response.Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
+
+                            ctx.HandleResponse();
+                        }
+                    };
+                });
+
+                builder.Services.AddSignalR();
+
+
+                var app = builder.Build();
+
+                using (var scope = app.Services.CreateScope())
+                {
+                    var services = scope.ServiceProvider;
+                    try
+                    {
+                        var context = services.GetRequiredService<MafiaDbContext>();
+                        context.Database.Migrate();
                     }
-                };
-            })
-            .AddOAuth("Google", options =>
-            {
-                options.ClientId = builder.Configuration["Google:ClientId"]!;
-                options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
-
-                options.AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
-                options.TokenEndpoint = "https://oauth2.googleapis.com/token";
-                options.UserInformationEndpoint = "https://openidconnect.googleapis.com/v1/userinfo";
-
-                options.Scope.Add("openid");
-                options.Scope.Add("profile");
-                options.Scope.Add("email");
-
-                options.CallbackPath = "/api/auth/google/callback";
-
-                options.Events = new OAuthEvents
-                {
-                    OnCreatingTicket = async ctx =>
+                    catch (Exception ex)
                     {
-                        var request = new HttpRequestMessage(
-                            HttpMethod.Get,
-                            ctx.Options.UserInformationEndpoint);
-
-                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
-
-                        var response = await ctx.Backchannel.SendAsync(request);
-                        response.EnsureSuccessStatusCode();
-
-                        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-
-                        var root = doc.RootElement;
-
-                        if (root.TryGetProperty("sub", out var id))
-                            ctx.Identity!.AddClaim( new Claim(ClaimTypes.NameIdentifier, id.GetString()!));
-
-                        if (root.TryGetProperty("name", out var name))
-                            ctx.Identity!.AddClaim(new Claim(ClaimTypes.Name, name.GetString()!));
-                    },
-
-                    OnTicketReceived = async ctx =>
-                    {
-                        var providerUserId = ctx.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)!;
-                        var sessionService = ctx.HttpContext.RequestServices.GetRequiredService<ISessionService>();
-                        var externalAuth = ctx.HttpContext.RequestServices.GetRequiredService<IExternalAuthService>();
-
-                        var userId = await externalAuth.FindOrCreateUserAsync("Google", providerUserId);
-                        var session = await sessionService.CreateForUserAsync(userId);
-
-                        ctx.Response.Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
-
-                        ctx.HandleResponse();
+                        var logger = services.GetRequiredService<ILogger<Program>>();
+                        logger.LogError(ex, "An error occurred while migrating the database.");
+                        Log.Fatal(ex, "An error occurred while migrating the database.");
                     }
-                };
-            });
-
-            builder.Services.AddSignalR();
-
-
-            var app = builder.Build();
-
-            using (var scope = app.Services.CreateScope())
-            {
-                var services = scope.ServiceProvider;
-                try
-                {
-                    var context = services.GetRequiredService<MafiaDbContext>();
-                    context.Database.Migrate();
                 }
-                catch (Exception ex)
+
+
+                app.MapHub<LobbyHub>("/lobbyHub");
+                app.UseDefaultFiles();
+                app.UseStaticFiles();
+
+                if (app.Environment.IsDevelopment())
                 {
-                    var logger = services.GetRequiredService<ILogger<Program>>();
-                    logger.LogError(ex, "An error occurred while migrating the database.");
+                    app.UseSwagger();
+                    app.UseSwaggerUI();
                 }
+
+                app.UseHttpsRedirection();
+                app.UseForwardedHeaders();
+                app.UseAuthentication();
+                app.UseAuthorization();
+                app.UseMiddleware<SessionMiddleware>();
+
+                app.MapControllers();
+                app.MapFallbackToFile("index.html");
+
+                app.Run();
             }
-
-
-            app.MapHub<LobbyHub>("/lobbyHub");
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
-
-            if (app.Environment.IsDevelopment())
+            catch (Exception ex)
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
+                Log.Fatal(ex, "Host terminated unexpectedly");
+                throw;
             }
-
-            app.UseHttpsRedirection();
-            app.UseForwardedHeaders();
-            app.UseAuthentication();
-            app.UseAuthorization();
-            app.UseMiddleware<SessionMiddleware>();
-
-            app.MapControllers();
-            app.MapFallbackToFile("index.html");
-
-            app.Run();
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
     }
 }

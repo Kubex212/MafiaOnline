@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>ce61a5ab-f6e0-4dd3-b925-d4efbc10df07</UserSecretsId>
     <DockerDefaultTargetOS>Windows</DockerDefaultTargetOS>
+    <!-- Set to true to skip building frontend during dotnet build -->
+    <SkipFrontendBuild>true</SkipFrontendBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,13 +22,17 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.*" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <!-- Serilog for structured logging and sinks -->
+    <PackageReference Include="Serilog.AspNetCore" Version="7.*" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.*" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="4.*" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MafiaOnline.Engine\MafiaOnline.Engine.csproj" />
   </ItemGroup>
 	
-	<Target Name="BuildFrontend" BeforeTargets="Build" Condition="Exists('$(ProjectDir)mafiaonline.frontend\package.json')">
+	<Target Name="BuildFrontend" BeforeTargets="Build" Condition="Exists('$(ProjectDir)mafiaonline.frontend\package.json') AND '$(SkipFrontendBuild)' != 'true'">
 		<Message Importance="high" Text="Building frontend..." />
 
 		<Exec WorkingDirectory="$(ProjectDir)mafiaonline.frontend" Command="npm install" />

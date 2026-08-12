@@ -191,6 +191,7 @@ public class Game
         var shuffledIndices = Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
 
         // assign werewolf roles
+        Random.Shared.Shuffle(CollectionsMarshal.AsSpan(werewolfRolesToAssign));
         for (var i = 0; i < Math.Min(werewolfRolesToAssign.Count, playerCount); i++)
         {
             var playerIndex = shuffledIndices[i];

@@ -6,6 +6,7 @@ using MafiaOnline.Engine;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace MafiaOnline.Api.Services;
 
@@ -27,17 +28,20 @@ public class NightService : INightService
     private readonly IDayService _day_service;
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<NightService> _logger;
 
-    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService, IServiceScopeFactory serviceScopeFactory)
+    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService, IServiceScopeFactory serviceScopeFactory, ILogger<NightService> logger)
     {
         _repository = repository;
         _hub = hub;
         _day_service = dayService;
         _scopeFactory = serviceScopeFactory;
+        _logger = logger;
     }
 
     public async Task BeginNightAsync(string lobbyCode)
     {
+        _logger.LogInformation("BeginNightAsync called for lobby {LobbyCode}", lobbyCode);
         var lobby = await GetLobby(lobbyCode);
         lobby.BeginNightSession();
         await _repository.Update(lobby);
@@ -46,6 +50,7 @@ public class NightService : INightService
 
     public async Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType)
     {
+        _logger.LogInformation("SubmitActionAsync lobby={LobbyCode} user={UserId} action={ActionType} targetsCount={TargetsCount}", lobbyCode, userId, actionType, targets?.Count ?? 0);
         var lobby = await GetLobby(lobbyCode);
         var actorId = GetActorId(lobby, userId);
         var action = new NightAction(actorId, targets, actionType);
@@ -76,6 +81,7 @@ public class NightService : INightService
 
         if (ShouldAdvance(lobby, actorId))
         {
+            _logger.LogDebug("Advancing night session for lobby {LobbyCode} actor={ActorId}", lobbyCode, actorId);
             lobby.NightSession.Advance();
             await _repository.Update(lobby);
 
@@ -103,6 +109,7 @@ public class NightService : INightService
 
     public async Task SkipTurnAsync(string lobbyCode, Guid userId)
     {
+        _logger.LogInformation("SkipTurnAsync lobby={LobbyCode} user={UserId}", lobbyCode, userId);
         var lobby = await GetLobby(lobbyCode);
         var actorId = GetActorId(lobby, userId);
         lobby.NightSession!.Skip(actorId);
@@ -116,11 +123,13 @@ public class NightService : INightService
     {
         if (lobby.NightSession is null || lobby.NightSession.IsFinished)
         {
+            _logger.LogDebug("Night session finished or null for lobby {LobbyCode}", lobby.Code);
             await ResolveNightAsync(lobby);
             return;
         }
 
         var active = lobby.NightSession.ActivePlayer!;
+        _logger.LogInformation("Starting night turn for lobby {LobbyCode} activePlayer={PlayerId}", lobby.Code, active.Id);
         bool hasAbility = lobby.ActivePlayerHasAbility();
 
         int minTargets = 0;
@@ -156,12 +165,14 @@ public class NightService : INightService
         {
             try
             {
+                _logger.LogDebug("Starting night turn timer for lobby {LobbyCode} seconds={Seconds}", lobby.Code, turnSeconds);
                 await Task.Delay(TimeSpan.FromSeconds(turnSeconds), cts.Token);
                 using var scope = _scopeFactory.CreateScope();
                 var lobbyService = scope.ServiceProvider.GetRequiredService<ILobbyService>();
                 var current = await lobbyService.GetLobby(lobby.Code);
                 if (current.NightSession?.ActivePlayer?.Id == active.Id)
                 {
+                    _logger.LogInformation("Night turn timer expired for lobby {LobbyCode} activePlayer={PlayerId}, forcing advance", lobby.Code, active.Id);
                     current.NightSession.ForceAdvance();
 
                     var repository = scope.ServiceProvider.GetRequiredService<ILobbyRepository>();
@@ -172,7 +183,12 @@ public class NightService : INightService
             }
             catch (TaskCanceledException)
             {
+                _logger.LogDebug("Night turn timer cancelled for lobby {LobbyCode}", lobby.Code);
                 // manually advanced
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in night timer task for lobby {LobbyCode}", lobby.Code);
             }
         }, CancellationToken.None);
     }
@@ -182,6 +198,7 @@ public class NightService : INightService
 
     private async Task ResolveNightAsync(Lobby lobby)
     {
+        _logger.LogInformation("Resolving night for lobby {LobbyCode}", lobby.Code);
         var result = lobby.ResolveNight();
         if (lobby.NightSession != null)
             lobby.NightSession.Resolved = true;
@@ -202,6 +219,7 @@ public class NightService : INightService
         // Check game over
         if (lobby.Game!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
         {
+            _logger.LogInformation("Game over for lobby {LobbyCode} winner={Winner}", lobby.Code, lobby.Game.Winner);
             await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
             {
                 winner = lobby.Game.Winner.ToString()
@@ -220,6 +238,7 @@ public class NightService : INightService
         {
             if (_timers.TryGetValue(code, out var cts))
             {
+                _logger.LogDebug("Cancelling timer for lobby {LobbyCode}", code);
                 cts.Cancel();
                 _timers.Remove(code);
             }

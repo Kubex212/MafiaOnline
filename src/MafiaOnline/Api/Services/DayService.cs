@@ -5,6 +5,7 @@ using MafiaOnline.Api.Repositories;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 
 namespace MafiaOnline.Api.Services;
@@ -19,20 +20,23 @@ public class DayService : IDayService
 {
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
-    private readonly Lazy<INightService> _nightService;
+    private readonly Lazy<INightService> _night_service;
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
-    private readonly IGameHistoryService _gameHistoryService;
+    private readonly IGameHistoryService _gameHistory_service;
+    private readonly ILogger<DayService> _logger;
 
-    public DayService(ILobbyRepository repository, IHubContext<LobbyHub> hub, Lazy<INightService> nightService, IGameHistoryService gameHistoryService)
+    public DayService(ILobbyRepository repository, IHubContext<LobbyHub> hub, Lazy<INightService> nightService, IGameHistoryService gameHistoryService, ILogger<DayService> logger)
     {
         _repository = repository;
         _hub = hub;
-        _nightService = nightService;
-        _gameHistoryService = gameHistoryService;
+        _night_service = nightService;
+        _gameHistory_service = gameHistoryService;
+        _logger = logger;
     }
 
     public async Task BeginDayAsync(string lobbyCode)
     {
+        _logger.LogInformation("BeginDayAsync called for lobby {LobbyCode}", lobbyCode);
         var lobby = await GetLobby(lobbyCode);
         lobby.BeginDaySession();
         await _repository.Update(lobby);
@@ -77,6 +81,8 @@ public class DayService : IDayService
             asleep
         });
 
+        _logger.LogInformation("DayStarted broadcast for lobby {LobbyCode} duration={Duration} alivePlayers={Count}", lobbyCode, duration, alivePlayers.Count);
+
         // Start day countdown timer
         var cts = new CancellationTokenSource();
         lock (_timers) { _timers[lobby.Code] = cts; }
@@ -85,15 +91,26 @@ public class DayService : IDayService
         {
             try
             {
+                _logger.LogDebug("Starting day timer for lobby {LobbyCode} seconds={Seconds}", lobbyCode, duration);
                 await Task.Delay(TimeSpan.FromSeconds(duration), cts.Token);
+                _logger.LogInformation("Day timer expired for lobby {LobbyCode}", lobbyCode);
                 await ResolveDayAsync(lobbyCode);
             }
-            catch (TaskCanceledException) { /* all players voted early */ }
+            catch (TaskCanceledException)
+            {
+                _logger.LogDebug("Day timer cancelled for lobby {LobbyCode}", lobbyCode);
+                /* all players voted early */
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in day timer task for lobby {LobbyCode}", lobbyCode);
+            }
         }, CancellationToken.None);
     }
 
     public async Task CastVoteAsync(string lobbyCode, Guid userId, Guid? candidateId)
     {
+        _logger.LogInformation("CastVoteAsync lobby={LobbyCode} user={UserId} candidate={CandidateId}", lobbyCode, userId, candidateId);
         var lobby = await GetLobby(lobbyCode);
 
         if (lobby.DaySession is null)
@@ -115,8 +132,11 @@ public class DayService : IDayService
             totalVotesCast = votes.Count
         });
 
+        _logger.LogDebug("VoteCast broadcast lobby={LobbyCode} voter={VoterId} totalVotesCast={Total}", lobbyCode, voterId, votes.Count);
+
         if (lobby.DaySession.AllVoted)
         {
+            _logger.LogInformation("All players voted for lobby {LobbyCode}, resolving day", lobbyCode);
             CancelTimer(lobbyCode);
             await ResolveDayAsync(lobbyCode);
         }
@@ -124,6 +144,7 @@ public class DayService : IDayService
 
     private async Task ResolveDayAsync(string lobbyCode)
     {
+        _logger.LogInformation("ResolveDayAsync called for lobby {LobbyCode}", lobbyCode);
         var lobby = await GetLobby(lobbyCode);
 
         if (lobby.DaySession is null) return; // already resolved (timer race)
@@ -164,13 +185,16 @@ public class DayService : IDayService
             tally
         });
 
+        _logger.LogInformation("DayResolved broadcast for lobby {LobbyCode} banishedCount={Count} thresholdMet={Threshold}", lobbyCode, banishedNames.Count, result.ThresholdMet);
+
         // wait a few seconds before transitioning to night/gameover so players can see the results
         await Task.Delay(5000);
 
         // Check game over
         if (lobby.Game!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
         {
-            await _gameHistoryService.RecordGameAsync(lobby);
+            _logger.LogInformation("Game finished for lobby {LobbyCode}, recording history", lobbyCode);
+            await _gameHistory_service.RecordGameAsync(lobby);
 
             await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
             {
@@ -180,7 +204,7 @@ public class DayService : IDayService
         }
 
         // transition back to night
-        await _nightService.Value.BeginNightAsync(lobbyCode);
+        await _night_service.Value.BeginNightAsync(lobbyCode);
     }
 
     private void CancelTimer(string code)
@@ -189,6 +213,7 @@ public class DayService : IDayService
         {
             if (_timers.TryGetValue(code, out var cts))
             {
+                _logger.LogDebug("Cancelling day timer for lobby {LobbyCode}", code);
                 cts.Cancel();
                 _timers.Remove(code);
             }

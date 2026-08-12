@@ -8,6 +8,7 @@ using MafiaOnline.Engine;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using static MafiaOnline.Engine.Game;
 
 namespace MafiaOnline.Api.Services;
@@ -49,11 +50,15 @@ public class LobbyService : ILobbyService
 
         await _repository.Create(lobby);
 
+        _logger.LogInformation("Created lobby {LobbyCode} hostUser={UserId} hostNick={Nickname}", lobby.Code, _currentUser.UserId, hostNickname);
+
         return lobby;
     }
 
     public async Task<Lobby> JoinLobbyAsync(string code, string nickname)
     {
+        _logger.LogInformation("JoinLobbyAsync called code={Code} nickname={Nickname} user={UserId}", code, nickname, _currentUser.UserId);
+
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
 
@@ -65,11 +70,12 @@ public class LobbyService : ILobbyService
 
         lobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
 
+        await _repository.Update(lobby);
         await _hubContext.Clients
             .Group(lobby.Code)
             .SendAsync("PlayerJoined", nickname);
 
-        await _repository.Update(lobby);
+        _logger.LogInformation("Player {Nickname} joined lobby {LobbyCode} user={UserId}", nickname, lobby.Code, _currentUser.UserId);
 
         return lobby;
     }
@@ -85,6 +91,8 @@ public class LobbyService : ILobbyService
 
     public async Task<Lobby> StartLobbyAsync(string code)
     {
+        _logger.LogInformation("StartLobbyAsync called for code={LobbyCode} by user={UserId}", code, _currentUser.UserId);
+
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
 
@@ -96,6 +104,8 @@ public class LobbyService : ILobbyService
         var requestingPlayer = GetPlayerByUserId(lobby, userId);
         lobby.Start(requestingPlayer.Id);
         await _repository.Update(lobby);
+
+        _logger.LogInformation("Lobby {LobbyCode} started by player {PlayerId}", lobby.Code, requestingPlayer.Id);
 
         // Broadcast seat list (no roles) to all players in the group
         var seats = lobby.Players
@@ -125,6 +135,8 @@ public class LobbyService : ILobbyService
 
     public async Task<RoleResponse> GetPlayerRole(string code)
     {
+        _logger.LogDebug("GetPlayerRole called for lobby={LobbyCode} user={UserId}", code, _currentUser.UserId);
+
         var userId = _currentUser.UserId;
 
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
@@ -167,6 +179,8 @@ public class LobbyService : ILobbyService
 
     private async Task<Lobby> MutateOrderAsync(string code, Action<Lobby> mutation)
     {
+        _logger.LogInformation("MutateOrderAsync called for lobby={LobbyCode} user={UserId}", code, _currentUser.UserId);
+
         var userId = _currentUser.UserId;
 
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
@@ -189,11 +203,15 @@ public class LobbyService : ILobbyService
             .Group(lobby.Code)
             .SendAsync("LobbyOrderChanged", orderedPlayers);
 
+        _logger.LogInformation("Lobby order changed for {LobbyCode} by {UserId}", lobby.Code, userId);
+
         return lobby;
     }
 
     public async Task<ReconnectResponse> ReconnectPlayerAsync(string code)
     {
+        _logger.LogInformation("ReconnectPlayerAsync called for lobby={LobbyCode} user={UserId}", code, _currentUser.UserId);
+
         var userId = _currentUser.UserId;
 
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
@@ -295,6 +313,8 @@ public class LobbyService : ILobbyService
 
     public async Task<Lobby> UpdateConfigAsync(string code, GameConfigDto configDto)
     {
+        _logger.LogInformation("UpdateConfigAsync called for lobby={LobbyCode} user={UserId}", code, _currentUser.UserId);
+
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
 
@@ -314,6 +334,8 @@ public class LobbyService : ILobbyService
         await _hubContext.Clients
             .Group(lobby.Code)
             .SendAsync("ConfigUpdated", configDto);
+
+        _logger.LogInformation("ConfigUpdated for lobby {LobbyCode} by {UserId}", lobby.Code, userId);
 
         return lobby;
     }

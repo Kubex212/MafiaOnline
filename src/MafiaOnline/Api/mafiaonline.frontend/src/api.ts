@@ -14,6 +14,10 @@ function storeToken(token: string) {
     console.log('stored token');
 }
 
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function getOrCreateSession(): Promise<{ userId: string }> {
     // If Discord just redirected back with ?token=xxx, store it and clean the URL
     const params = new URLSearchParams(window.location.search);
@@ -23,15 +27,59 @@ export async function getOrCreateSession(): Promise<{ userId: string }> {
         window.history.replaceState({}, '', window.location.pathname);
     }
 
-    const existing = getStoredToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (existing) headers['X-Session-Token'] = existing;
+    const MAX_ATTEMPTS = 3;
+    let attempt = 0;
+    let backoffMs = 250;
 
-    const res = await fetch('/api/auth/session', { headers });
-    if (!res.ok) throw new Error('Session init failed: ' + res.statusText);
-    const data: { userId: string; token?: string } = await res.json();
-    if (data.token) storeToken(data.token);
-    return { userId: data.userId };
+    // Try to initialize a session, retrying on transient errors. If a stored
+    // token is invalid (401/403) try once more without the token.
+    let lastErr: unknown = null;
+    while (attempt < MAX_ATTEMPTS) {
+        attempt++;
+        const existing = getStoredToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (existing) headers['X-Session-Token'] = existing;
+
+        try {
+            const res = await fetch('/api/auth/session', { headers });
+            if (res.ok) {
+                const data: { userId: string; token?: string } = await res.json();
+                if (data.token) storeToken(data.token);
+                return { userId: data.userId };
+            }
+
+            // If token is invalid or unauthorized, clear it and retry immediately
+            if (res.status === 401 || res.status === 403) {
+                sessionStorage.removeItem(SESSION_KEY);
+                lastErr = new Error('Session unauthorized, cleared stored token');
+                // retry quickly without token
+                await sleep(backoffMs);
+                backoffMs *= 2;
+                continue;
+            }
+
+            // Treat server errors as transient and retry
+            if (res.status >= 500 && res.status < 600) {
+                const text = await res.text().catch(() => '');
+                lastErr = new Error('Server error during session init: ' + res.status + ' ' + text);
+                await sleep(backoffMs);
+                backoffMs *= 2;
+                continue;
+            }
+
+            // Other non-success statuses are treated as terminal
+            const body = await res.text().catch(() => '');
+            throw new Error('Session init failed: ' + res.status + ' ' + body);
+        }
+        catch (err) {
+            // Network or other unexpected error — retry a few times
+            lastErr = err;
+            await sleep(backoffMs);
+            backoffMs *= 2;
+        }
+    }
+
+    throw lastErr ?? new Error('Session init failed after retries');
 }
 
 export function getDiscordLoginUrl(): string {
@@ -47,6 +95,49 @@ function authHeaders(): Record<string, string> {
     const token = getStoredToken();
     if (token) headers['X-Session-Token'] = token;
     return headers;
+}
+
+// Helper to perform fetch with automatic retry on transient errors and
+// a single retry clearing stored token on 401/403.
+async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAttempts = 3): Promise<Response> {
+    let attempt = 0;
+    let backoff = 200;
+
+    while (true) {
+        attempt++;
+        const mergedHeaders: Record<string, string> = {
+            ...(init.headers as Record<string, string> || {}),
+            ...authHeaders()
+        };
+
+        try {
+            const res = await fetch(input, { ...init, headers: mergedHeaders });
+            if (res.ok) return res;
+
+            // If unauthorized and we had a stored token, clear it and retry
+            if ((res.status === 401 || res.status === 403) && getStoredToken()) {
+                sessionStorage.removeItem(SESSION_KEY);
+                if (attempt < maxAttempts) {
+                    await sleep(backoff);
+                    backoff *= 2;
+                    continue;
+                }
+            }
+
+            // Retry on server errors
+            if (res.status >= 500 && res.status < 600 && attempt < maxAttempts) {
+                await sleep(backoff);
+                backoff *= 2;
+                continue;
+            }
+
+            return res;
+        } catch (err) {
+            if (attempt >= maxAttempts) throw err;
+            await sleep(backoff);
+            backoff *= 2;
+        }
+    }
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -228,9 +319,8 @@ export type GameHistoryItemResponse = {
 // ── API calls ────────────────────────────────────────────────────────────────
 
 export async function createLobby(nickname: string): Promise<LobbyResponse> {
-    const res = await fetch('/api/lobbies', {
+    const res = await fetchWithAuth('/api/lobbies', {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ nickname })
     });
     if (!res.ok) throw new Error('Create failed: ' + res.statusText);
@@ -238,9 +328,8 @@ export async function createLobby(nickname: string): Promise<LobbyResponse> {
 }
 
 export async function joinLobby(code: string, nickname: string): Promise<LobbyResponse> {
-    const res = await fetch('/api/lobbies/join', {
+    const res = await fetchWithAuth('/api/lobbies/join', {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ code, nickname })
     });
     if (!res.ok) throw new Error('Join failed: ' + res.statusText);
@@ -248,15 +337,14 @@ export async function joinLobby(code: string, nickname: string): Promise<LobbyRe
 }
 
 export async function getLobby(code: string): Promise<LobbyResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}`, { headers: authHeaders() });
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}`);
     if (!res.ok) throw new Error('Get lobby failed: ' + res.statusText);
     return res.json();
 }
 
 export async function startLobby(code: string): Promise<LobbyResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/start`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/start`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({})
     });
     if (!res.ok) throw new Error('Start failed: ' + res.statusText);
@@ -264,7 +352,7 @@ export async function startLobby(code: string): Promise<LobbyResponse> {
 }
 
 export async function getMyRole(code: string): Promise<RoleResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/role`, { headers: authHeaders() });
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/role`);
     if (!res.ok) throw new Error('Get role failed: ' + res.statusText);
     return res.json();
 }
@@ -280,34 +368,31 @@ export function createHubConnection(): HubConnection {
 
 export async function submitNightAction(code: string, targets: string | string[], actionType: ActionType): Promise<void> {
     const targetArr = Array.isArray(targets) ? targets : [targets];
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/action`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/night/action`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ targets: targetArr, actionType })
     });
     if (!res.ok) throw new Error('Action failed: ' + res.statusText);
 }
 
 export async function skipNightTurn(code: string): Promise<void> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/skip`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/night/skip`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({})
     });
     if (!res.ok) throw new Error('Skip failed: ' + res.statusText);
 }
 
 export async function getPlayerNightInfo(code: string): Promise<AnyClueResponse | null> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/night/clue`, { headers: authHeaders() });
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/night/clue`);
     if (res.status === 204) return null;
     if (!res.ok) throw new Error('Night info fetch failed: ' + res.statusText);
     return res.json();
 }
 
 export async function movePlayerUp(code: string, targetPlayerId: string): Promise<LobbyResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/order/move-up`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/order/move-up`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ targetPlayerId })
     });
     if (!res.ok) throw new Error('Move failed: ' + res.statusText);
@@ -315,9 +400,8 @@ export async function movePlayerUp(code: string, targetPlayerId: string): Promis
 }
 
 export async function movePlayerDown(code: string, targetPlayerId: string): Promise<LobbyResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/order/move-down`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/order/move-down`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ targetPlayerId })
     });
     if (!res.ok) throw new Error('Move failed: ' + res.statusText);
@@ -325,9 +409,8 @@ export async function movePlayerDown(code: string, targetPlayerId: string): Prom
 }
 
 export async function shufflePlayers(code: string): Promise<LobbyResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/order/shuffle`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/order/shuffle`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({})
     });
     if (!res.ok) throw new Error('Shuffle failed: ' + res.statusText);
@@ -335,18 +418,15 @@ export async function shufflePlayers(code: string): Promise<LobbyResponse> {
 }
 
 export async function castVote(code: string, candidateId: string | null): Promise<void> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/day/vote`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/day/vote`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ candidateId })
     });
     if (!res.ok) throw new Error('Vote failed: ' + res.statusText);
 }
 
 export async function getMe(): Promise<MeResponse> {
-    const res = await fetch('/api/me', {
-        headers: authHeaders()
-    });
+    const res = await fetchWithAuth('/api/me');
 
     if (!res.ok)
         throw new Error('Failed to get profile: ' + res.statusText);
@@ -355,9 +435,8 @@ export async function getMe(): Promise<MeResponse> {
 }
 
 export async function updateMe(request: UpdateMeRequest): Promise<void> {
-    const res = await fetch('/api/me', {
+    const res = await fetchWithAuth('/api/me', {
         method: 'PUT',
-        headers: authHeaders(),
         body: JSON.stringify(request)
     });
 
@@ -366,23 +445,17 @@ export async function updateMe(request: UpdateMeRequest): Promise<void> {
 }
 
 export async function getMyStats(): Promise<UserStatisticsResponse> {
-    const res = await fetch('/api/me/stats', {
-        headers: authHeaders()
-    });
+    const res = await fetchWithAuth('/api/me/stats');
 
-    if (!res.ok)
-        throw new Error('Stats fetch failed: ' + res.statusText);
+    if (!res.ok) throw new Error('Stats fetch failed: ' + res.statusText);
 
     return res.json();
 }
 
 export async function getMyHistory(): Promise<GameHistoryItemResponse[]> {
-    const res = await fetch('/api/me/history', {
-        headers: authHeaders()
-    });
+    const res = await fetchWithAuth('/api/me/history');
 
-    if (!res.ok)
-        throw new Error('History fetch failed: ' + res.statusText);
+    if (!res.ok) throw new Error('History fetch failed: ' + res.statusText);
 
     return res.json();
 }
@@ -412,10 +485,10 @@ export type ReconnectResponse = {
 };
 
 export async function reconnect(lobbyCode: string): Promise<ReconnectResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(lobbyCode)}/reconnect`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(lobbyCode)}/reconnect`, {
         method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({})
+        body: JSON.stringify({
+        })
     });
     if (res.status === 404) throw new Error('Lobby or player not found');
     if (!res.ok) throw new Error('Reconnect failed: ' + res.statusText);
@@ -423,9 +496,8 @@ export async function reconnect(lobbyCode: string): Promise<ReconnectResponse> {
 }
 
 export async function updateConfig(code: string, config: GameConfig): Promise<LobbyResponse> {
-    const res = await fetch(`/api/lobbies/${encodeURIComponent(code)}/config`, {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/config`, {
         method: 'POST',
-        headers: authHeaders(),
         body: JSON.stringify({ config })
     });
     if (!res.ok) throw new Error('Update config failed: ' + res.statusText);
