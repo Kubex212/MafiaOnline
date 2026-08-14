@@ -196,6 +196,12 @@ export type DogTamerConfig = { range: number; numWerewolves: number; };
 export type PoacherConfig = { allowSelfTarget: boolean; mustAlternate: boolean; };
 export type GhostConfig = { shouldGetAlibi: boolean; };
 
+export type DrunkConfig = {
+    drunkOccuranceChance: number;
+    drunkEffectChance: number;
+    announceDrunkOccurance: boolean;
+};
+
 export type GameConfig = {
     roles: RoleSelection;
     werewolfCount: number;
@@ -207,6 +213,7 @@ export type GameConfig = {
     poacher: PoacherConfig;
     werewolf?: WerewolfConfig;
     ghost: GhostConfig;
+    drunk?: DrunkConfig;
 };
 
 export type LobbyResponse = {
@@ -268,6 +275,11 @@ export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;
 }[];
 
+export type GameStartedPayload = {
+    seats: SeatInfo[];
+    drunkPresent: boolean;
+};
+
 export type DayStartedPayload = {
     durationSeconds: number;
     alivePlayers: SeatInfo[];
@@ -279,7 +291,7 @@ export type DayStartedPayload = {
 export type WerewolfAttackPayload = { actorId: string; targetId: string; targetName: string; };
 export type VoteCastPayload = { voterId: string; candidateId: string | null; totalVotesCast: number; };
 export type DayResolvedPayload = { banished: string[]; thresholdMet: boolean; tally: { playerId: string; votes: number }[]; };
-export type GameOverPayload = { winner: 'Villagers' | 'Werewolves' | 'Fool'; };
+export type GameOverPayload = { winner: 'Villagers' | 'Werewolves' | 'Fool'; drunkId?: string | null; drunkName?: string | null; };
 
 export type MeResponse = {
     id: string;

@@ -51,6 +51,11 @@ public class Game
 
     public void Execute(GameCommand command) => command.Execute(this);
 
+    [JsonProperty]
+    private Guid? _drunkId = null;
+    [JsonIgnore]
+    public Player? DrunkPlayer => _drunkId.HasValue ? _players.FirstOrDefault(p => p.Id == _drunkId.Value) : null;
+
     public DateTime StartedAtUtc { get; set; }
 
     // ── Night ──────────────────────────────────────────────────────────────
@@ -62,7 +67,7 @@ public class Game
 
         var alivePlayers = _players.Where(p => p.IsAlive).ToList();
         var resolver = new NightResolver();
-        var nightResult = resolver.Resolve(alivePlayers, actions, Config);
+        var nightResult = resolver.Resolve(alivePlayers, actions, Config, DrunkPlayer);
         Turns.Last().Night = nightResult;
 
         foreach (var killedId in LastNightResult!.Killed)
@@ -234,6 +239,29 @@ public class Game
                 unusedSpecialVillagerRoles.RemoveAt(randomIndex);
             }
         }
+
+        if(Config.Drunk != null)
+        {
+            var shouldDrunkOccur = Random.Shared.Next(100) < Config.Drunk.DrunkOccuranceChance;
+            if(shouldDrunkOccur)
+            {
+                var clueRoles = ordered.Where(player => player.RoleType.GivesNightClue()).ToList();
+                if(clueRoles.Any())
+                {
+                    var randomIndex = new Random().Next(clueRoles.Count);
+                    var drunkPlayer = clueRoles[randomIndex];
+                    SetDrunk(drunkPlayer.Id);
+                }
+            }
+        }
+    }
+
+    internal void SetDrunk(Guid playerId)
+    {
+        var player = _players.FirstOrDefault(p => p.Id == playerId);
+        if (player is null)
+            throw new InvalidOperationException("Player not found in game.");
+        _drunkId = playerId;
     }
 
     // public

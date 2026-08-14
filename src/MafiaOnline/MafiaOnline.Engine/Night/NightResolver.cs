@@ -19,7 +19,8 @@ public class NightResolver
     public NightResult Resolve(
         IReadOnlyList<Player> alivePlayers,
         IReadOnlyList<NightAction> submittedActions,
-        GameConfig config = null)
+        GameConfig config = null,
+        Player? drunkPlayer = null)
     {
         if(config is null)
             config = GameConfig.GetDefault();
@@ -65,6 +66,8 @@ public class NightResolver
 
             ability.Apply(player, action, context, alivePlayers);
         }
+
+        context.DrunkPlayer = drunkPlayer;
 
         return BuildResult(context, alivePlayers, config, submittedActions);
     }
@@ -218,6 +221,17 @@ public class NightResolver
             if(correspondingClueEvent != null)
             {
                 events.Remove(correspondingClueEvent);
+            }
+        }
+
+        var drunkPlayer = context.DrunkPlayer;
+        if (drunkPlayer?.IsAlive == true)
+        {
+            var shouldEffectOccur = config!.Drunk!.DrunkOccuranceChance >= new Random().Next(100);
+            var drunkPlayerClue = clueEvents.FirstOrDefault(e => e.ClueOwnerId == drunkPlayer.Id);
+            if (shouldEffectOccur && drunkPlayerClue != null)
+            {
+                drunkPlayerClue.ReverseClue();
             }
         }
 

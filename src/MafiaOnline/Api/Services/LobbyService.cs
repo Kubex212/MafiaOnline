@@ -145,7 +145,7 @@ public class LobbyService : ILobbyService
 
         var userId = _currentUser.UserId;
 
-        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())!
             ?? throw new InvalidOperationException("Lobby not found.");
 
         var requestingPlayer = GetPlayerByUserId(lobby, userId);
@@ -154,17 +154,25 @@ public class LobbyService : ILobbyService
 
         _logger.LogInformation("Lobby {LobbyCode} started by player {PlayerId}", lobby.Code, requestingPlayer.Id);
 
-        // Broadcast seat list (no roles) to all players in the group
+        // broadcast seat list (no roles) to all players in the group
         var seats = lobby.Players
             .OrderBy(p => p.SeatIndex)
             .Select(p => new { id = p.Id, nickname = p.Nickname, seatIndex = p.SeatIndex })
             .ToList();
 
-        await _hubContext.Clients
-            .Group(lobby.Code)
-            .SendAsync("GameStarted", seats);
+        try
+        {
+            var drunkPresent = lobby.Game!.DrunkPlayer != null && lobby.Game.Config?.Drunk?.AnnounceDrunkOccurance == true;
+            await _hubContext.Clients
+                .Group(lobby.Code)
+                .SendAsync("GameStarted", new { seats, drunkPresent });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to broadcast GameStarted for lobby {LobbyCode}", lobby.Code);
+        }
 
-        // Give clients a moment to render before the first turn fires
+        // give clients a moment to render before the first turn fires
         try
         {
             await Task.Delay(8000);

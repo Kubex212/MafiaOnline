@@ -198,7 +198,9 @@ public class DayService : IDayService
 
             await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
             {
-                winner = lobby.Game.Winner.ToString()
+                winner = lobby.Game.Winner.ToString(),
+                drunkId = lobby.Game.DrunkPlayer?.Id,
+                drunkName = lobby.Game.DrunkPlayer != null ? lobby.Players.FirstOrDefault(p => p.Id == lobby.Game.DrunkPlayer.Id)?.Nickname : null
             });
             return;
         }

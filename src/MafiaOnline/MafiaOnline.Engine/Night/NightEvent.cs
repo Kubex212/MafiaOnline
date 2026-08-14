@@ -35,7 +35,7 @@ public abstract class ClueEvent : NightEvent
         ClueOwnerId = clueOwnerId;
     }
 
-    public void ReverseClue() => IsReversed = !IsReversed;
+    public void ReverseClue() => IsReversed = true;
 
     public virtual Dictionary<string, object> GetAdditionalInfoDictionary(IReadOnlyCollection<Player> players)
     {

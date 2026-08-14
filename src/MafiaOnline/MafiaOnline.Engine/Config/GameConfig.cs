@@ -7,17 +7,18 @@ namespace MafiaOnline.Engine.Config;
 /// </summary>
 public class GameConfig
 {
-    public RoleSelectionConfig Roles { get; set; } = new();
     public int WerewolfCount { get; set; } = 1;
     public int TurnDurationSeconds { get; set; } = 30;
+    public RoleSelectionConfig Roles { get; set; } = new();
     public GuardianConfig Guardian { get; set; } = new();
     public DetectiveConfig Detective { get; set; } = new();
     public DogTamerConfig DogTamer { get; set; } = new();
     public DayConfig Day { get; set; } = new();
     public PoacherConfig Poacher { get; set; } = new();
     public GhostConfig Ghost { get; set; } = new();
+    public DrunkConfig Drunk { get; set; } = new();
+    public WerewolfConfig Werewolf { get; set; } = new();
 
-    public WerewolfConfig Werewolf { get; set; } = new();// Configuration for werewolf team behaviour (shared kill vote etc.)
     public static GameConfig GetDefault()
     {
         return new GameConfig
@@ -43,7 +44,8 @@ public class GameConfig
             Day = new DayConfig(),
             Poacher = new PoacherConfig(),
             Werewolf = new WerewolfConfig(),
-            Ghost = new GhostConfig()
+            Ghost = new GhostConfig(),
+            Drunk = new DrunkConfig(),
         };
     }
 }

@@ -50,6 +50,11 @@ export default function GameOver({ payload, myRoleLabel, myRole, myTeam, isHost,
             <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
                 {t('youPlayedAs')} <b style={{ color: 'var(--accent-2)' }}>{myRoleLabel}</b>
             </div>
+            {payload.drunkName && (
+                <div style={{ marginTop: 8, color: 'var(--text-dim)' }}>
+                    {t('drunkRevealed', { name: payload.drunkName })}
+                </div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button className="btn" onClick={goHome}>
                     {t('backToMenu')}

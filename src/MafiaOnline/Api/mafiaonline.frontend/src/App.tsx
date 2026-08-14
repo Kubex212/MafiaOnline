@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo, PlayerResponse,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
-    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig
+    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig, GameStartedPayload
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
@@ -41,6 +41,7 @@ export default function App() {
     const [deadIds, setDeadIds] = useState<string[]>([]);
     const [profileOpen, setProfileOpen] = useState(false);
     const [rematchCode, setRematchCode] = useState<string | null>(null);
+    const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
 
     // mark rematchCode as used for TS
     useEffect(() => {
@@ -143,12 +144,15 @@ export default function App() {
                 setLobby({ ...prev, config: cfg });
             });
 
-            conn.on('GameStarted', async (seatList: SeatInfo[]) => {
+            conn.on('GameStarted', async (payload: GameStartedPayload) => {
+                const seatList: SeatInfo[] = payload?.seats ?? [];
+                const drunkFlag: boolean = (payload?.drunkPresent ?? false);
                 const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
                 setSeats(sorted as SeatInfo[]);
                 seatsRef.current = sorted as SeatInfo[];
                 setDeadIds([]);
                 clearLog();
+                setDrunkPresent(drunkFlag);
                 const code = lobbyRef.current?.code;
                 if (code) {
                     try {
@@ -363,10 +367,6 @@ export default function App() {
         } catch { /* ignore */ }
     }
 
-    function clearSession() {
-        sessionStorage.removeItem('lobbyCode');
-    }
-
     const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
 
     // Fellow werewolves — the backend only sends this to werewolves, so nobody
@@ -479,6 +479,11 @@ export default function App() {
                 <p className="reveal__desc">
                     {t(roleDescKey(myRole.name, 'Short'), roleDescParams(lobby?.config))}
                 </p>
+                {drunkPresent && (
+                    <div style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 8 }}>
+                        {t('drunkPresent')}
+                    </div>
+                )}
                 <div style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 12, fontStyle: 'italic' }}>
                     {t('nightBeginsSoon')}
                 </div>

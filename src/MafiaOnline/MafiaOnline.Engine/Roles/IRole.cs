@@ -47,6 +47,21 @@ public static class RoleTypeExtensions
             _ => throw new ArgumentOutOfRangeException(nameof(roleType), $"Unhandled role type: {roleType}")
         };
     }
+
+    public static bool GivesNightClue(this RoleType role)
+    {
+        switch (role)
+        {
+            case RoleType.Detective:
+            case RoleType.Seer:
+            case RoleType.DogTamer:
+            case RoleType.Trailer:
+            case RoleType.Peeper:
+                return true;
+            default:
+                return false;
+        }
+    }
 }
 
 public enum Team

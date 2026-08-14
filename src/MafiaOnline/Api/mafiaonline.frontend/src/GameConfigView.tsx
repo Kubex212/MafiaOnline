@@ -36,11 +36,11 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 <h4 className="config__section-title">{t('generalSettings')}</h4>
                 <div className="config__row">
                     <span>{t('werewolfCount')}</span>
-                    <span className="config__value">{config.werewolfCount}</span>
+                    <span className="config__value">{config.werewolfCount ?? 0}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('turnDurationSeconds')}</span>
-                    <span className="config__value">{config.turnDurationSeconds}</span>
+                    <span className="config__value">{config.turnDurationSeconds ?? 0}</span>
                 </div>
             </div>
 
@@ -48,19 +48,19 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 <h4 className="config__section-title">{t('daySettings')}</h4>
                 <div className="config__row">
                     <span>{t('dayDurationSeconds')}</span>
-                    <span className="config__value">{config.day.durationSeconds}</span>
+                    <span className="config__value">{config.day?.durationSeconds ?? 0}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('votesRequiredFraction')}</span>
-                    <span className="config__value">{config.day.votesRequiredFraction}</span>
+                    <span className="config__value">{config.day?.votesRequiredFraction ?? 0}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('drawResolution')}</span>
-                    <span className="config__value">{t('draw' + config.day.drawResolution)}</span>
+                    <span className="config__value">{t('draw' + (config.day?.drawResolution ?? ''))}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('showVoteTargets')}</span>
-                    <span className="config__value">{votesLabel(config.day.showVoteTargets ?? 'Always')}</span>
+                    <span className="config__value">{votesLabel(config.day?.showVoteTargets ?? 'Always')}</span>
                 </div>
             </div>
 
@@ -68,7 +68,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 <h4 className="config__section-title">{t('werewolfSettings')}</h4>
                 <div className="config__row">
                     <span>{t('werewolfDrawResolution')}</span>
-                    <span className="config__value">{t('draw' + werewolf.drawResolution)}</span>
+                    <span className="config__value">{t('draw' + (werewolf.drawResolution ?? DEFAULT_WEREWOLF_CONFIG.drawResolution))}</span>
                 </div>
                 <div className="config__row">
                     <span>{t('werewolfShowVoteTargets')}</span>
@@ -76,7 +76,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 </div>
                 <div className="config__row">
                     <span>{t('werewolfAlibi')}</span>
-                    <Flag on={werewolf.alibi} t={t} />
+                    <Flag on={werewolf.alibi ?? DEFAULT_WEREWOLF_CONFIG.alibi} t={t} />
                 </div>
             </div>
 
@@ -84,7 +84,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 <h4 className="config__section-title">{t('roleCards')}</h4>
                 <div className="config__grid">
                     {roleKeys.map(key => {
-                        const enabled = !!config.roles[key];
+                        const enabled = !!config.roles?.[key];
                         return (
                             <div key={key} className={`role-card ${enabled ? '' : 'role-card--off'}`}>
                                 <div className="role-card__head role-card__head--static">
@@ -96,44 +96,60 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                 {key === 'guardian' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('canProtectSelf')}</span>
-                                            <Flag on={config.guardian.canProtectSelf} t={t} /></label>
+                                            <Flag on={config.guardian?.canProtectSelf ?? false} t={t} /></label>
                                         <label><span>{t('mustAlternate')}</span>
-                                            <Flag on={config.guardian.mustAlternate} t={t} /></label>
+                                            <Flag on={config.guardian?.mustAlternate ?? false} t={t} /></label>
                                         <label><span>{t('announceProtection')}</span>
-                                            <Flag on={config.guardian.announceProtection} t={t} /></label>
+                                            <Flag on={config.guardian?.announceProtection ?? false} t={t} /></label>
                                     </div>
                                 )}
                                 {key === 'detective' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('canRevealWerewolves')}</span>
-                                            <Flag on={config.detective.canRevealWerewolves} t={t} /></label>
+                                            <Flag on={config.detective?.canRevealWerewolves ?? false} t={t} /></label>
                                     </div>
                                 )}
                                 {key === 'dogTamer' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('dogTamerRange')}</span>
-                                            <span className="config__value">{config.dogTamer.range}</span></label>
+                                            <span className="config__value">{config.dogTamer?.range ?? 0}</span></label>
                                         <label><span>{t('dogTamerNumWerewolves')}</span>
-                                            <span className="config__value">{config.dogTamer.numWerewolves}</span></label>
+                                            <span className="config__value">{config.dogTamer?.numWerewolves ?? 0}</span></label>
                                     </div>
                                 )}
                                 {key === 'poacher' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('allowSelfTarget')}</span>
-                                            <Flag on={config.poacher.allowSelfTarget} t={t} /></label>
+                                            <Flag on={config.poacher?.allowSelfTarget ?? false} t={t} /></label>
                                         <label><span>{t('mustAlternate')}</span>
-                                            <Flag on={config.poacher.mustAlternate} t={t} /></label>
+                                            <Flag on={config.poacher?.mustAlternate ?? false} t={t} /></label>
                                     </div>
                                 )}
                                 {key === 'ghost' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('shouldGetAlibi')}</span>
-                                            <Flag on={config.ghost.shouldGetAlibi} t={t} /></label>
+                                            <Flag on={config.ghost?.shouldGetAlibi ?? false} t={t} /></label>
                                     </div>
                                 )}
                             </div>
                         );
                     })}
+                </div>
+            </div>
+
+            <div className="config__section">
+                <h4 className="config__section-title">{t('drunkSettings')}</h4>
+                <div className="config__row">
+                    <span>{t('drunkOccuranceChance')}</span>
+                    <span className="config__value">{config.drunk?.drunkOccuranceChance ?? 100}%</span>
+                </div>
+                <div className="config__row">
+                    <span>{t('drunkEffectChance')}</span>
+                    <span className="config__value">{config.drunk?.drunkEffectChance ?? 100}%</span>
+                </div>
+                <div className="config__row">
+                    <span>{t('announceDrunkOccurance')}</span>
+                    <span className="config__value">{config.drunk?.announceDrunkOccurance ? t('on') : t('off')}</span>
                 </div>
             </div>
         </div>

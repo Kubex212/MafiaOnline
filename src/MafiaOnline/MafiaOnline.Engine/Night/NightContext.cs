@@ -9,6 +9,7 @@ namespace MafiaOnline.Engine.Night;
 /// </summary>
 public class NightContext
 {
+    internal Player? DrunkPlayer { get; set; } = null;
     // ---------- pending decisions (set by abilities) ----------
 
     /// <summary>

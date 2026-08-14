@@ -202,7 +202,7 @@
   "chronicleEmpty": "Nic się jeszcze nie wydarzyło…",
   "roleDetails": "Szczegóły roli {{role}}",
   "yourPack": "Twoja wataha",
-  "landingLede": "Kultowa towarzyska w oprawie wioski nękanej przez wilkołaków. Wszyscy siedzą przy jednym stole - nigdy nie wiesz, kto jest kim. Rozmawiaj, oskarżaj i nie daj się zwieść.",
+  "landingLede": "Kultowa towarzyska w oprawie wioski nękanej przez wilkołaki. Wszyscy siedzą przy jednym stole - nigdy nie wiesz, kto jest kim. Rozmawiaj, oskarżaj i nie daj się zwieść.",
   "factPlayers": "graczy",
   "factLength": "na grę",
   "factRoles": "unikalnych roli",
@@ -254,5 +254,12 @@
   "backToMenu": "Powrót do menu",
   "joinRematch": "Dołącz do rewanżu",
   "waitForRematch": "Oczekiwanie na gospodarza...",
-  "rematchCreated": "Rewanż utworzony: {{code}}"
+  "rematchCreated": "Rewanż utworzony: {{code}}",
+
+  "drunkSettings": "Ustawienia Pijaka",
+  "drunkOccuranceChance": "Szansa na pojawienie się Pijaka (%)",
+  "drunkEffectChance": "Szansa efektu Pijaka (%)",
+  "announceDrunkOccurance": "Ogłaszaj pojawienie się Pijaka",
+  "drunkRevealed": "Pijakiem był: {{name}}",
+  "drunkPresent": "W tej grze jest Pijak..."
 }

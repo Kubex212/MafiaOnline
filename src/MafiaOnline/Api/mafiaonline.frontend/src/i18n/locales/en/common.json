@@ -254,5 +254,12 @@
   "backToMenu": "Back to menu",
   "joinRematch": "Join rematch",
   "waitForRematch": "Waiting for host to create rematch...",
-  "rematchCreated": "Rematch created: {{code}}"
+  "rematchCreated": "Rematch created: {{code}}",
+
+  "drunkSettings": "Drunk settings",
+  "drunkOccuranceChance": "Drunk occurrence chance (%)",
+  "drunkEffectChance": "Drunk effect chance (%)",
+  "announceDrunkOccurance": "Announce Drunk occurrence",
+  "drunkRevealed": "Drunk was: {{name}}",
+  "drunkPresent": "A Drunk is in this game..."
 }
