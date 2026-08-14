@@ -43,13 +43,13 @@ public sealed class PeeperInvestigateAbility() : NightAbility()
         var target = alivePlayers.FirstOrDefault(p => p.Id == targetId);
         if (target is null) return;
 
-        if (target.Role.Team == Team.Werewolves)
+        if (target.Role.VisibleTeam == Team.Werewolves)
         {
             context.PeeperKills.Add(actor.Id);
         }
         else
         {
-            var isVillager = target.Role.Team == Team.Villagers;
+            var isVillager = target.Role.VisibleTeam == Team.Villagers;
             context.AddEvent(new PeeperClueEvent(actor.Id, targetId, isVillager));
         }
     }

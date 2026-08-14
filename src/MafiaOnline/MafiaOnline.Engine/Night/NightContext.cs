@@ -57,6 +57,11 @@ public class NightContext
     /// </summary>
     internal HashSet<Guid> SleepingPlayers { get; } = new();
 
+    /// <summary>
+    /// Spy and his target id
+    /// </summary>
+    internal (Guid SpyId, Guid TargetId)? SpyAbility { get; set; } = null;
+
     // ---------- finalised outcomes (populated by NightResolver) ----------
 
     internal List<NightEvent> Events { get; } = new();

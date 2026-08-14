@@ -172,6 +172,7 @@ public class Game
         if (Config.Roles.Trailer) specialRolesToAssign.Add(RoleType.Trailer);
         if (Config.Roles.Seer) specialRolesToAssign.Add(RoleType.Seer);
         if (Config.Roles.Peeper) specialRolesToAssign.Add(RoleType.Peeper);
+        if (Config.Roles.Spy) specialRolesToAssign.Add(RoleType.Spy);
 
         // neutral roles
         if (Config.Roles.Fool) specialRolesToAssign.Add(RoleType.Fool);
@@ -227,8 +228,14 @@ public class Game
             var unusedSpecialVillagerRoles = specialRolesSet.Where(r => r.GetTeam() == Team.Villagers).ToList();
 
             // if there are more werewolves than unused special villager roles, some werewolves will not get an alibi
-
             var werewolves = ordered.Where(player => player.Role.Team == Team.Werewolves).ToList();
+
+            // if ghost is not supposed to get alibi - remove it from the werewolf list
+            if (Config.Roles.Ghost && !Config.Ghost.ShouldGetAlibi)
+            {
+                werewolves.RemoveAll(player => player.RoleType == RoleType.Ghost);
+            }
+
             var unusedRolesCount = unusedSpecialVillagerRoles.Count;
             for (int i = 0; i < Math.Min(werewolves.Count, unusedRolesCount); i++)
             {

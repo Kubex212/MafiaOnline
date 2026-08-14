@@ -711,7 +711,7 @@ export default function App() {
                                         {p.isHost && <span className="lobby-tag">{t('host')}</span>}
                                         {p.id === myPlayerId && <span className="lobby-tag tag--you">{t('you')}</span>}
                                         {isHost && !lobby.started && (
-                                            <span style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+                                            <span className="move-player-arrows" style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
                                                 <button className="icon-btn"
                                                     disabled={i === 0}
                                                     onClick={() => withLobby((c) => movePlayerUp(c, p.id))}

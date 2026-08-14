@@ -158,6 +158,7 @@ export type RoleSelection = {
     trailer: boolean;
     seer: boolean;
     peeper: boolean;
+    spy: boolean;
     fool: boolean;
     dracula: boolean;
     deceiver: boolean;
@@ -181,7 +182,7 @@ export type WerewolfConfig = {
     /** Whether werewolves see each other's attack votes live. */
     showVoteTargets: ShowVotes;
     /** Whether werewolves receive a fake alibi at the start of the game. */
-    alibi: boolean;
+    showAlibi: boolean;
 };
 
 export const DEFAULT_WEREWOLF_CONFIG: WerewolfConfig = {
@@ -211,7 +212,7 @@ export type GameConfig = {
     dogTamer: DogTamerConfig;
     day: DayConfig;
     poacher: PoacherConfig;
-    werewolf?: WerewolfConfig;
+    werewolf: WerewolfConfig;
     ghost: GhostConfig;
     drunk?: DrunkConfig;
 };
@@ -255,6 +256,7 @@ export enum ClueType {
     Seer = "Seer",
     Trailer = "Trailer",
     Peeper = "Peeper",
+    Spy = "Spy",
 }
 
 export interface ClueResponse { type: ClueType; data: Record<string, unknown>; clue: unknown; }
@@ -266,10 +268,12 @@ export interface SeerClueResponse extends ClueResponse {
 }
 export interface TrailerClueResponse extends ClueResponse { type: ClueType.Trailer; clue: string; }
 export interface PeeperClueResponse extends ClueResponse { type: ClueType.Peeper; clue: boolean; }
+export interface SpyClueResponse extends ClueResponse { type: ClueType.Spy; clue: boolean; }
+
 
 
 export type AnyClueResponse =
-    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse;
+    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;

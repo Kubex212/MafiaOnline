@@ -202,6 +202,14 @@ public class NightResolver
             killed.Add(peeperId);
         }
 
+        // Spy ability
+        if(context.SpyAbility is not null)
+        {
+            var (spyId, targetId) = context.SpyAbility.Value;
+            var targetActions = actions.Where(a => a.Actor == targetId).ToList();
+            events.Add(new SpyClueEvent(spyId, targetId, targetActions.Any()));
+        }
+
         // Include any events directly registered in context
         events.AddRange(context.Events);
 

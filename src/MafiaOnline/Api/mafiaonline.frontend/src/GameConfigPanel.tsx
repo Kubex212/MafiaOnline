@@ -10,7 +10,7 @@ type GameConfigPanelProps = {
 };
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'spy', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
 ];
 
 export default function GameConfigPanel({ config, onChange }: GameConfigPanelProps) {
@@ -136,8 +136,8 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                 <label className="config__row">
                     <span>{t('werewolfAlibi')}</span>
                     <input type="checkbox"
-                        checked={werewolf.alibi}
-                        onChange={e => updateWerewolf({ alibi: e.target.checked })} />
+                        checked={werewolf.showAlibi}
+                        onChange={e => updateWerewolf({ showAlibi: e.target.checked })} />
                 </label>
             </div>
 

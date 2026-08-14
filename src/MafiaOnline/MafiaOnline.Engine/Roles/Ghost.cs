@@ -12,7 +12,7 @@ namespace MafiaOnline.Engine.Roles
     /// </summary>
     public class Ghost(GhostConfig config) : IRole
     {
-        public RoleType Type => RoleType.Deceiver;
+        public RoleType Type => RoleType.Ghost;
         public Team Team => Team.Werewolves;
         public string Name => "Ghost";
         public Team VisibleTeam => Team.Villagers; // Ghost appears as a villager to the villagers

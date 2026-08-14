@@ -31,7 +31,7 @@ public class DayConfig
     /// Uses ceiling, so with 4 players and 0.5 the threshold is 2 votes.
     /// Default: 0.5.
     /// </summary>
-    public double VotesRequiredFraction { get; set; } = 0.5;
+    public double VotesRequiredFraction { get; set; } = 0.51;
 
     /// <summary>How to handle a tie between the highest-voted candidates.</summary>
     public DrawResolution DrawResolution { get; set; } = DrawResolution.KickNone;
@@ -40,5 +40,5 @@ public class DayConfig
     /// When true, every client is told in real time who each voter is targeting.
     /// When false, only the fact that a player has voted (not their target) is broadcast.
     /// </summary>
-    public ShowDayVotes ShowVoteTargets { get; set; } = ShowDayVotes.AfterVotingEnds;
+    public ShowDayVotes ShowVoteTargets { get; set; } = ShowDayVotes.Always;
 }

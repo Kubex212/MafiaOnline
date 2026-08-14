@@ -9,7 +9,7 @@ public class GuardianConfig
     /// Whether the Guardian is allowed to choose themselves as protection target.
     /// Default: false.
     /// </summary>
-    public bool CanProtectSelf { get; set; } = false;
+    public bool CanProtectSelf { get; set; } = true;
 
     /// <summary>
     /// Whether the Guardian must switch targets on consecutive nights.

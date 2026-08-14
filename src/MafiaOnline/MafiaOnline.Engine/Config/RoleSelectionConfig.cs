@@ -12,6 +12,7 @@ public class RoleSelectionConfig
     public bool Trailer { get; set; } = true;
     public bool Seer { get; set; } = true;
     public bool Peeper { get; set; } = true;
+    public bool Spy { get; set; } = true;
     public bool Fool { get; set; } = true;
     public bool Dracula { get; set; } = true;
     public bool Deceiver { get; set; } = true;

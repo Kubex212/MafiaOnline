@@ -137,7 +137,7 @@ body {
 .card, .btn, .input, .select, .role-badge, .turn-banner, .resolution,
 .event-log, .config__section, .role-card, .player-list__item, .table-svg circle,
 .table-svg text, .phase__title, .role-info {
-    transition: background-color 1.1s var(--ease), border-color 1.1s var(--ease), color 1.1s var(--ease), fill 1.1s var(--ease), stroke 1.1s var(--ease), box-shadow 1.1s var(--ease);
+    transition: background-color 1.1s var(--ease), border-color 1.1s var(--ease), color 1.1s var(--ease), fill 1.1s var(--ease), stroke 1.1s var(--ease), box-shadow 1.1s var(--ease), opacity 0.5s;
 }
 
 /* Dawn / dusk veil played on every phase switch. */
@@ -676,6 +676,8 @@ code {
 .player-name {
     flex: 1;
     font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .player-list__item--me .player-name {
@@ -1068,6 +1070,8 @@ code {
 
 .role-card__flag {
     margin-left: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .role-hint {
@@ -1593,6 +1597,13 @@ code {
     justify-content: space-between;
 }
 
+.role-card__head--static > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 @media (max-width: 420px) {
     .config__row {
         flex-wrap: wrap;
@@ -1721,9 +1732,9 @@ code {
         font-size: 0.85rem;
     }
 
-    .role-info__alibi {
+   /* .role-info__alibi {
         display: none;
-    }
+    }*/
 }
 
 /* ── Landing explainer (home page, before a lobby exists) ──────────────── */

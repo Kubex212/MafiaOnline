@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import RoleHint from './RoleHint';
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'spy', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
 ];
 
 function Flag({ on, t }: { on: boolean; t: (k: string) => string }) {

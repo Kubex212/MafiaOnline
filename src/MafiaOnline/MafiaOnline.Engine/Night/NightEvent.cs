@@ -9,6 +9,7 @@ public enum ClueType
     Seer,
     Trailer,
     Peeper,
+    Spy,
 }
 
 public abstract class NightEvent
@@ -170,6 +171,35 @@ public sealed class PeeperClueEvent : ClueEvent<bool>
         };
     }
 }
+
+public sealed class SpyClueEvent : ClueEvent<bool>
+{
+    [JsonProperty]
+    public Guid Subject { get; private set; }
+    public override ClueType ClueType => ClueType.Spy;
+
+    public SpyClueEvent()
+    {
+    }
+
+    public SpyClueEvent(Guid spyId, Guid targetId, bool didVisit)
+        : base(spyId, didVisit, !didVisit)
+    {
+        Subject = targetId;
+    }
+
+    public override Dictionary<string, object> GetAdditionalInfoDictionary(IReadOnlyCollection<Player> players)
+    {
+        var subjName = players.FirstOrDefault(p => p.Id == Subject)?.Nickname ?? "?";
+
+        return new Dictionary<string, object>
+        {
+            ["SubjectName"] = subjName,
+            ["Subject"] = Subject
+        };
+    }
+}
+
 
 public sealed class PlayerKilledEvent : NightEvent
 {
