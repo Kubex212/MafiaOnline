@@ -7,4 +7,5 @@ public interface ILobbyRepository
     Task Create(Lobby lobby);
     Task<Lobby?> Get(string code);
     Task Update(Lobby lobby);
+    Task Delete(string code);
 }

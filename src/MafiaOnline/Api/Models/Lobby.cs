@@ -135,6 +135,38 @@ public class Lobby
         Started = true;
     }
 
+    public void RemovePlayerByUserId(Guid userId)
+    {
+        AssertNotStarted();
+        var idx = _players.FindIndex(p => p.UserId == userId);
+        if (idx < 0) return;
+        RemovePlayerAtIndex(idx);
+    }
+
+    public void RemovePlayerById(Guid playerId)
+    {
+        AssertNotStarted();
+        var idx = _players.FindIndex(p => p.Id == playerId);
+        if (idx < 0) return;
+        RemovePlayerAtIndex(idx);
+    }
+
+    private void RemovePlayerAtIndex(int idx)
+    {
+        _players.RemoveAt(idx);
+        // shift seat indices for remaining players (not started yet so SeatIndex should be -1 but keep consistent)
+        for (int i = 0; i < _players.Count; i++)
+        {
+            _players[i].SeatIndex = i;
+        }
+
+        // If there is no host, promote first player to host
+        if (!_players.Any(p => p.IsHost) && _players.Count > 0)
+        {
+            _players[0].IsHost = true;
+        }
+    }
+
     // ── Night ──────────────────────────────────────────────────────────────
 
     public void BeginNightSession()

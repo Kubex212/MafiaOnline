@@ -530,3 +530,21 @@ export async function createRematch(code: string): Promise<LobbyResponse> {
     if (!res.ok) throw new Error('Rematch failed: ' + res.statusText);
     return res.json();
 }
+
+export async function leaveLobby(code: string): Promise<void> {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/leave`, {
+        method: 'POST',
+        body: JSON.stringify({})
+    });
+    if (res.status === 204) return;
+    if (!res.ok) throw new Error('Leave failed: ' + res.statusText);
+}
+
+export async function kickPlayer(code: string, targetPlayerId: string): Promise<void> {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/kick`, {
+        method: 'POST',
+        body: JSON.stringify({ targetPlayerId })
+    });
+    if (res.status === 204) return;
+    if (!res.ok) throw new Error('Kick failed: ' + res.statusText);
+}

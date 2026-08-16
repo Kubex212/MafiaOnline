@@ -7,7 +7,8 @@ import type {
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
-    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe, createRematch
+    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe, createRematch,
+    leaveLobby, kickPlayer
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -125,6 +126,44 @@ export default function App() {
                 const code = lobbyRef.current?.code;
                 if (code) {
                     try { setLobby(await getLobby(code)); } catch { /* ignore */ }
+                }
+            });
+
+            conn.on('PlayerLeft', async (nick: string) => {
+                setMessages(m => [...m, t('playerLeft', { nick })]);
+                const code = lobbyRef.current?.code;
+                if (code) {
+                    try { setLobby(await getLobby(code)); } catch (e) {
+                        // If lobby was deleted, clear local state
+                        sessionStorage.removeItem('lobbyCode');
+                        setLobby(null);
+                        setMyPlayerId(null);
+                    }
+                }
+                // If I was the one who left/kicked, ensure local state cleared
+                if (nick === nickname) {
+                    sessionStorage.removeItem('lobbyCode');
+                    setLobby(null);
+                    setMyPlayerId(null);
+                }
+            });
+
+            conn.on('PlayerKicked', async (nick: string) => {
+                setMessages(m => [...m, t('playerKickedMessage', { nick })]);
+                const code = lobbyRef.current?.code;
+                if (code) {
+                    try { setLobby(await getLobby(code)); } catch (e) {
+                        sessionStorage.removeItem('lobbyCode');
+                        setLobby(null);
+                        setMyPlayerId(null);
+                    }
+                }
+                if (nick === nickname) {
+                    // I was kicked
+                    sessionStorage.removeItem('lobbyCode');
+                    setLobby(null);
+                    setMyPlayerId(null);
+                    alert(t('youWereKicked'));
                 }
             });
 
@@ -254,7 +293,7 @@ export default function App() {
             try {
                 const data = await reconnect(storedLobbyCode);
 
-                await conn.invoke('JoinLobby', storedLobbyCode);
+                    await conn.invoke('JoinLobby', storedLobbyCode);
 
                 if (data.gamePhase === 'day' && data.day) {
                     // Use the pending/ref pattern instead of runAfterCommit
@@ -322,7 +361,7 @@ export default function App() {
         const conn = connRef.current;
         if (!conn) return;
         if (conn.state !== 'Connected') { await conn.start(); setHubStarted(true); }
-        await conn.invoke('JoinLobby', code);
+            await conn.invoke('JoinLobby', code);
     }
 
     async function onCreate() {
@@ -378,6 +417,35 @@ export default function App() {
             setCodeCopied(true);
             setTimeout(() => setCodeCopied(false), 1500);
         } catch { /* ignore */ }
+    }
+
+    // Leave lobby handler
+    async function onLeaveLobby() {
+        if (!lobby) return;
+        if (!confirm(t('confirmLeave') ?? 'Leave lobby?')) return;
+        try {
+            await leaveLobby(lobby.code);
+            sessionStorage.removeItem('lobbyCode');
+            setLobby(null);
+            setMyPlayerId(null);
+            setSeats(null);
+            setMyRole(null);
+            setView('lobby');
+            setMessages([t('leftLobby')]);
+        } catch (e) { alert(String(e)); }
+    }
+
+    // Kick player handler (host only)
+    async function onKickPlayer(targetId: string) {
+        if (!lobby) return;
+        const target = lobby.players.find(p => p.id === targetId);
+        if (!target) return;
+        if (!confirm(t('confirmKick', { name: target.nickname }) ?? `Kick ${target.nickname}?`)) return;
+        try {
+            await kickPlayer(lobby.code, targetId);
+            try { const refreshed = await getLobby(lobby.code); setLobby(refreshed); } catch { /* ignore, SignalR will update */ }
+            setMessages(m => [...m, t('playerKicked')]);
+        } catch (e) { alert(String(e)); }
     }
 
     const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
@@ -693,8 +761,13 @@ export default function App() {
                                     {codeCopied ? '✓ ' + t('codeCopied') : t('tapToCopy')}
                                 </div>
                             </div>
-                            <div className={`status-dot ${hubStarted ? '' : 'status-dot--off'}`}>
-                                {hubStarted ? t('connected') : t('connecting')}
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div className={`status-dot ${hubStarted ? '' : 'status-dot--off'}`}>
+                                    {hubStarted ? t('connected') : t('connecting')}
+                                </div>
+                                <button className="btn" onClick={onLeaveLobby} title={t('leaveLobby')}>
+                                    {t('leave')}
+                                </button>
                             </div>
                         </div>
 
@@ -734,6 +807,11 @@ export default function App() {
                                                     onClick={() => withLobby((c) => movePlayerDown(c, p.id))}
                                                     title={t('moveDown')}>▼</button>
                                             </span>
+                                        )}
+                                        {isHost && !lobby.started && p.id !== myPlayerId && (
+                                            <button className="icon-btn" onClick={() => onKickPlayer(p.id)} title={t('kick')}>
+                                                ❌
+                                            </button>
                                         )}
                                     </li>
                                 ))}

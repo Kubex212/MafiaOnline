@@ -25,7 +25,7 @@ public class LobbyPlayer
 
     public string Nickname { get; }
 
-    public bool IsHost { get; }
+    public bool IsHost { get; set; }
 
     public int SeatIndex { get; set; } = -1;
 }

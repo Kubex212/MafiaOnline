@@ -25,4 +25,9 @@ public class InMemoryLobbyRepository : ILobbyRepository
     {
         _lobbies[lobby.Code] = lobby;
     }
+
+    public async Task Delete(string code)
+    {
+        _lobbies.TryRemove(code.ToUpperInvariant(), out _);
+    }
 }

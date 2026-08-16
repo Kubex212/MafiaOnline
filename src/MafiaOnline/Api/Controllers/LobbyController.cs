@@ -102,4 +102,30 @@ public class LobbiesController : ControllerBase
         var newLobby = await _lobbyService.CreateRematchAsync(code);
         return Ok(LobbyResponse.FromLobby(newLobby));
     }
+
+    // Player leaves the lobby
+    [HttpPost("{code}/leave")]
+    public async Task<ActionResult<LobbyResponse?>> Leave(string code)
+    {
+        var lobby = await _lobbyService.LeaveLobbyAsync(code);
+        if (lobby == null) return NoContent();
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
+
+    // Host kicks a player
+    [HttpPost("{code}/kick")]
+    public async Task<ActionResult<LobbyResponse?>> Kick(string code, MovePlayerRequest request)
+    {
+        var lobby = await _lobbyService.KickPlayerAsync(code, request.TargetPlayerId);
+        if (lobby == null) return NoContent();
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
+
+    // Delete lobby (admin)
+    [HttpDelete("{code}")]
+    public async Task<IActionResult> Delete(string code)
+    {
+        await _lobbyService.DeleteLobbyAsync(code);
+        return NoContent();
+    }
 }

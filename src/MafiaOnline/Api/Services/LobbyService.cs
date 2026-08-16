@@ -399,6 +399,101 @@ public class LobbyService : ILobbyService
         return response;
     }
 
+    public async Task<Lobby?> LeaveLobbyAsync(string code)
+    {
+        _logger.LogInformation("LeaveLobbyAsync called for lobby={LobbyCode} by user={UserId}", code, _currentUser.UserId);
+
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        // find player by userId
+        var player = lobby.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId);
+        if (player == null) throw new InvalidOperationException("Player not found in lobby.");
+
+        // remove player
+        lobby.RemovePlayerByUserId(_currentUser.UserId);
+
+        if (lobby.Players.Count == 0)
+        {
+            // delete lobby
+            await _repository.Delete(lobby.Code);
+            try { await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerLeft", player.Nickname); } catch { }
+            return null;
+        }
+
+        await _repository.Update(lobby);
+
+        // notify group
+        try
+        {
+            await _hubContext.Clients
+                .Group(lobby.Code)
+                .SendAsync("PlayerLeft", player.Nickname);
+
+            // broadcast updated order to clients
+            var orderedPlayers = lobby.Players
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
+                .ToList();
+
+            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", orderedPlayers);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to notify lobby {LobbyCode} about player leaving", lobby.Code);
+        }
+
+        return lobby;
+    }
+
+    public async Task<Lobby?> KickPlayerAsync(string code, Guid targetPlayerId)
+    {
+        _logger.LogInformation("KickPlayerAsync called for lobby={LobbyCode} by user={UserId} targetPlayer={Target}", code, _currentUser.UserId, targetPlayerId);
+
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        var requester = GetPlayerByUserId(lobby, _currentUser.UserId);
+        if (!requester.IsHost)
+            throw new InvalidOperationException("Only the host can kick players.");
+
+        var target = lobby.Players.FirstOrDefault(p => p.Id == targetPlayerId);
+        if (target == null) throw new InvalidOperationException("Target player not found in lobby.");
+
+        lobby.RemovePlayerById(targetPlayerId);
+
+        if (lobby.Players.Count == 0)
+        {
+            await _repository.Delete(lobby.Code);
+            try { await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerKicked", target.Nickname); } catch { }
+            return null;
+        }
+
+        await _repository.Update(lobby);
+
+        try
+        {
+            await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerKicked", target.Nickname);
+
+            var orderedPlayers = lobby.Players
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
+                .ToList();
+
+            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", orderedPlayers);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to notify lobby {LobbyCode} about player kicked", lobby.Code);
+        }
+
+        return lobby;
+    }
+
+    public async Task DeleteLobbyAsync(string code)
+    {
+        _logger.LogInformation("DeleteLobbyAsync called for lobby={LobbyCode} by user={UserId}", code, _currentUser.UserId);
+        await _repository.Delete(code.Trim().ToUpperInvariant());
+    }
+
     public async Task<Lobby> UpdateConfigAsync(string code, GameConfigDto configDto)
     {
         _logger.LogInformation("UpdateConfigAsync called for lobby={LobbyCode} user={UserId}", code, _currentUser.UserId);

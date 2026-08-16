@@ -105,4 +105,20 @@ public class PostgresLobbyRepository : ILobbyRepository
             throw;
         }
     }
+
+    public async Task Delete(string code)
+    {
+        try
+        {
+            var entity = await _db.Lobbies.SingleOrDefaultAsync(x => x.Code == code);
+            if (entity == null) return;
+            _db.Lobbies.Remove(entity);
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting lobby with code {LobbyCode}", code);
+            throw;
+        }
+    }
 }
