@@ -76,7 +76,7 @@ public class Game
         CheckWinCondition();
 
         if (Phase != GamePhase.Finished)
-            Phase = GamePhase.DayDiscussion;
+            Phase = GamePhase.Day;
     }
 
 
@@ -84,7 +84,7 @@ public class Game
 
     internal void ResolveDayVoting(IReadOnlyDictionary<Guid, Guid> votes)
     {
-        if (Phase != GamePhase.DayDiscussion)
+        if (Phase != GamePhase.Day)
             throw new InvalidOperationException("Not currently the day phase.");
 
         var alivePlayers = _players.Where(p => p.IsAlive).Select(p => p.Id).ToList();
@@ -318,10 +318,9 @@ public class GameTurn
 public enum GamePhase
 {
     Lobby,
-    RoleAssignment,
+    RoleReveal,
     Night,
-    DayDiscussion,
-    Voting,
+    Day,
     Finished
 }
 

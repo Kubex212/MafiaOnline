@@ -55,6 +55,7 @@ public class Lobby
     public DaySession? DaySession { get; private set; }
     public GameConfig Config { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
+    public string? RematchCode { get; set; } = null;
 
     // ── Lobby management ──────────────────────────────────────────────────
 
@@ -140,10 +141,7 @@ public class Lobby
     {
         if (Game is null) throw new InvalidOperationException("Game not started.");
 
-        Game.Turns.Add(new GameTurn
-        {
-            Index = Game.Turns.Count + 1
-        });
+        Game.Execute(new StartNightCommand(Guid.Empty));
 
         var alive = _players.Where(p => Game.Players.First(ep => ep.Id == p.Id).IsAlive);
         NightSession = new NightSession(alive);

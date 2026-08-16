@@ -147,6 +147,11 @@ public class NightService : INightService
 
         int turnSeconds = lobby.Game?.Config.TurnDurationSeconds ?? TurnSeconds;
 
+        // TODO: dont send private information to all players, only send to the active player
+        // options:
+        // 1. exclude active player from the group broadcast and send them a separate message with the private info
+        // 2. send the message to all players but have the client handle it accordingly (e.g. make an additional call to get the private info)
+        // 3. send an additional message to the active player only with the private info (e.g. their role, ability, etc.) - frontend problems though
         await _hub.Clients.Group(lobby.Code).SendAsync("NightTurnStarted", new
         {
             activePlayerId  = active.Id,

@@ -1,4 +1,6 @@
+using Api.Dtos;
 using Api.Services;
+using MafiaOnline.Api.Dtos;
 using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
@@ -196,11 +198,11 @@ public class DayService : IDayService
             _logger.LogInformation("Game finished for lobby {LobbyCode}, recording history", lobbyCode);
             await _gameHistory_service.RecordGameAsync(lobby);
 
-            await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
+            await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new GameOverPayload
             {
-                winner = lobby.Game.Winner.ToString(),
-                drunkId = lobby.Game.DrunkPlayer?.Id,
-                drunkName = lobby.Game.DrunkPlayer != null ? lobby.Players.FirstOrDefault(p => p.Id == lobby.Game.DrunkPlayer.Id)?.Nickname : null
+                Winner = lobby.Game.Winner.ToString(),
+                DrunkId = lobby.Game.DrunkPlayer?.Id,
+                DrunkName = lobby.Game.DrunkPlayer != null ? lobby.Players.FirstOrDefault(p => p.Id == lobby.Game.DrunkPlayer.Id)?.Nickname : null
             });
             return;
         }
@@ -224,5 +226,5 @@ public class DayService : IDayService
 
     private async Task<Lobby> GetLobby(string code)
         => await _repository.Get(code.ToUpperInvariant())
-           ?? throw new InvalidOperationException("Lobby not found.");
+           ?? throw new InvalidOperationException($"Lobby {code} not found.");
 }

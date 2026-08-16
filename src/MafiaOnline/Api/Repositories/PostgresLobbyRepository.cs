@@ -84,7 +84,7 @@ public class PostgresLobbyRepository : ILobbyRepository
                 .SingleOrDefaultAsync(x => x.Id == lobby.Id);
 
             if (entity == null)
-                throw new InvalidOperationException("Lobby not found.");
+                throw new InvalidOperationException($"Lobby {lobby.Id} not found.");
 
             try
             {

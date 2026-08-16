@@ -145,6 +145,8 @@ export default function App() {
             });
 
             conn.on('GameStarted', async (payload: GameStartedPayload) => {
+                if (view !== 'lobby') return; // ignore if already in a phase
+
                 const seatList: SeatInfo[] = payload?.seats ?? [];
                 const drunkFlag: boolean = (payload?.drunkPresent ?? false);
                 const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
@@ -251,28 +253,17 @@ export default function App() {
 
             try {
                 const data = await reconnect(storedLobbyCode);
-                setLobby(data.lobby);
-                setMyPlayerId(data.myPlayerId);
-                setSeats((data.seats ?? null) as SeatInfo[] | null);
-                setMyRole(data.myRole ?? null);
-                setView(data.gamePhase);
-                setMessages([t('reconnected')]);
-
-                const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
-                setDeadIds((data.seats ?? []).filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id));
 
                 await conn.invoke('JoinLobby', storedLobbyCode);
 
                 if (data.gamePhase === 'day' && data.day) {
-                    const alive = new Set(data.day.alivePlayers.map(p => p.id));
-                    setDeadIds((data.seats ?? []).filter(s => !alive.has(s.id)).map(s => s.id));
-
                     // Use the pending/ref pattern instead of runAfterCommit
                     pendingDayStartedRef.current = {
                         durationSeconds: data.day.durationSeconds,
                         showVoteTargets: data.day.showVoteTargets,
                         alivePlayers: data.day.alivePlayers,
                         enshrouded: data.day.enshrouded ?? [],
+                        asleep: data.day.asleep ?? [],
                     };
 
                     // Replay votes once DayPhase mounts
@@ -280,8 +271,13 @@ export default function App() {
                         const total = Object.keys(data.day.votes).length;
                         pendingVoteCastsRef.current = Object.entries(data.day.votes).map(([voterId, candidateId]) => ({ voterId, candidateId, totalVotesCast: total }));
                     }
+
+                    setSeats((data.seats ?? null) as SeatInfo[] | null);
+                    setView(data.gamePhase);
+                    setMessages([t('reconnected')]);
+
                 } else if (data.gamePhase === 'night' && data.night) {
-                    // Use the pending/ref pattern instead of runAfterCommit
+                    // Use the pending/ref pattern instead of runAfterCommit - first set pending then set view so NightPhase can pick it up on mount
                     pendingNightStartedRef.current = {
                         activePlayerId: data.night.activePlayerId ?? '',
                         activeSeatIndex: data.night.activeSeatIndex,
@@ -290,7 +286,24 @@ export default function App() {
                         minTargets: undefined,
                         maxTargets: undefined,
                     } as NightTurnStarted;
+
+                    setSeats((data.seats ?? null) as SeatInfo[] | null);
+                    setView(data.gamePhase);
+                    setMessages([t('reconnected')]);
+                } else if (data.gamePhase === 'gameover') {
+                    setView(data.gamePhase);
+                    setGameOver(data.gameOver ?? null);
+                    setRematchCode(data.gameOver?.rematchCode ?? null);
                 }
+
+
+                setLobby(data.lobby);
+                setMyPlayerId(data.myPlayerId);
+                setMyRole(data.myRole ?? null);
+
+                const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
+                setDeadIds((data.seats ?? []).filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id));
+
             } catch (e) {
                 sessionStorage.removeItem('lobbyCode');
                 console.error('Reconnection failed:', e);

@@ -27,6 +27,7 @@ public class NightSession
         }
 
         CurrentTurnIndex = currentTurnIndex;
+        CurrentTurnStart = DateTime.UtcNow;
     }
 
     public NightSession(IEnumerable<LobbyPlayer> alivePlayers)
@@ -37,6 +38,7 @@ public class NightSession
     }
 
     public int CurrentTurnIndex { get; private set; }
+    public DateTime CurrentTurnStart { get; private set; }
 
     public bool IsFinished => CurrentTurnIndex >= _turnOrder.Count;
 
@@ -63,7 +65,11 @@ public class NightSession
     /// <summary>Force-advance the current turn (timeout).</summary>
     public void ForceAdvance() => Advance();
 
-    public void Advance() => CurrentTurnIndex++;
+    public void Advance()
+    {
+        CurrentTurnIndex++;
+        CurrentTurnStart = DateTime.UtcNow;
+    }
 
     private void AssertIsActivePlayer(Guid actorId)
     {

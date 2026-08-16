@@ -188,7 +188,7 @@ export type WerewolfConfig = {
 export const DEFAULT_WEREWOLF_CONFIG: WerewolfConfig = {
     drawResolution: 'KickRandom',
     showVoteTargets: 'Always',
-    alibi: true,
+    showAlibi: true,
 };
 
 export type GuardianConfig = { canProtectSelf: boolean; mustAlternate: boolean; announceProtection: boolean };
@@ -295,7 +295,7 @@ export type DayStartedPayload = {
 export type WerewolfAttackPayload = { actorId: string; targetId: string; targetName: string; };
 export type VoteCastPayload = { voterId: string; candidateId: string | null; totalVotesCast: number; };
 export type DayResolvedPayload = { banished: string[]; thresholdMet: boolean; tally: { playerId: string; votes: number }[]; };
-export type GameOverPayload = { winner: 'Villagers' | 'Werewolves' | 'Fool'; drunkId?: string | null; drunkName?: string | null; };
+export type GameOverPayload = { winner: 'Villagers' | 'Werewolves' | 'Fool'; drunkId?: string | null; drunkName?: string | null; rematchCode?: string | null };
 
 export type MeResponse = {
     id: string;
@@ -489,6 +489,7 @@ export type ReconnectResponse = {
         alivePlayers: SeatInfo[];
         votes?: Record<string, string | null>;
         enshrouded?: string[];
+        asleep?: string[];
     };
     night?: {
         activePlayerId?: string | null;
@@ -498,6 +499,7 @@ export type ReconnectResponse = {
         remainingSeconds: number;
         submittedActions?: Record<string, string>;
     };
+    gameOver?: GameOverPayload;
 };
 
 export async function reconnect(lobbyCode: string): Promise<ReconnectResponse> {

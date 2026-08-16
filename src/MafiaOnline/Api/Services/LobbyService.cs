@@ -63,7 +63,7 @@ public class LobbyService : ILobbyService
             throw new ArgumentException("Code is required.", nameof(code));
 
         // Load existing lobby to copy config from
-        var existing = await _repository.Get(code.Trim().ToUpperInvariant())
+        var oldLobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
         // Generate a new unique code
@@ -76,27 +76,31 @@ public class LobbyService : ILobbyService
         while (await _repository.Get(newLobby.Code) != null);
 
         // Copy configuration from existing lobby
-        newLobby.UpdateConfig(existing.Config);
+        newLobby.UpdateConfig(oldLobby.Config);
 
         // Add current user as host
         // Use the nickname from existing lobby if the same user was in original lobby, otherwise generic
-        var hostNick = existing.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId)?.Nickname ?? "Host";
+        var hostNick = oldLobby.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId)?.Nickname ?? "Host";
         newLobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, hostNick.Trim(), true));
+
+        // set rematch code in old lobby in case someone reconnects 
+        oldLobby.RematchCode = newLobby.Code;
+        await _repository.Update(oldLobby);
 
         await _repository.Create(newLobby);
 
-        _logger.LogInformation("Created rematch lobby {LobbyCode} from {OldCode} by user={UserId}", newLobby.Code, existing.Code, _currentUser.UserId);
+        _logger.LogInformation("Created rematch lobby {LobbyCode} from {OldCode} by user={UserId}", newLobby.Code, oldLobby.Code, _currentUser.UserId);
 
         // Notify players in the old lobby that a rematch has been created
         try
         {
             await _hubContext.Clients
-                .Group(existing.Code)
+                .Group(oldLobby.Code)
                 .SendAsync("RematchCreated", newLobby.Code);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to notify old lobby {OldCode} about rematch {NewCode}", existing.Code, newLobby.Code);
+            _logger.LogError(ex, "Failed to notify old lobby {OldCode} about rematch {NewCode}", oldLobby.Code, newLobby.Code);
         }
 
         return newLobby;
@@ -172,7 +176,7 @@ public class LobbyService : ILobbyService
             _logger.LogError(ex, "Failed to broadcast GameStarted for lobby {LobbyCode}", lobby.Code);
         }
 
-        // give clients a moment to render before the first turn fires
+        // give clients a moment to see their roles before the first turn fires
         try
         {
             await Task.Delay(8000);
@@ -292,12 +296,23 @@ public class LobbyService : ILobbyService
             var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == player.Id);
             if (enginePlayer != null)
             {
-                response.MyRole = new RoleResponse
+                var myRoleResponse = new RoleResponse()
                 {
                     Name = enginePlayer.Role.Name,
                     TeamName = enginePlayer.Role.Team.ToString(),
-                    TeamId = (int)enginePlayer.Role.Team
+                    TeamId = (int)enginePlayer.Role.Team,
+                    Alibi = enginePlayer.Alibi.ToString()
                 };
+
+                var isWerewolf = enginePlayer.Role.Team == Team.Werewolves;
+                if (isWerewolf)
+                {
+                    myRoleResponse.OtherWerewolvesIds = lobby.Game.Players
+                        .Where(p => p.Role.Team == Team.Werewolves && p.Id != player.Id)
+                        .Select(p => p.Id)
+                        .ToList();
+                }
+                response.MyRole = myRoleResponse;
             }
 
             // Map players to seat info for the frontend
@@ -322,7 +337,7 @@ public class LobbyService : ILobbyService
                 ActivePlayerId = lobby.NightSession.ActivePlayer?.Id.ToString(),
                 ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
                 HasAbility = lobby.ActivePlayerHasAbility(),
-                RemainingSeconds = 0,
+                RemainingSeconds = (int)(DateTime.UtcNow - lobby.NightSession.CurrentTurnStart).TotalSeconds,
                 AlivePlayers = lobby.Players.Where(p => lobby.Game!.Players.First(ep => ep.Id == p.Id).IsAlive)
                     .OrderBy(p => p.SeatIndex)
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
@@ -345,6 +360,16 @@ public class LobbyService : ILobbyService
                 }
             }
 
+            var asleep = new List<Guid>();
+            if (last != null)
+            {
+                foreach (var ev in last.Events)
+                {
+                    if (ev is CharmerSleepEvent c)
+                        asleep.Add(c.TargetId);
+                }
+            }
+
             response.Day = new DayState
             {
                 DurationSeconds = lobby.Game!.Config.Day.DurationSeconds,
@@ -355,12 +380,20 @@ public class LobbyService : ILobbyService
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),
                 Votes = lobby.DaySession.Votes.ToDictionary(k => k.Key, v => v.Value),
-                Enshrouded = enshrouded
+                Enshrouded = enshrouded,
+                Asleep = asleep,
             };
         }
         else if (lobby.Game?.Phase == GamePhase.Finished)
         {
             response.GamePhase = "gameover";
+            response.GameOver = new GameOverPayload
+            {
+                Winner = lobby.Game.Winner.ToString(),
+                DrunkId = lobby.Game.DrunkPlayer?.Id,
+                DrunkName = lobby.Game.DrunkPlayer?.Nickname,
+                RematchCode = lobby.RematchCode
+            };
         }
 
         return response;

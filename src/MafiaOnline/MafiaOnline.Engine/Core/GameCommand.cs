@@ -51,9 +51,28 @@ public class StartGameCommand : GameCommand
         game.AssignRoles(OrderedPlayerIds);
 
         game.Status = GameStatus.InProgress;
-        game.Phase = GamePhase.Night;
+        game.Phase = GamePhase.RoleReveal;
 
         game.StartedAtUtc = DateTime.UtcNow;
+    }
+}
+
+public class StartNightCommand : GameCommand
+{
+    public StartNightCommand(Guid playerId)
+        : base(playerId)
+    {
+    }
+    internal override void Execute(Game game)
+    {
+        if (game.Phase != GamePhase.RoleReveal && game.Phase != GamePhase.Day)
+            throw new InvalidOperationException("Cannot start night in current phase.");
+
+        game.Phase = GamePhase.Night;
+        game.Turns.Add(new GameTurn
+        {
+            Index = game.Turns.Count + 1
+        });
     }
 }
 

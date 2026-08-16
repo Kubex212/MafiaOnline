@@ -1,3 +1,4 @@
+using Api.Dtos;
 using MafiaOnline.Engine.Config;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,7 @@ public class ReconnectResponse
     // Optional state for day/night
     public DayState? Day { get; set; }
     public NightState? Night { get; set; }
+    public GameOverPayload? GameOver { get; set; }
 }
 
 public class SeatInfoResponse
@@ -38,6 +40,7 @@ public class DayState
     public List<SeatInfoResponse> AlivePlayers { get; set; } = new();
     public Dictionary<Guid, Guid?>? Votes { get; set; }
     public List<Guid> Enshrouded { get; set; } = new();
+    public List<Guid> Asleep { get; set; } = new();
 }
 
 public class NightState
