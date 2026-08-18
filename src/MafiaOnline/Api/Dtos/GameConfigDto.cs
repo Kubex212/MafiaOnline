@@ -30,6 +30,7 @@ public class GameConfigDto
                 Seer = config.Roles.Seer,
                 Peeper = config.Roles.Peeper,
                 Spy = config.Roles.Spy,
+                Ranger = config.Roles.Ranger,
                 Fool = config.Roles.Fool,
                 Dracula = config.Roles.Dracula,
                 Deceiver = config.Roles.Deceiver,
@@ -63,6 +64,7 @@ public class GameConfigDto
                 Seer = Roles.Seer,
                 Peeper = Roles.Peeper,
                 Spy = Roles.Spy,
+                Ranger = Roles.Ranger,
                 Fool = Roles.Fool,
                 Dracula = Roles.Dracula,
                 Deceiver = Roles.Deceiver,
@@ -93,6 +95,7 @@ public class RoleSelectionDto
     public bool Seer { get; set; } = true;
     public bool Peeper { get; set; } = true;
     public bool Spy { get; set; } = true;
+    public bool Ranger { get; set; } = true;
     public bool Fool { get; set; } = true;
     public bool Dracula { get; set; } = true;
     public bool Deceiver { get; set; } = true;

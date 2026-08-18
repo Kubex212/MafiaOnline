@@ -29,8 +29,13 @@ export interface TableSeatState {
 export interface VoteArrow {
     fromId: string;
     toId: string;
-    /** 'vote' = village banish vote (gold), 'attack' = werewolf kill vote (blood red). */
-    kind?: 'vote' | 'attack';
+    /** 'vote' = village banish vote (gold), 'attack' = werewolf kill vote (blood red), 'tripwire' = ranger's ability (gray). */
+    kind?: 'vote' | 'attack' | 'tripwire';
+}
+
+export interface ActionInfo {
+    roleName: string;
+    targets: string[];
 }
 
 interface Props {
@@ -40,10 +45,41 @@ interface Props {
     centreLabel?: string;
     centreIcon?: string;
     onSeatClick?: (seat: SeatInfo) => void;
+    myAction?: ActionInfo;
 }
 
+const arrowStyles = {
+    attack: {
+        stroke: 'var(--wolf)',
+        strokeWidth: 2,
+        dasharray: '5 4',
+        opacity: 0.9,
+        markerStart: undefined,
+        markerEnd: 'url(#attackHead)',
+        className: 'vote-arrow vote-arrow--attack',
+    },
+    vote: {
+        stroke: 'var(--accent)',
+        strokeWidth: 1.4,
+        dasharray: '5 4',
+        opacity: 0.75,
+        markerStart: undefined,
+        markerEnd: 'url(#voteHead)',
+        className: 'vote-arrow',
+    },
+    tripwire: {
+        stroke: 'var(--text)',
+        strokeWidth: 1.8,
+        dasharray: '2 3',
+        opacity: 0.85,
+        markerStart: undefined,
+        markerEnd: undefined,
+        className: 'vote-arrow vote-arrow--tripwire',
+    }
+} as const;
+
 export default function RoundTable({
-    seats, states, voteArrows = [], centreLabel, centreIcon, onSeatClick,
+    seats, states, voteArrows = [], centreLabel, centreIcon, onSeatClick, myAction
 }: Props) {
     const { t } = useTranslation();
     const cx = 250, cy = 250, r = 170;
@@ -53,6 +89,17 @@ export default function RoundTable({
         const angle = (2 * Math.PI * i) / count - Math.PI / 2;
         return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
     };
+
+    if (myAction) {
+        // process visual effects for submitted action - currently only the Ranger's tripwire ability is visualized
+        if (myAction.roleName == 'Ranger' && myAction.targets.length === 2) {
+            voteArrows.push({
+                fromId: myAction.targets[0],
+                toId: myAction.targets[1],
+                kind: 'tripwire'
+            });
+        }
+    }
 
     const stateFor = (id: string) => states.find(s => s.seat.id === id);
 
@@ -98,20 +145,31 @@ export default function RoundTable({
                 const fi = seats.findIndex(s => s.id === v.fromId);
                 const ti = seats.findIndex(s => s.id === v.toId);
                 if (fi < 0 || ti < 0) return null;
-                const p = seatPos(fi), q = seatPos(ti);
-                const dx = q.x - p.x, dy = q.y - p.y;
+
+                const p = seatPos(fi);
+                const q = seatPos(ti);
+                const dx = q.x - p.x;
+                const dy = q.y - p.y;
                 const d = Math.sqrt(dx * dx + dy * dy);
-                const ux = dx / d, uy = dy / d;
-                const attack = v.kind === 'attack';
+                const ux = dx / d;
+                const uy = dy / d;
+                const style = arrowStyles[v.kind];
+
                 return (
-                    <line key={`v${idx}`}
-                        x1={p.x + ux * 36} y1={p.y + uy * 36}
-                        x2={q.x - ux * 40} y2={q.y - uy * 40}
-                        stroke={attack ? 'var(--wolf)' : 'var(--accent)'}
-                        strokeWidth={attack ? 2 : 1.4}
-                        strokeDasharray="5 4" opacity={attack ? 0.9 : 0.75}
-                        markerEnd={attack ? 'url(#attackHead)' : 'url(#voteHead)'}
-                        className={`vote-arrow ${attack ? 'vote-arrow--attack' : ''}`} />
+                    <line
+                        key={`v${idx}`}
+                        x1={p.x + ux * 36}
+                        y1={p.y + uy * 36}
+                        x2={q.x - ux * 40}
+                        y2={q.y - uy * 40}
+                        stroke={style.stroke}
+                        strokeWidth={style.strokeWidth}
+                        strokeDasharray={style.dasharray}
+                        opacity={style.opacity}
+                        markerStart={style.markerStart}
+                        markerEnd={style.markerEnd}
+                        className={style.className}
+                    />
                 );
             })}
 

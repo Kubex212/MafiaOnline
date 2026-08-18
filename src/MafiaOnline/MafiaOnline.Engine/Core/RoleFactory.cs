@@ -18,6 +18,7 @@ public static class RoleFactory
             RoleType.Seer => new Seer(),
             RoleType.Peeper => new Peeper(),
             RoleType.Spy => new Spy(),
+            RoleType.Ranger => new Ranger(),
 
             RoleType.Dracula => new Dracula(),
             RoleType.Deceiver => new Deceiver(),

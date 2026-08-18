@@ -13,6 +13,7 @@ public enum RoleType
     Seer,
     Peeper,
     Spy,
+    Ranger,
 
     Werewolf,
     Dracula,
@@ -38,6 +39,7 @@ public static class RoleTypeExtensions
             RoleType.Seer => Team.Villagers,
             RoleType.Peeper => Team.Villagers,
             RoleType.Spy => Team.Villagers,
+            RoleType.Ranger => Team.Villagers,
 
             RoleType.Werewolf => Team.Werewolves,
             RoleType.Dracula => Team.Werewolves,
@@ -60,6 +62,7 @@ public static class RoleTypeExtensions
             case RoleType.Trailer:
             case RoleType.Peeper:
             case RoleType.Spy:
+            case RoleType.Ranger:
                 return true;
             default:
                 return false;

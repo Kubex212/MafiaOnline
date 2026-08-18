@@ -96,6 +96,7 @@
   "Seer": "Wyrocznia",
   "Peeper": "Podglądacz",
   "Spy": "Szpieg",
+  "Ranger": "Leśniczy",
   "Fool": "Głupiec",
   "dracula": "Drakula",
   "deceiver": "Oszust",
@@ -109,6 +110,7 @@
   "seer": "Wyrocznia",
   "peeper": "Podglądacz",
   "spy": "Szpieg",
+  "ranger": "Leśniczy",
   "fool": "Głupiec",
   "WerewolfDescriptionLong": "Wilkołak bez specjalnych zdolności. Każdej nocy wraz z innymi wilkołakami wybierasz ofiarę do ataku. Twoim celem jest pożarcie większości mieszkańców wioski i uniknięcie zdemaskowania.",
   "WerewolfDescriptionShort": "Pożeraj mieszkańców i nie daj się zdemaskować.",
@@ -138,6 +140,8 @@
   "PeeperDescriptionShort": "Dowiedz się, czy wybrany gracz jest mieszkańcem wioski. Lepiej, żeby był...",
   "SpyDescriptionLong": "Każdej nocy dowiadujesz się, czy wybrany gracz obierał kogoś za cel.",
   "SpyDescriptionShort": "Sprawdź, czy wybrany gracz wychodził w nocy z domu.",
+  "RangerDescriptionLong": "Każdej nocy możesz rozciągnąć potajemny sznur między dwoma graczami. Dowiesz się, ile akcji przecinało tę ścieżkę.",
+  "RangerDescriptionShort": "Rozciągnij sznur między dwoma graczami, aby dowiedzieć się, ile osób go potrąciło.",
   "FoolDescriptionLong": "Udajesz zwykłego mieszkańca wioski, ale potajemnie chcesz zostać wygnany. Jeśli zostaniesz wygnany, wygrywasz grę.",
   "FoolDescriptionShort": "Przekonaj mieszkańców, aby cię wygnali.",
 
@@ -154,6 +158,7 @@
   "spyClueLong": "Wskazówka szpiega - gracz {{player}} {{did}} w nocy z domu.",
   "spyClue-true": "WYCHODZIŁ",
   "spyClue-false": "NIE WYCHODZIŁ",
+  "rangerClueLong": "Wskazówka leśniczego - sznur potrącąno {{times}} razy.",
 
   "poacherTrapPlaced": "Ustawiłeś pułapkę na {{target}}",
   "poacherTriggered": "Pułapka uruchomiona! Wilkołak również zginął (cel: {{target}})",

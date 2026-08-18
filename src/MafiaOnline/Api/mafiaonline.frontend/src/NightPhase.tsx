@@ -6,6 +6,7 @@ import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
 import RoleInfo from './RoleInfo';
 import EventLog from './EventLog';
 import { addLog as pushLog } from './gameLog';
+import type { ActionInfo } from './RoundTable';
 
 interface Props {
     lobbyCode: string;
@@ -53,6 +54,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const setLog = (msg: string) => pushLog(msg, 'night');
     const [attackSubmitted, setAttackSubmitted] = useState(false);
     const [abilitySubmitted, setAbilitySubmitted] = useState(false);
+    const [myAction, setMyAction] = useState<ActionInfo | null>(null);
 
     useImperativeHandle(ref, () => ({
         onTurnStarted(turn: NightTurnStarted) {
@@ -104,6 +106,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     setLog(t('peeperClueLong', { player: t(String(info.data.PlayerName)), is: t('peeperClue-' + info.clue) }));
                 } else if (info.type === 'Spy') {
                     setLog(t('spyClueLong', { player: t(String(info.data.PlayerName)), did: t('spyClue-' + info.clue) }));
+                } else if (info.type === 'Ranger') {
+                    setLog(t('rangerClueLong', { times: info.clue }));
                 }
             } catch { /* no clue for this role */ }
         },
@@ -149,6 +153,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         try {
             await submitNightAction(lobbyCode, selectedTargets, ActionType.Ability);
             setAbilitySubmitted(true);
+            setMyAction({ roleName: myRole.name , targets: selectedTargets });
             setLog(t('actionSubmitted'));
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
@@ -245,6 +250,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 centreLabel={t('night')}
                 centreIcon="🌙"
                 onSeatClick={s => toggleTarget(s.id)}
+                myAction={myAction}
             />
 
             {isMyTurn && !resolved && (
@@ -312,6 +318,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {nightInfo?.type === 'Spy' && (
                         <div className="resolution__clue">
                             🕵️‍ {t('spyClueLong', { player: t(nightInfo.data.SubjectName), did: t('spyClue-' + nightInfo.clue) })}.
+                        </div>
+                    )}
+                    {nightInfo?.type === 'Ranger' && (
+                        <div className="resolution__clue">
+                            🧶 {t('rangerClueLong', { times: nightInfo.clue })}.
                         </div>
                     )}
                 </div>

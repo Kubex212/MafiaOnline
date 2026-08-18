@@ -10,7 +10,7 @@ type GameConfigPanelProps = {
 };
 
 const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'spy', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
+    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'spy', 'ranger', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
 ];
 
 export default function GameConfigPanel({ config, onChange }: GameConfigPanelProps) {

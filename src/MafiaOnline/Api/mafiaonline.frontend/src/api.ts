@@ -159,6 +159,7 @@ export type RoleSelection = {
     seer: boolean;
     peeper: boolean;
     spy: boolean;
+    ranger: boolean;
     fool: boolean;
     dracula: boolean;
     deceiver: boolean;
@@ -257,6 +258,7 @@ export enum ClueType {
     Trailer = "Trailer",
     Peeper = "Peeper",
     Spy = "Spy",
+    Ranger = "Ranger",
 }
 
 export interface ClueResponse { type: ClueType; data: Record<string, unknown>; clue: unknown; }
@@ -269,11 +271,11 @@ export interface SeerClueResponse extends ClueResponse {
 export interface TrailerClueResponse extends ClueResponse { type: ClueType.Trailer; clue: string; }
 export interface PeeperClueResponse extends ClueResponse { type: ClueType.Peeper; clue: boolean; }
 export interface SpyClueResponse extends ClueResponse { type: ClueType.Spy; clue: boolean; }
-
+export interface RangerClueResponse extends ClueResponse { type: ClueType.Ranger; clue: number; }
 
 
 export type AnyClueResponse =
-    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse;
+    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;

@@ -156,7 +156,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const voteArrows: VoteArrow[] = revealTargets
         ? Object.entries(votes)
             .filter(([, to]) => !!to)
-            .map(([from, to]) => ({ fromId: from, toId: to as string }))
+            .map(([from, to]) => ({ kind: 'vote', fromId: from, toId: to as string }))
         : [];
 
     const chosenName = selectedTarget

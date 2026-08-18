@@ -58,6 +58,11 @@ public class NightContext
     internal HashSet<Guid> SleepingPlayers { get; } = new();
 
     /// <summary>
+    /// Two players between whom a Rangers' tripwire is set.
+    /// </summary>
+    internal (Guid Ranger, Guid PlayerA, Guid PlayerB)? TripwireVertices {get; set;}
+
+    /// <summary>
     /// Spy and his target id
     /// </summary>
     internal (Guid SpyId, Guid TargetId)? SpyAbility { get; set; } = null;

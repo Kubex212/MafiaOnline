@@ -11,18 +11,18 @@ public class NightResolver
     /// <summary>
     /// Execute all night abilities and produce a <see cref="NightResult"/>.
     /// </summary>
-    /// <param name="alivePlayers">Players still alive at the start of the night, in seat order.</param>
+    /// <param name="allPlayers">Players still alive at the start of the night, in seat order.</param>
     /// <param name="submittedActions">
     /// Actions submitted by players who have non-automatic abilities.
     /// Key = acting player id, Value = chosen NightAction.
     /// </param>
     public NightResult Resolve(
-        IReadOnlyList<Player> alivePlayers,
+        IReadOnlyList<Player> allPlayers,
         IReadOnlyList<NightAction> submittedActions,
         GameConfig config = null,
         Player? drunkPlayer = null)
     {
-        if(config is null)
+        if (config is null)
             config = GameConfig.GetDefault();
 
         var context = new NightContext();
@@ -30,7 +30,7 @@ public class NightResolver
         // Build list of ability slots. Include per-role abilities and a team-shared werewolf attack
         var slots = new List<(Player Player, NightAbility Ability)>();
 
-        foreach (var player in alivePlayers.OrderBy(p => p.SeatIndex))
+        foreach (var player in allPlayers.OrderBy(p => p.SeatIndex))
         {
             // Werewolf team: each member gets the shared attack ability slot
             if (player.Role.Team == Team.Werewolves)
@@ -64,19 +64,20 @@ public class NightResolver
             // sleeping players cannot use abilities
             if (context.SleepingPlayers.Contains(player.Id)) continue;
 
-            ability.Apply(player, action, context, alivePlayers);
+            ability.Apply(player, action, context, allPlayers);
         }
 
         context.DrunkPlayer = drunkPlayer;
 
-        return BuildResult(context, alivePlayers, config, submittedActions);
+        return BuildResult(context, allPlayers, config, submittedActions);
     }
 
 
-    private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> alivePlayers, GameConfig config, IReadOnlyList<NightAction> actions)
+    private static NightResult BuildResult(NightContext context, IReadOnlyList<Player> allPlayers, GameConfig config, IReadOnlyList<NightAction> actions)
     {
         var events = new List<NightEvent>();
         var killed = new List<Guid>();
+        var alivePlayers = allPlayers.Where(p => p.IsAlive);
 
         // Determine which targets are protected
         var protectedPlayerIds = new HashSet<Guid>(context.GuardianProtections.Values);
@@ -170,7 +171,7 @@ public class NightResolver
         }
 
         // Resolve detective clue — fire after kill resolution so subject's alive state is accurate
-        if(context.DetectiveClue is not null)
+        if (context.DetectiveClue is not null)
         {
             var clue = context.DetectiveClue;
             var subject = alivePlayers.FirstOrDefault(p => p.Id == clue.VillagerId)!;
@@ -179,7 +180,7 @@ public class NightResolver
             events.Add(new DetectiveClueEvent(clue.DetectiveId, subject.Nickname, werewolf.Nickname));
         }
 
-        foreach(var (dogTamerId, shouldBark) in context.DogTamerClues)
+        foreach (var (dogTamerId, shouldBark) in context.DogTamerClues)
         {
             events.Add(new DogTamerClueEvent(dogTamerId, shouldBark));
         }
@@ -191,23 +192,61 @@ public class NightResolver
         }
 
         // Enshrouded players
-        foreach(var enshroudedId in context.Enshrouded)
+        foreach (var enshroudedId in context.Enshrouded)
         {
             events.Add(new DraculaEnshroudedEvent(enshroudedId, enshroudedId)); // TODO: add the Dracula's ID to the event
         }
 
         // Peeper self kills
-        foreach(var peeperId in context.PeeperKills)
+        foreach (var peeperId in context.PeeperKills)
         {
             killed.Add(peeperId);
         }
 
         // Spy ability
-        if(context.SpyAbility is not null)
+        if (context.SpyAbility is not null)
         {
             var (spyId, targetId) = context.SpyAbility.Value;
             var targetActions = actions.Where(a => a.Actor == targetId).ToList();
             events.Add(new SpyClueEvent(spyId, targetId, targetActions.Any()));
+        }
+
+        if (context.TripwireVertices is not null)
+        {
+            
+            var positions = allPlayers
+                .Select((player, index) => (player.Id, index))
+                .ToDictionary(x => x.Id, x => x.index);
+
+            var xIndex = positions[context.TripwireVertices.Value.PlayerA];
+            var yIndex = positions[context.TripwireVertices.Value.PlayerB];
+
+            int? GetArc(int index)
+            {
+                if (index == xIndex || index == yIndex)
+                    return null;
+
+                if (xIndex < yIndex)
+                    return index > xIndex && index < yIndex ? 0 : 1;
+
+                return index > xIndex || index < yIndex ? 0 : 1;
+            }
+
+            var count = actions.Count(action =>
+            {
+                var actorArc = GetArc(positions[action.Actor]);
+
+                if (actorArc is null)
+                    return false;
+
+                return action.Targets.Any(targetId =>
+                {
+                    var targetArc = GetArc(positions[targetId]);
+
+                    return targetArc.HasValue && targetArc.Value != actorArc.Value;
+                });
+            });
+            events.Add(new RangerClueEvent(context.TripwireVertices.Value.Ranger, count));
         }
 
         // Include any events directly registered in context
@@ -217,16 +256,16 @@ public class NightResolver
         var deceiverTarget = deceiverEvents.Select(e => e.TargetId).FirstOrDefault();
         var clueEvents = events.OfType<ClueEvent>().ToList();
         var deceiverTargetClue = clueEvents.FirstOrDefault(e => e.ClueOwnerId == deceiverTarget);
-        if(deceiverTargetClue != null)
+        if (deceiverTargetClue != null)
         {
             deceiverTargetClue.ReverseClue();
         }
 
-        foreach(var sleepingId in context.SleepingPlayers)
+        foreach (var sleepingId in context.SleepingPlayers)
         {
             // sleeping players don't get clues, so remove any clue events for them
             var correspondingClueEvent = clueEvents.FirstOrDefault(e => e.ClueOwnerId == sleepingId);
-            if(correspondingClueEvent != null)
+            if (correspondingClueEvent != null)
             {
                 events.Remove(correspondingClueEvent);
             }

@@ -35,7 +35,8 @@ public class Game
 
     [JsonProperty]
     private GamePhase _phase = GamePhase.Lobby;
-    public GamePhase Phase { get => _phase; internal set => _phase = value; }
+    public GamePhase Phase { get => _phase;
+        internal set => _phase = value; }
 
     [JsonProperty]
     private GameWinner _winner = GameWinner.None;
@@ -65,9 +66,9 @@ public class Game
         if (Phase != GamePhase.Night)
             throw new InvalidOperationException("Not currently the night phase.");
 
-        var alivePlayers = _players.Where(p => p.IsAlive).ToList();
+        var allPlayers = _players;
         var resolver = new NightResolver();
-        var nightResult = resolver.Resolve(alivePlayers, actions, Config, DrunkPlayer);
+        var nightResult = resolver.Resolve(allPlayers, actions, Config, DrunkPlayer);
         Turns.Last().Night = nightResult;
 
         foreach (var killedId in LastNightResult!.Killed)
@@ -97,9 +98,6 @@ public class Game
             _players.FirstOrDefault(p => p.Id == banishedId)?.Kill();
 
         CheckWinCondition();
-
-        if (Phase != GamePhase.Finished)
-            Phase = GamePhase.Night;
     }
 
     // ── Win condition ──────────────────────────────────────────────────────
@@ -173,6 +171,7 @@ public class Game
         if (Config.Roles.Seer) specialRolesToAssign.Add(RoleType.Seer);
         if (Config.Roles.Peeper) specialRolesToAssign.Add(RoleType.Peeper);
         if (Config.Roles.Spy) specialRolesToAssign.Add(RoleType.Spy);
+        if (Config.Roles.Ranger) specialRolesToAssign.Add(RoleType.Ranger);
 
         // neutral roles
         if (Config.Roles.Fool) specialRolesToAssign.Add(RoleType.Fool);

@@ -10,6 +10,7 @@ public enum ClueType
     Trailer,
     Peeper,
     Spy,
+    Ranger,
 }
 
 public abstract class NightEvent
@@ -200,7 +201,19 @@ public sealed class SpyClueEvent : ClueEvent<bool>
     }
 }
 
+public sealed class RangerClueEvent : ClueEvent<int>
+{
+    public override ClueType ClueType => ClueType.Ranger;
 
+    public RangerClueEvent()
+    {
+    }
+
+    public RangerClueEvent(Guid trailerId, int count)
+        : base(trailerId, count, Random.Shared.Next(5))
+    {
+    }
+}
 public sealed class PlayerKilledEvent : NightEvent
 {
     public Guid PlayerId { get; }

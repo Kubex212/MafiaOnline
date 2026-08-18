@@ -796,6 +796,11 @@ export default function App() {
                                         <span className="player-name">{p.nickname}</span>
                                         {p.isHost && <span className="lobby-tag">{t('host')}</span>}
                                         {p.id === myPlayerId && <span className="lobby-tag tag--you">{t('you')}</span>}
+                                        {isHost && !lobby.started && p.id !== myPlayerId && (
+                                            <button className="icon-btn" onClick={() => onKickPlayer(p.id)} title={t('kick')}>
+                                                ❌
+                                            </button>
+                                        )}
                                         {isHost && !lobby.started && (
                                             <span className="move-player-arrows" style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
                                                 <button className="icon-btn"
@@ -807,11 +812,6 @@ export default function App() {
                                                     onClick={() => withLobby((c) => movePlayerDown(c, p.id))}
                                                     title={t('moveDown')}>▼</button>
                                             </span>
-                                        )}
-                                        {isHost && !lobby.started && p.id !== myPlayerId && (
-                                            <button className="icon-btn" onClick={() => onKickPlayer(p.id)} title={t('kick')}>
-                                                ❌
-                                            </button>
                                         )}
                                     </li>
                                 ))}
