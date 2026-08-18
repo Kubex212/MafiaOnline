@@ -23,6 +23,8 @@ public class Ranger : IRole, IHasNightAbility
 
 public class RangerTripwireAbility() : NightAbility()
 {
+    protected override bool CanTargetSelf => true;
+    protected override bool CanTargetDead => true;
     public override bool IsAutomatic => false;
     public override int MinTargets => 2;
     public override int MaxTargets => 2;

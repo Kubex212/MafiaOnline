@@ -36,6 +36,11 @@ public abstract class NightAbility()
     protected virtual bool CanTargetSelf => false;
 
     /// <summary>
+    /// Can target dead players? If false, dead players are automatically excluded from valid targets. Currently true only for Ranger.
+    /// </summary>
+    protected virtual bool CanTargetDead => false;
+
+    /// <summary>
     /// If the ability is used, how long should it be before it can be used again? Null means no cooldown.
     /// </summary>
     protected virtual int? Cooldown => null;
@@ -76,10 +81,8 @@ public abstract class NightAbility()
         // Add any other game-specific restrictions here (e.g., cannot target dead players)
         foreach (var player in players)
         {
-            if (!player.IsAlive)
+            if (!player.IsAlive && !CanTargetDead)
                 forbidden.Add(player.Id);
-
-            
         }
 
         var previousActionsForTargetCooldown = previousActions.TakeLast(TargetCooldown);
