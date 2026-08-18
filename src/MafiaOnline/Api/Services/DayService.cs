@@ -16,6 +16,7 @@ public interface IDayService
 {
     Task BeginDayAsync(string lobbyCode);
     Task CastVoteAsync(string lobbyCode, Guid userId, Guid? candidateId);
+    Task ResolveDayAsync(string lobbyCode);
 }
 
 public class DayService : IDayService
@@ -26,14 +27,16 @@ public class DayService : IDayService
     private readonly Dictionary<string, CancellationTokenSource> _timers = new();
     private readonly IGameHistoryService _gameHistory_service;
     private readonly ILogger<DayService> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public DayService(ILobbyRepository repository, IHubContext<LobbyHub> hub, Lazy<INightService> nightService, IGameHistoryService gameHistoryService, ILogger<DayService> logger)
+    public DayService(ILobbyRepository repository, IHubContext<LobbyHub> hub, Lazy<INightService> nightService, IGameHistoryService gameHistoryService, ILogger<DayService> logger, IServiceScopeFactory scopeFactory)
     {
         _repository = repository;
         _hub = hub;
         _night_service = nightService;
         _gameHistory_service = gameHistoryService;
         _logger = logger;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task BeginDayAsync(string lobbyCode)
@@ -96,7 +99,8 @@ public class DayService : IDayService
                 _logger.LogDebug("Starting day timer for lobby {LobbyCode} seconds={Seconds}", lobbyCode, duration);
                 await Task.Delay(TimeSpan.FromSeconds(duration), cts.Token);
                 _logger.LogInformation("Day timer expired for lobby {LobbyCode}", lobbyCode);
-                await ResolveDayAsync(lobbyCode);
+                var dayService = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<IDayService>();
+                await dayService.ResolveDayAsync(lobbyCode);
             }
             catch (TaskCanceledException)
             {
@@ -144,7 +148,7 @@ public class DayService : IDayService
         }
     }
 
-    private async Task ResolveDayAsync(string lobbyCode)
+    public async Task ResolveDayAsync(string lobbyCode)
     {
         _logger.LogInformation("ResolveDayAsync called for lobby {LobbyCode}", lobbyCode);
         var lobby = await GetLobby(lobbyCode);
