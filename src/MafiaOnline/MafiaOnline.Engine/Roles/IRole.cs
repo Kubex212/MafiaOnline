@@ -1,6 +1,10 @@
-﻿using MafiaOnline.Engine.Night;
+﻿using MafiaOnline.Engine.Core;
+using MafiaOnline.Engine.Night;
+using System.Text.Json.Serialization;
 
 namespace MafiaOnline.Engine.Roles;
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 
 public enum RoleType
 {
@@ -28,28 +32,8 @@ public static class RoleTypeExtensions
 {
     public static Team GetTeam(this RoleType roleType)
     {
-        return roleType switch
-        {
-            RoleType.Villager => Team.Villagers,
-            RoleType.Guardian => Team.Villagers,
-            RoleType.Detective => Team.Villagers,
-            RoleType.DogTamer => Team.Villagers,
-            RoleType.Poacher => Team.Villagers,
-            RoleType.Trailer => Team.Villagers,
-            RoleType.Seer => Team.Villagers,
-            RoleType.Peeper => Team.Villagers,
-            RoleType.Spy => Team.Villagers,
-            RoleType.Ranger => Team.Villagers,
-
-            RoleType.Werewolf => Team.Werewolves,
-            RoleType.Dracula => Team.Werewolves,
-            RoleType.Deceiver => Team.Werewolves,
-            RoleType.Ghost => Team.Werewolves,
-            RoleType.Charmer => Team.Werewolves,
-
-            RoleType.Fool => Team.Neutral,
-            _ => throw new ArgumentOutOfRangeException(nameof(roleType), $"Unhandled role type: {roleType}")
-        };
+        var role = RoleFactory.Create(roleType, new Config.GameConfig()); // using default is fine here, this object won't even use config
+        return role.Team;
     }
 
     public static bool GivesNightClue(this RoleType role)

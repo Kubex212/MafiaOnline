@@ -150,23 +150,6 @@ export type PlayerResponse = {
     seatIndex: number;
 };
 
-export type RoleSelection = {
-    guardian: boolean;
-    detective: boolean;
-    dogTamer: boolean;
-    poacher: boolean;
-    trailer: boolean;
-    seer: boolean;
-    peeper: boolean;
-    spy: boolean;
-    ranger: boolean;
-    fool: boolean;
-    dracula: boolean;
-    deceiver: boolean;
-    ghost: boolean;
-    charmer: boolean;
-};
-
 export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';
 export type ShowVotes = 'Never' | 'AfterVotingEnds' | 'Always';
 
@@ -204,8 +187,50 @@ export type DrunkConfig = {
     announceDrunkOccurance: boolean;
 };
 
+export const roleTypes = [
+    'Villager',
+    'Werewolf',
+    'Guardian',
+    'Detective',
+    'DogTamer',
+    'Poacher',
+    'Trailer',
+    'Seer',
+    'Peeper',
+    'Spy',
+    'Ranger',
+
+    'Fool',
+
+    'Dracula',
+    'Deceiver',
+    'Ghost',
+    'Charmer'
+] as const;
+
+export const nonStandardRoleTypes = [
+    'Guardian',
+    'Detective',
+    'DogTamer',
+    'Poacher',
+    'Trailer',
+    'Seer',
+    'Peeper',
+    'Spy',
+    'Ranger',
+
+    'Fool',
+
+    'Dracula',
+    'Deceiver',
+    'Ghost',
+    'Charmer'
+] as const;
+
+export type RoleType = typeof roleTypes[number];
+
 export type GameConfig = {
-    roles: RoleSelection;
+    enabledRoles: RoleType[];
     werewolfCount: number;
     turnDurationSeconds: number;
     guardian: GuardianConfig;

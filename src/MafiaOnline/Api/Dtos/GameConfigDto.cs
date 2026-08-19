@@ -1,10 +1,11 @@
 using MafiaOnline.Engine.Config;
+using MafiaOnline.Engine.Roles;
 
 namespace MafiaOnline.Api.Dtos;
 
 public class GameConfigDto
 {
-    public RoleSelectionDto Roles { get; set; } = new();
+    public HashSet<RoleType> EnabledRoles { get; set; } = new();
     public int WerewolfCount { get; set; } = 1;
     public int TurnDurationSeconds { get; set; } = 30;
     public GuardianConfig Guardian { get; set; } = new();
@@ -20,23 +21,7 @@ public class GameConfigDto
     {
         return new GameConfigDto
         {
-            Roles = new RoleSelectionDto
-            {
-                Guardian = config.Roles.Guardian,
-                Detective = config.Roles.Detective,
-                DogTamer = config.Roles.DogTamer,
-                Poacher = config.Roles.Poacher,
-                Trailer = config.Roles.Trailer,
-                Seer = config.Roles.Seer,
-                Peeper = config.Roles.Peeper,
-                Spy = config.Roles.Spy,
-                Ranger = config.Roles.Ranger,
-                Fool = config.Roles.Fool,
-                Dracula = config.Roles.Dracula,
-                Deceiver = config.Roles.Deceiver,
-                Ghost = config.Roles.Ghost,
-                Charmer = config.Roles.Charmer,
-            },
+            EnabledRoles = config.EnabledRoles,
             WerewolfCount = config.WerewolfCount,
             TurnDurationSeconds = config.TurnDurationSeconds,
             Guardian = config.Guardian,
@@ -54,23 +39,7 @@ public class GameConfigDto
     {
         return new GameConfig
         {
-            Roles = new RoleSelectionConfig
-            {
-                Guardian = Roles.Guardian,
-                Detective = Roles.Detective,
-                DogTamer = Roles.DogTamer,
-                Poacher = Roles.Poacher,
-                Trailer = Roles.Trailer,
-                Seer = Roles.Seer,
-                Peeper = Roles.Peeper,
-                Spy = Roles.Spy,
-                Ranger = Roles.Ranger,
-                Fool = Roles.Fool,
-                Dracula = Roles.Dracula,
-                Deceiver = Roles.Deceiver,
-                Ghost = Roles.Ghost,
-                Charmer = Roles.Charmer,
-            },
+            EnabledRoles = EnabledRoles,
             WerewolfCount = WerewolfCount,
             TurnDurationSeconds = TurnDurationSeconds,
             Guardian = Guardian,
@@ -83,22 +52,4 @@ public class GameConfigDto
             Drunk = Drunk,
         };
     }
-}
-
-public class RoleSelectionDto
-{
-    public bool Guardian { get; set; } = true;
-    public bool Detective { get; set; } = true;
-    public bool DogTamer { get; set; } = true;
-    public bool Poacher { get; set; } = true;
-    public bool Trailer { get; set; } = true;
-    public bool Seer { get; set; } = true;
-    public bool Peeper { get; set; } = true;
-    public bool Spy { get; set; } = true;
-    public bool Ranger { get; set; } = true;
-    public bool Fool { get; set; } = true;
-    public bool Dracula { get; set; } = true;
-    public bool Deceiver { get; set; } = true;
-    public bool Ghost { get; set; } = true;
-    public bool Charmer { get; set; } = true;
 }

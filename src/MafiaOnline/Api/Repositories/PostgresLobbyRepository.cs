@@ -5,6 +5,7 @@ using MafiaOnline.Api.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Api.Repositories;
 public class PostgresLobbyRepository : ILobbyRepository
@@ -12,7 +13,8 @@ public class PostgresLobbyRepository : ILobbyRepository
     private readonly MafiaDbContext _db;
     private readonly JsonSerializerSettings _settings = new()
     {
-        TypeNameHandling = TypeNameHandling.Auto
+        TypeNameHandling = TypeNameHandling.Auto,
+        Converters = { new StringEnumConverter() }
     };
     private readonly ILogger<PostgresLobbyRepository> _logger;
 

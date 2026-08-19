@@ -161,37 +161,24 @@ public class Game
             ordered[i].SeatIndex = i;
 
         var specialRolesToAssign = new List<RoleType>();
-
-        // villager roles
-        if (Config.Roles.Guardian) specialRolesToAssign.Add(RoleType.Guardian);
-        if (Config.Roles.Detective) specialRolesToAssign.Add(RoleType.Detective);
-        if (Config.Roles.DogTamer) specialRolesToAssign.Add(RoleType.DogTamer);
-        if (Config.Roles.Poacher) specialRolesToAssign.Add(RoleType.Poacher);
-        if (Config.Roles.Trailer) specialRolesToAssign.Add(RoleType.Trailer);
-        if (Config.Roles.Seer) specialRolesToAssign.Add(RoleType.Seer);
-        if (Config.Roles.Peeper) specialRolesToAssign.Add(RoleType.Peeper);
-        if (Config.Roles.Spy) specialRolesToAssign.Add(RoleType.Spy);
-        if (Config.Roles.Ranger) specialRolesToAssign.Add(RoleType.Ranger);
-
-        // neutral roles
-        if (Config.Roles.Fool) specialRolesToAssign.Add(RoleType.Fool);
-
-        var specialRolesSet = new HashSet<RoleType>(specialRolesToAssign);
         var werewolfRolesToAssign = new List<RoleType>();
 
-        // werewolf roles
-        if (Config.Roles.Dracula) werewolfRolesToAssign.Add(RoleType.Dracula);
-        if (Config.Roles.Deceiver) werewolfRolesToAssign.Add(RoleType.Deceiver);
-        if (Config.Roles.Ghost) werewolfRolesToAssign.Add(RoleType.Ghost);
-        if (Config.Roles.Charmer) werewolfRolesToAssign.Add(RoleType.Charmer);
+        foreach(var roleType in Config.EnabledRoles)
+        {
+            if(roleType.GetTeam() == Team.Villagers || roleType.GetTeam() == Team.Neutral)
+                specialRolesToAssign.Add(roleType);
+            else if (roleType.GetTeam() == Team.Werewolves && !werewolfRolesToAssign.Contains(roleType))
+                werewolfRolesToAssign.Add(roleType);
+        }
 
         var werewolfRoleCount = werewolfRolesToAssign.Count;
         for (int i = 0; i < Config.WerewolfCount - werewolfRoleCount; i++)
             werewolfRolesToAssign.Add(RoleType.Werewolf);
 
+        var specialRolesSet = new HashSet<RoleType>(specialRolesToAssign);
         var unassignedPlayers = new HashSet<int>(Enumerable.Range(0, ordered.Count));
-
         var playerCount = ordered.Count;
+
         //var shuffledIndices = new List<int>() { 0, 1, 2, 3, 4, 5, 6, 7, 8 }.Take(playerCount).ToList();
         var shuffledIndices = Enumerable.Range(0, ordered.Count).OrderBy(_ => new Random().Next()).ToList();
 
@@ -230,7 +217,7 @@ public class Game
             var werewolves = ordered.Where(player => player.Role.Team == Team.Werewolves).ToList();
 
             // if ghost is not supposed to get alibi - remove it from the werewolf list
-            if (Config.Roles.Ghost && !Config.Ghost.ShouldGetAlibi)
+            if (Config.EnabledRoles.Contains(RoleType.Ghost) && !Config.Ghost.ShouldGetAlibi)
             {
                 werewolves.RemoveAll(player => player.RoleType == RoleType.Ghost);
             }

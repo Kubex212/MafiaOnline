@@ -295,7 +295,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     )}
                     {nightInfo?.type === 'DogTamer' && (
                         <div className="resolution__clue">
-                            🐕 {t('dogClueShort')} {nightInfo.clue ? t('dogBarked') : t('dogQuiet')}.
+                            🐕 {t('dogClueShort')} {nightInfo.clue ? t('dogBarked') : t('dogQuiet')}
                         </div>
                     )}
                     {nightInfo?.type === 'Seer' && (
@@ -307,22 +307,22 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     )}
                     {nightInfo?.type === 'Trailer' && (
                         <div className="resolution__clue">
-                            🐾 {t('trailerClueLong', { dir: t(nightInfo.clue) })}.
+                            🐾 {t('trailerClueLong', { dir: t(nightInfo.clue) })}
                         </div>
                     )}
                     {nightInfo?.type === 'Peeper' && (
                         <div className="resolution__clue">
-                            👀 {t('peeperClueLong', { player: t(nightInfo.data.SubjectName), is: t('peeperClue-' + nightInfo.clue) })}.
+                            👀 {t('peeperClueLong', { player: t(nightInfo.data.SubjectName), is: t('peeperClue-' + nightInfo.clue) })}
                         </div>
                     )}
                     {nightInfo?.type === 'Spy' && (
                         <div className="resolution__clue">
-                            🕵️‍ {t('spyClueLong', { player: t(nightInfo.data.SubjectName), did: t('spyClue-' + nightInfo.clue) })}.
+                            🕵️‍ {t('spyClueLong', { player: t(nightInfo.data.SubjectName), did: t('spyClue-' + nightInfo.clue) })}
                         </div>
                     )}
                     {nightInfo?.type === 'Ranger' && (
                         <div className="resolution__clue">
-                            🧶 {t('rangerClueLong', { times: nightInfo.clue })}.
+                            🧶 {t('rangerClueLong', { times: nightInfo.clue })}
                         </div>
                     )}
                 </div>

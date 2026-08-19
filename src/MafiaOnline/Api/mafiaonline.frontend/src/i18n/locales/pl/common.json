@@ -146,10 +146,10 @@
   "FoolDescriptionShort": "Przekonaj mieszkańców, aby cię wygnali.",
 
   "seerClueShort": "Wskazówka wyroczni -",
-  "seerClueLong": "Wskazówka wyroczni - {{a}} & {{b}} — {{relation}}",
+  "seerClueLong": "Wskazówka wyroczni - {{a}} & {{b}} — {{relation}}.",
   "sameTeam": "są w tej samej drużynie",
-  "trailerClueLong": "Wskazówka tropiciela - najbliższy wilkołak jest po {{dir}}",
   "differentTeams": "są w innych drużynach",
+  "trailerClueLong": "Wskazówka tropiciela - najbliższy wilkołak jest po {{dir}}.",
   "Left": "lewej",
   "Right": "prawej",
   "peeperClueLong": "Wskazówka podglądacza - gracz {{player}} {{is}} wieśniakiem.",

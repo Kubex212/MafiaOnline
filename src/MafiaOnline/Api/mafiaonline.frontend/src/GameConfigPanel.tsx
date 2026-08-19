@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { GameConfig, WerewolfConfig } from './api';
+import type { GameConfig, WerewolfConfig, RoleType } from './api';
+import { nonStandardRoleTypes } from './api';
 import { DEFAULT_WEREWOLF_CONFIG } from './api';
 import { useTranslation } from 'react-i18next';
 import RoleHint from './RoleHint';
@@ -8,10 +9,6 @@ type GameConfigPanelProps = {
     config: GameConfig;
     onChange: (config: GameConfig) => void;
 };
-
-const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'spy', 'ranger', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
-];
 
 export default function GameConfigPanel({ config, onChange }: GameConfigPanelProps) {
     const { t } = useTranslation();
@@ -25,8 +22,12 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
         onChange(next);
     }
 
-    function updateRole(key: keyof GameConfig['roles'], value: boolean) {
-        update('roles', { ...(local.roles ?? {}), [key]: value } as GameConfig['roles']);
+    function updateRole(key: RoleType, value: boolean) {
+        update('enabledRoles', value
+            ? [...(local.enabledRoles ?? []), key]
+            : (local.enabledRoles ?? []).filter(x => x !== key)
+        );
+        console.log(local.enabledRoles);
     }
 
     function updateNested<T extends object>(parentKey: keyof GameConfig, value: T) {
@@ -144,18 +145,18 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
             <div className="config__section">
                 <h4 className="config__section-title">{t('roleCards')}</h4>
                 <div className="config__grid">
-                    {roleKeys.map(key => (
+                    {nonStandardRoleTypes.map(key => (
                         <div key={key} className="role-card">
                             <div className="role-card__headrow">
                                 <label className="role-card__head">
                                     <input type="checkbox"
-                                        checked={!!(local.roles?.[key])}
+                                        checked={!!(local.enabledRoles?.includes(key))}
                                         onChange={e => updateRole(key, e.target.checked)} />
                                     <span>{t(key)}</span>
                                 </label>
                                 <RoleHint role={key} config={local} />
                             </div>
-                            {key === 'guardian' && local.roles?.guardian && (
+                            {key === 'Guardian' && local.enabledRoles?.includes('Guardian') && (
                                 <div className="role-card__sub">
                                     <label>
                                         <span>{t('canProtectSelf')}</span>
@@ -177,17 +178,7 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                                     </label>
                                 </div>
                             )}
-                            {key === 'detective' && local.roles?.detective && (
-                                <div className="role-card__sub">
-                                    <label>
-                                        <span>{t('canRevealWerewolves')}</span>
-                                        <input type="checkbox"
-                                            checked={local.detective?.canRevealWerewolves ?? false}
-                                            onChange={e => updateNested('detective', { canRevealWerewolves: e.target.checked })} />
-                                    </label>
-                                </div>
-                            )}
-                            {key === 'dogTamer' && local.roles?.dogTamer && (
+                            {key === 'DogTamer' && local.enabledRoles?.includes('DogTamer') && (
                                 <div className="role-card__sub">
                                     <label>
                                         <span>{t('dogTamerRange')}</span>
@@ -205,7 +196,7 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                                     </label>
                                 </div>
                             )}
-                            {key === 'poacher' && local.roles?.poacher && (
+                            {key === 'Poacher' && local.enabledRoles?.includes('Poacher') && (
                                 <div className="role-card__sub">
                                     <label>
                                         <span>{t('allowSelfTarget')}</span>
@@ -221,7 +212,7 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                                     </label>
                                 </div>
                             )}
-                            {key === 'ghost' && local.roles?.ghost && (
+                            {key === 'Ghost' && local.enabledRoles?.includes('Ghost') && (
                                 <div className="role-card__sub">
                                     <label>
                                         <span>{t('shouldGetAlibi')}</span>

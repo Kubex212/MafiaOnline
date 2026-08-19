@@ -1,4 +1,6 @@
 using MafiaOnline.Engine.Config;
+using MafiaOnline.Engine.Roles;
+using Newtonsoft.Json;
 
 namespace MafiaOnline.Engine.Config;
 
@@ -9,7 +11,8 @@ public class GameConfig
 {
     public int WerewolfCount { get; set; } = 1;
     public int TurnDurationSeconds { get; set; } = 30;
-    public RoleSelectionConfig Roles { get; set; } = new();
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public HashSet<RoleType> EnabledRoles { get; set; } = new();
     public GuardianConfig Guardian { get; set; } = new();
     public DetectiveConfig Detective { get; set; } = new();
     public DogTamerConfig DogTamer { get; set; } = new();
@@ -19,26 +22,16 @@ public class GameConfig
     public DrunkConfig Drunk { get; set; } = new();
     public WerewolfConfig Werewolf { get; set; } = new();
 
+    public GameConfig()
+    {
+        EnabledRoles = GetDefaultRoleSet();
+    }
+
     public static GameConfig GetDefault()
     {
         return new GameConfig
         {
-            Roles = new RoleSelectionConfig
-            {
-                Guardian = true,
-                Detective = true,
-                DogTamer = true,
-                Poacher = true,
-                Trailer = true,
-                Seer = true,
-                Peeper = true,
-                Spy = true,
-                Fool = true,
-                Dracula = true,
-                Deceiver = true,
-                Ghost = true,
-                Charmer = true,
-            },
+            EnabledRoles = GetDefaultRoleSet(),
             WerewolfCount = 1,
             TurnDurationSeconds = 30,
             Guardian = new GuardianConfig(),
@@ -50,5 +43,13 @@ public class GameConfig
             Ghost = new GhostConfig(),
             Drunk = new DrunkConfig(),
         };
+    }
+
+    private static HashSet<RoleType> GetDefaultRoleSet()
+    {
+        var roles = Enum.GetValues<RoleType>().ToHashSet();
+        roles.Remove(RoleType.Villager);
+        roles.Remove(RoleType.Werewolf);
+        return roles;
     }
 }

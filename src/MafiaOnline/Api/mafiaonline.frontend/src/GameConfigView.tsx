@@ -1,12 +1,9 @@
 import React from 'react';
 import type { GameConfig, WerewolfConfig } from './api';
+import { nonStandardRoleTypes } from './api';
 import { DEFAULT_WEREWOLF_CONFIG } from './api';
 import { useTranslation } from 'react-i18next';
 import RoleHint from './RoleHint';
-
-const roleKeys: (keyof GameConfig['roles'])[] = [
-    'guardian', 'detective', 'dogTamer', 'poacher', 'trailer', 'seer', 'peeper', 'spy', 'ranger', 'fool', 'dracula', 'deceiver', 'ghost', 'charmer'
-];
 
 function Flag({ on, t }: { on: boolean; t: (k: string) => string }) {
     return (
@@ -76,15 +73,15 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                 </div>
                 <div className="config__row">
                     <span>{t('werewolfAlibi')}</span>
-                    <Flag on={werewolf.alibi ?? DEFAULT_WEREWOLF_CONFIG.alibi} t={t} />
+                    <Flag on={werewolf.showAlibi ?? DEFAULT_WEREWOLF_CONFIG.showAlibi} t={t} />
                 </div>
             </div>
 
             <div className="config__section">
                 <h4 className="config__section-title">{t('roleCards')}</h4>
                 <div className="config__grid">
-                    {roleKeys.map(key => {
-                        const enabled = !!config.roles?.[key];
+                    {nonStandardRoleTypes.map(key => {
+                        const enabled = !!config.enabledRoles?.includes(key);
                         return (
                             <div key={key} className={`role-card ${enabled ? '' : 'role-card--off'}`}>
                                 <div className="role-card__head role-card__head--static">
@@ -93,7 +90,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                     <span className="role-card__flag"><Flag on={enabled} t={t} /></span>
                                 </div>
 
-                                {key === 'guardian' && enabled && (
+                                {key === 'Guardian' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('canProtectSelf')}</span>
                                             <Flag on={config.guardian?.canProtectSelf ?? false} t={t} /></label>
@@ -103,13 +100,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                             <Flag on={config.guardian?.announceProtection ?? false} t={t} /></label>
                                     </div>
                                 )}
-                                {key === 'detective' && enabled && (
-                                    <div className="role-card__sub">
-                                        <label><span>{t('canRevealWerewolves')}</span>
-                                            <Flag on={config.detective?.canRevealWerewolves ?? false} t={t} /></label>
-                                    </div>
-                                )}
-                                {key === 'dogTamer' && enabled && (
+                                {key === 'DogTamer' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('dogTamerRange')}</span>
                                             <span className="config__value">{config.dogTamer?.range ?? 0}</span></label>
@@ -117,7 +108,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                             <span className="config__value">{config.dogTamer?.numWerewolves ?? 0}</span></label>
                                     </div>
                                 )}
-                                {key === 'poacher' && enabled && (
+                                {key === 'Poacher' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('allowSelfTarget')}</span>
                                             <Flag on={config.poacher?.allowSelfTarget ?? false} t={t} /></label>
@@ -125,7 +116,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                             <Flag on={config.poacher?.mustAlternate ?? false} t={t} /></label>
                                     </div>
                                 )}
-                                {key === 'ghost' && enabled && (
+                                {key === 'Ghost' && enabled && (
                                     <div className="role-card__sub">
                                         <label><span>{t('shouldGetAlibi')}</span>
                                             <Flag on={config.ghost?.shouldGetAlibi ?? false} t={t} /></label>
