@@ -147,7 +147,7 @@
   "FoolDescriptionShort": "Convince the villagers to banish you.",
 
   "seerClueShort": "Seer clue —",
-  "seerClueLong": "Seer: {{a}} & {{b}} — {{relation}}".,
+  "seerClueLong": "Seer: {{a}} & {{b}} — {{relation}}.",
   "sameTeam": "same team",
   "differentTeams": "different teams",
   "trailerClueLong": "Trailer clue: the nearest werewolf is to the {{dir}}.",
