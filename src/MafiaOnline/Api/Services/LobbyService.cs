@@ -119,6 +119,11 @@ public class LobbyService : ILobbyService
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
+        var existingPlayer = lobby.Players.FirstOrDefault(x => x.UserId == _currentUser.UserId);
+
+        if (existingPlayer != null)
+            return lobby;
+
         lobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
 
         await _repository.Update(lobby);

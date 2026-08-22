@@ -109,9 +109,11 @@ async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAtte
             ...(init.headers as Record<string, string> || {}),
             ...authHeaders()
         };
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
 
         try {
-            const res = await fetch(input, { ...init, headers: mergedHeaders });
+            const res = await fetch(input, { ...init, headers: mergedHeaders, signal: controller.signal });
             if (res.ok) return res;
 
             // If unauthorized and we had a stored token, clear it and retry
@@ -136,6 +138,8 @@ async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAtte
             if (attempt >= maxAttempts) throw err;
             await sleep(backoff);
             backoff *= 2;
+        } finally {
+            clearTimeout(timeout);
         }
     }
 }
