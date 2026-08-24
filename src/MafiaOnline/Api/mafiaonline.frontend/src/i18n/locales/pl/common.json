@@ -97,6 +97,7 @@
   "Peeper": "Podglądacz",
   "Spy": "Szpieg",
   "Ranger": "Leśniczy",
+  "Alchemist": "Alchemik",
   "Fool": "Głupiec",
   "dracula": "Drakula",
   "deceiver": "Oszust",
@@ -142,6 +143,8 @@
   "SpyDescriptionShort": "Sprawdź, czy wybrany gracz wychodził w nocy z domu.",
   "RangerDescriptionLong": "Każdej nocy możesz rozciągnąć potajemny sznur między dwoma graczami. Dowiesz się, ile akcji przecinało tę ścieżkę.",
   "RangerDescriptionShort": "Rozciągnij sznur między dwoma graczami, aby dowiedzieć się, ile osób go potrąciło.",
+  "AlchemistDescriptionLong": "Przygotowujesz miksturę. Im dłużej wstrzymasz się z jej wypiciem, tym lepszą wskazówkę otrzymasz. Pełną nagrodę otrzymasz piątej nocy. Wskazówki dotyczą ról przydzielonych graczom.",
+  "AlchemistDescriptionShort": "Przygotowujesz miksturę. Im dłużej wstrzymasz się z jej wypiciem, tym lepszą wskazówkę otrzymasz.",
   "FoolDescriptionLong": "Udajesz zwykłego mieszkańca wioski, ale potajemnie chcesz zostać wygnany. Jeśli zostaniesz wygnany, wygrywasz grę.",
   "FoolDescriptionShort": "Przekonaj mieszkańców, aby cię wygnali.",
 
@@ -159,6 +162,11 @@
   "spyClue-true": "WYCHODZIŁ",
   "spyClue-false": "NIE WYCHODZIŁ",
   "rangerClueLong": "Wskazówka leśniczego - sznur potrącąno {{times}} razy.",
+  "alchemistClue1": "Wskazówka alchemika 1/5 - w tej grze jest następująca liczba ról z aktywną umiejętnością: {{num}}.",
+  "alchemistClue2": "Wskazówka alchemika 2/5 - pula ról wieśniaków (wliczając potencjalne alibi) to: {{pool}}.",
+  "alchemistClue3": "Wskazówka alchemika 3/5 - pula ról wieśniaków i neutralnych (wliczając potencjalne alibi) to: {{pool}}.",
+  "alchemistClue4": "Wskazówka alchemika 4/5 - pula ról wilkołaków to: {{pool}}.",
+  "alchemistClue5": "Wskazówka alchemika 5+/5 - wilkołakami są: {{werewolves}}.",
 
   "poacherTrapPlaced": "Ustawiłeś pułapkę na {{target}}",
   "poacherTriggered": "Pułapka uruchomiona! Wilkołak również zginął (cel: {{target}})",

@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, AnyClueResponse, GameConfig } from './api';
+import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, AnyClueResponse, GameConfig, AlchemistClueResponse } from './api';
 import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
@@ -7,6 +7,7 @@ import RoleInfo from './RoleInfo';
 import EventLog from './EventLog';
 import { addLog as pushLog } from './gameLog';
 import type { ActionInfo } from './RoundTable';
+import type { TFunction } from 'i18next';
 
 interface Props {
     lobbyCode: string;
@@ -103,11 +104,13 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 } else if (info.type === 'Trailer') {
                     setLog(t('trailerClueLong', { dir: t(info.clue) }));
                 } else if (info.type === 'Peeper') {
-                    setLog(t('peeperClueLong', { player: t(String(info.data.PlayerName)), is: t('peeperClue-' + info.clue) }));
+                    setLog(t('peeperClueLong', { player: t(String(info.data.SubjectName)), is: t('peeperClue-' + info.clue) }));
                 } else if (info.type === 'Spy') {
-                    setLog(t('spyClueLong', { player: t(String(info.data.PlayerName)), did: t('spyClue-' + info.clue) }));
+                    setLog(t('spyClueLong', { player: t(String(info.data.SubjectName)), did: t('spyClue-' + info.clue) }));
                 } else if (info.type === 'Ranger') {
                     setLog(t('rangerClueLong', { times: info.clue }));
+                } else if (info.type === 'Alchemist') {
+                    setLog(displayAlchemistClue(info.clue, t));
                 }
             } catch { /* no clue for this role */ }
         },
@@ -325,6 +328,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                             🧶 {t('rangerClueLong', { times: nightInfo.clue })}
                         </div>
                     )}
+                    {nightInfo?.type === 'Alchemist' && (
+                        <div className="resolution__clue">
+                            🧪 {displayAlchemistClue(nightInfo.clue, t)}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -334,3 +342,20 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
 });
 
 export default NightPhase;
+
+function displayAlchemistClue(clueData: any, t: TFunction): string {
+    const resource = clueData.clueBase;
+
+    switch (clueData.nightsPassed) {
+        case 1:
+            return t(resource, { num: clueData.data });
+        case 2:
+        case 3:
+        case 4:
+            return t(resource, { pool: clueData.data.map(s => t(s)).join(", ") });
+        default:
+            return t(resource, { werewolves: clueData.data.join(", ") });
+    }
+
+    return "";
+}

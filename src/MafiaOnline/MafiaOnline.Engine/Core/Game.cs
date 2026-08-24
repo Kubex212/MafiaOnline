@@ -68,7 +68,7 @@ public class Game
 
         var allPlayers = _players;
         var resolver = new NightResolver();
-        var nightResult = resolver.Resolve(allPlayers, actions, Config, DrunkPlayer);
+        var nightResult = resolver.Resolve(allPlayers, actions, this, Config);
         Turns.Last().Night = nightResult;
 
         foreach (var killedId in LastNightResult!.Killed)

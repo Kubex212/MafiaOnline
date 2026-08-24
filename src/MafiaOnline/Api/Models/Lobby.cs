@@ -182,8 +182,28 @@ public class Lobby
     public bool ActivePlayerHasAbility()
     {
         if (Game is null || NightSession?.ActivePlayer is null) return false;
-        var ep = Game.Players.FirstOrDefault(p => p.Id == NightSession.ActivePlayer.Id);
-        return ep?.Role is IHasNightAbility na && !na.NightAbility.IsAutomatic;
+
+        var enginePlayer = Game.Players.FirstOrDefault(p => p.Id == NightSession.ActivePlayer.Id);
+        if(enginePlayer?.Role is not IHasNightAbility na)
+        {
+            return false;
+        }
+        if(na.NightAbility.IsAutomatic)
+        {
+            return false;
+        }
+        if(na.NightAbility.Cooldown.HasValue)
+        {
+            // check how many nights have passed since the last time this player used their ability
+            var lastUsedNight = Game.Turns
+                .Where(t => t.Night != null && t.Night.Actions.Any(a => a.Actor == enginePlayer.Id && a.ActionType == ActionType.Ability))
+                .OrderByDescending(t => t.Index)
+                .FirstOrDefault();
+            var isOnCooldown = lastUsedNight != null && (Game.Turns.Count - lastUsedNight.Index) < na.NightAbility.Cooldown.Value;
+            return !isOnCooldown;
+        }
+
+        return true;
     }
 
     public NightResult ResolveNight()

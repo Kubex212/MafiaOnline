@@ -43,7 +43,7 @@ public abstract class NightAbility()
     /// <summary>
     /// If the ability is used, how long should it be before it can be used again? Null means no cooldown.
     /// </summary>
-    protected virtual int? Cooldown => null;
+    public virtual int? Cooldown => null;
 
     /// <summary>
     /// When should the ability be available for the first time? Null means it is available from the start of the game.

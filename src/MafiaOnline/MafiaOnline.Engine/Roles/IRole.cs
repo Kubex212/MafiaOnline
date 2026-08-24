@@ -18,6 +18,7 @@ public enum RoleType
     Peeper,
     Spy,
     Ranger,
+    Alchemist,
 
     Werewolf,
     Dracula,
@@ -47,6 +48,7 @@ public static class RoleTypeExtensions
             case RoleType.Peeper:
             case RoleType.Spy:
             case RoleType.Ranger:
+            case RoleType.Alchemist:
                 return true;
             default:
                 return false;

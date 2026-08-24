@@ -12,7 +12,7 @@ export function getStoredToken(): string | null {
 function storeToken(token: string) {
     sessionStorage.setItem(SESSION_KEY, token);
     console.log('stored token');
-}
+        }
 
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -109,11 +109,10 @@ async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAtte
             ...(init.headers as Record<string, string> || {}),
             ...authHeaders()
         };
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
 
         try {
             const res = await fetch(input, { ...init, headers: mergedHeaders });
+
             if (res.ok) return res;
 
             // If unauthorized and we had a stored token, clear it and retry
@@ -126,20 +125,11 @@ async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAtte
                 }
             }
 
-            // Retry on server errors
-            if (res.status >= 500 && res.status < 600 && attempt < maxAttempts) {
-                await sleep(backoff);
-                backoff *= 2;
-                continue;
-            }
-
             return res;
         } catch (err) {
             if (attempt >= maxAttempts) throw err;
             await sleep(backoff);
             backoff *= 2;
-        } finally {
-            clearTimeout(timeout);
         }
     }
 }
@@ -203,33 +193,17 @@ export const roleTypes = [
     'Peeper',
     'Spy',
     'Ranger',
-
+    'Alchemist',
     'Fool',
-
     'Dracula',
     'Deceiver',
     'Ghost',
     'Charmer'
 ] as const;
 
-export const nonStandardRoleTypes = [
-    'Guardian',
-    'Detective',
-    'DogTamer',
-    'Poacher',
-    'Trailer',
-    'Seer',
-    'Peeper',
-    'Spy',
-    'Ranger',
-
-    'Fool',
-
-    'Dracula',
-    'Deceiver',
-    'Ghost',
-    'Charmer'
-] as const;
+export const nonStandardRoleTypes = roleTypes.filter(
+    role => role !== 'Villager' && role !== 'Werewolf'
+);
 
 export type RoleType = typeof roleTypes[number];
 
@@ -288,6 +262,7 @@ export enum ClueType {
     Peeper = "Peeper",
     Spy = "Spy",
     Ranger = "Ranger",
+    Alchemist = "Alchemist"
 }
 
 export interface ClueResponse { type: ClueType; data: Record<string, unknown>; clue: unknown; }
@@ -301,10 +276,11 @@ export interface TrailerClueResponse extends ClueResponse { type: ClueType.Trail
 export interface PeeperClueResponse extends ClueResponse { type: ClueType.Peeper; clue: boolean; }
 export interface SpyClueResponse extends ClueResponse { type: ClueType.Spy; clue: boolean; }
 export interface RangerClueResponse extends ClueResponse { type: ClueType.Ranger; clue: number; }
+export interface AlchemistClueResponse extends ClueResponse { type: ClueType.Alchemist; clue: any; }
 
 
 export type AnyClueResponse =
-    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse;
+    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;

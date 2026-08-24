@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using static MafiaOnline.Engine.Roles.AlchemistBrewAbility;
 
 namespace MafiaOnline.Engine.Night;
 
@@ -11,6 +12,7 @@ public enum ClueType
     Peeper,
     Spy,
     Ranger,
+    Alchemist,
 }
 
 public abstract class NightEvent
@@ -214,6 +216,23 @@ public sealed class RangerClueEvent : ClueEvent<int>
     {
     }
 }
+
+public sealed class AlchemistClueEvent : ClueEvent<AlchemistClue>
+{
+    public override ClueType ClueType => ClueType.Alchemist;
+
+    public AlchemistClueEvent()
+    {
+    }
+
+    public AlchemistClueEvent(Guid alchemistId, AlchemistClue clue, AlchemistClue fakeClue)
+        : base(alchemistId, clue, fakeClue)
+    {
+    }
+}
+
+
+
 public sealed class PlayerKilledEvent : NightEvent
 {
     public Guid PlayerId { get; }
@@ -226,8 +245,6 @@ public sealed class AttackBlockedEvent : NightEvent
     public Guid GuardianId { get; }
     public AttackBlockedEvent(Guid victimId, Guid guardianId) => (VictimId, GuardianId) = (victimId, guardianId);
 }
-
-
 
 public sealed class PoacherTriggeredEvent : NightEvent
 {

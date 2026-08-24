@@ -1346,6 +1346,7 @@ code {
     font-family: var(--font-display);
     color: var(--accent-2);
     letter-spacing: 0.05em;
+    user-select: none;
 }
 
 .role-card__sub {

@@ -19,13 +19,13 @@ public class NightResolver
     public NightResult Resolve(
         IReadOnlyList<Player> allPlayers,
         IReadOnlyList<NightAction> submittedActions,
-        GameConfig config = null,
-        Player? drunkPlayer = null)
+        Game game,
+        GameConfig config = null)
     {
         if (config is null)
             config = GameConfig.GetDefault();
 
-        var context = new NightContext();
+        var context = new NightContext(game);
 
         // Build list of ability slots. Include per-role abilities and a team-shared werewolf attack
         var slots = new List<(Player Player, NightAbility Ability)>();
@@ -67,7 +67,7 @@ public class NightResolver
             ability.Apply(player, action, context, allPlayers);
         }
 
-        context.DrunkPlayer = drunkPlayer;
+        context.DrunkPlayer = game.DrunkPlayer;
 
         return BuildResult(context, allPlayers, config, submittedActions);
     }
@@ -247,6 +247,15 @@ public class NightResolver
                 });
             });
             events.Add(new RangerClueEvent(context.TripwireVertices.Value.Ranger, count));
+        }
+
+        if(context.AlchemistId is not null)
+        {
+            var alchemistId = context.AlchemistId.Value;
+            var alchemist = alivePlayers.FirstOrDefault(p => p.Id == alchemistId);
+            var nightsPassed = context.Game.Turns.Count();
+            var clue = AlchemistBrewAbility.GetClue(nightsPassed, context, actions);
+            events.Add(new AlchemistClueEvent(alchemistId, clue, clue));
         }
 
         // Include any events directly registered in context

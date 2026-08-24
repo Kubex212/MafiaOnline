@@ -7,8 +7,9 @@ namespace MafiaOnline.Engine.Night;
 /// Abilities are applied in priority order (ascending); each ability can inspect
 /// what earlier abilities already registered and conditionally add its own effects.
 /// </summary>
-public class NightContext
+public class NightContext(Game game)
 {
+    internal Game Game { get; } = game;
     internal Player? DrunkPlayer { get; set; } = null;
     // ---------- pending decisions (set by abilities) ----------
 
@@ -66,6 +67,12 @@ public class NightContext
     /// Spy and his target id
     /// </summary>
     internal (Guid SpyId, Guid TargetId)? SpyAbility { get; set; } = null;
+
+
+    /// <summary>
+    /// Not null means alchemist used their ability and we should give them a clue at the end of the night. The value is the alchemist's player ID.
+    /// </summary>
+    internal Guid? AlchemistId { get; set; } = null;
 
     // ---------- finalised outcomes (populated by NightResolver) ----------
 

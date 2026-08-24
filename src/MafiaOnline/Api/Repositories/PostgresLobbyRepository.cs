@@ -14,7 +14,8 @@ public class PostgresLobbyRepository : ILobbyRepository
     private readonly JsonSerializerSettings _settings = new()
     {
         TypeNameHandling = TypeNameHandling.Auto,
-        Converters = { new StringEnumConverter() }
+        Converters = { new StringEnumConverter() },
+        ObjectCreationHandling = ObjectCreationHandling.Replace,
     };
     private readonly ILogger<PostgresLobbyRepository> _logger;
 

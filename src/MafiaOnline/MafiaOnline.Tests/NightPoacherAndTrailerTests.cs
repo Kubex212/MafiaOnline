@@ -1,4 +1,5 @@
 using MafiaOnline.Engine;
+using MafiaOnline.Engine.Config;
 using MafiaOnline.Engine.Night;
 using MafiaOnline.Engine.Roles;
 using System;
@@ -40,7 +41,7 @@ public class NightPoacherAndTrailerTests
         };
 
         // Act
-        var result = new NightResolver().Resolve(alive, actions);
+        var result = new NightResolver().Resolve(alive, actions, new Game(poacher.Id, GameConfig.GetDefault()));
 
         // Assert: victim and one werewolf should be in killed
         Assert.Contains(victim.Id, result.Killed);
@@ -68,7 +69,7 @@ public class NightPoacherAndTrailerTests
 
         var resolver = new NightResolver();
         // Run resolver to collect automatic clues
-        var result = resolver.Resolve(alive, new List<NightAction>());
+        var result = resolver.Resolve(alive, new List<NightAction>(), new Game(trailer.Id, GameConfig.GetDefault()));
 
         var trailerEvent = result.Events.OfType<TrailerClueEvent>().FirstOrDefault(e => e.ClueOwnerId == trailer.Id);
         Assert.NotNull(trailerEvent);
