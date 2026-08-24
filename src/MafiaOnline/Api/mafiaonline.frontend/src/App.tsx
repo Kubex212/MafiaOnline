@@ -26,6 +26,13 @@ import { playSound, cueYourTurn } from './sound';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
+function whenActivated(): Promise<void> {
+    if (!document.prerendering) return Promise.resolve();
+    return new Promise(resolve => {
+        document.addEventListener('prerenderingchange', () => resolve(), { once: true });
+    });
+}
+
 export default function App() {
     const [nickname, setNickname] = useState('Player' + Math.floor(Math.random() * 1000));
     const [lobby, setLobby] = useState<LobbyResponse | null>(null);
@@ -43,6 +50,7 @@ export default function App() {
     const [profileOpen, setProfileOpen] = useState(false);
     const [rematchCode, setRematchCode] = useState<string | null>(null);
     const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
+    const [sessionReady, setSessionReady] = useState(false);
 
     // mark rematchCode as used for TS
     useEffect(() => {
@@ -106,7 +114,17 @@ export default function App() {
 
         (async () => {
             // Must have a token before we build the hub URL (token is embedded in it).
-            try { await getOrCreateSession(); } catch (err) { console.error('Session init failed', err); }
+            try {
+                await whenActivated();       // <-- wait until this is the real, visible document
+                if (cancelled) return;
+                await getOrCreateSession();
+                if (cancelled) return;
+         
+                setSessionReady(true);
+
+            } catch (err) {
+                console.error('Session init failed', err);
+            }
             if (cancelled) return;
 
             try {
@@ -686,7 +704,7 @@ export default function App() {
                             </label>
 
                             <button className="btn btn--primary btn--block"
-                                onClick={onCreate} disabled={creating || !nickname.trim()}>
+                                onClick={onCreate} disabled={creating || !nickname.trim() || !sessionReady}>
                                 {creating ? (
                                     <>
                                         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
@@ -712,7 +730,7 @@ export default function App() {
                                     maxLength={8}
                                     onChange={e => setCodeToJoin(e.target.value.toUpperCase())} />
                                 <button className="btn" onClick={onJoin}
-                                    disabled={!codeToJoin.trim() || !nickname.trim()}>
+                                    disabled={!codeToJoin.trim() || !nickname.trim() || !sessionReady}>
                                     {t('join')}
                                 </button>
                             </div>

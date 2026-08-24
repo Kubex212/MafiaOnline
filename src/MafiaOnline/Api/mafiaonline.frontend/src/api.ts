@@ -99,7 +99,7 @@ function authHeaders(): Record<string, string> {
 
 // Helper to perform fetch with automatic retry on transient errors and
 // a single retry clearing stored token on 401/403.
-async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAttempts = 3): Promise<Response> {
+async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAttempts = 1): Promise<Response> {
     let attempt = 0;
     let backoff = 200;
 
@@ -113,7 +113,7 @@ async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAtte
         const timeout = setTimeout(() => controller.abort(), 6000);
 
         try {
-            const res = await fetch(input, { ...init, headers: mergedHeaders, signal: controller.signal });
+            const res = await fetch(input, { ...init, headers: mergedHeaders });
             if (res.ok) return res;
 
             // If unauthorized and we had a stored token, clear it and retry
