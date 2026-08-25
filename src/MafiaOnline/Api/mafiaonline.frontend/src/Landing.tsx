@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { roleDescKey, roleSigil } from './roleText';
+import { roleDescKey, roleSigil, roleLabelKey } from './roleText';
+import { roleTypes } from './api';
 
-const PEEK_ROLES = ['Werewolf', 'Villager', 'Guardian', 'Detective', 'Seer', 'Dogtamer', 'Poacher', 'Trailer', 'Fool', 'Dracula'];
+
+const PEEK_ROLES = roleTypes;
 
 /**
  * First-visit explainer shown under the join form: what the game is, how a
@@ -64,7 +66,7 @@ export default function Landing() {
                         <li key={r}>
                             <span className="role-peek__sigil" aria-hidden>{roleSigil(r)}</span>
                             <div>
-                                <strong>{t(r === 'Dogtamer' ? 'DogTamer' : r)}</strong>
+                                <strong>{t(roleLabelKey(r))}</strong>
                                 <span>{t(roleDescKey(r, 'Short'), { numWerewolves: 1, rangeDoubled: 2 })}</span>
                             </div>
                         </li>
