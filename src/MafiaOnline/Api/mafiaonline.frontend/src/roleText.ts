@@ -23,6 +23,7 @@ const DESC_BASE: Record<string, string> = {
     deceiver: 'Deceiver',
     ghost: 'Ghost',
     charmer: 'Charmer',
+    sorcerer: 'Sorcerer',
 };
 
 /** "Dog Tamer" / "dogTamer" -> "Dogtamer" so it matches the i18n resource keys. */
@@ -62,6 +63,7 @@ export const ROLE_SIGILS: Record<string, string> = {
     Deceiver: '🦹‍',
     Ghost: '👻',
     Charmer: '😴',
+    Sorcerer: '🕯',
 };
 
 /** Sigil lookup tolerant of casing / spacing differences. */

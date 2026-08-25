@@ -20,6 +20,7 @@ public static class RoleFactory
             RoleType.Spy => new Spy(),
             RoleType.Ranger => new Ranger(),
             RoleType.Alchemist => new Alchemist(),
+            RoleType.Sorcerer => new Sorcerer(),
 
             RoleType.Werewolf => new Werewolf(),
             RoleType.Dracula => new Dracula(),

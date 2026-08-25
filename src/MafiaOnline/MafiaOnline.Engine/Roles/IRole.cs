@@ -19,6 +19,7 @@ public enum RoleType
     Spy,
     Ranger,
     Alchemist,
+    Sorcerer,
 
     Werewolf,
     Dracula,
@@ -49,6 +50,7 @@ public static class RoleTypeExtensions
             case RoleType.Spy:
             case RoleType.Ranger:
             case RoleType.Alchemist:
+            case RoleType.Sorcerer:
                 return true;
             default:
                 return false;

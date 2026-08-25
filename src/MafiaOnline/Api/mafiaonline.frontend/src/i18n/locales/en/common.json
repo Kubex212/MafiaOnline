@@ -99,6 +99,7 @@
   "Spy": "Spy",
   "Ranger": "Leśniczy",
   "Alchemist": "Alchemist",
+  "Sorcerer": "Sorcerer",
   "Fool": "Fool",
   "dracula": "Dracula",
   "deceiver": "Deceiver",
@@ -114,6 +115,7 @@
   "spy": "Spy",
   "ranger": "Leśniczy",
   "alchemist": "Alchemist",
+  "sorcerer": "Sorcerer",
   "fool": "Fool",
   "WerewolfDescriptionLong": "A werewolf with no special ability. Each night you and other werewolves select a target to attack. Your goal is to devour most of the villagers and not get caught.",
   "WerewolfDescriptionShort": "Devour villagers and don't get caught.",
@@ -166,6 +168,7 @@
   "alchemistClue3": "Alchemist clue 3/5 - villager and neutral role pool (including potential alibis) is: {{pool}}.",
   "alchemistClue4": "Alchemist clue 4/5 - werewolf role pool is: {{pool}}.",
   "alchemistClue5": "Alchemist clue 5+/5 - the werewolves are: {{werewolves}}.",
+  "sorcererClueLong": "Sorcerer clue - there are {{count}} werewolves among your selected players.",
 
   "poacherTrapPlaced": "You set a trap on {{target}}.",
   "poacherTriggered": "Trap triggered! A werewolf also died (target: {{target}}).",

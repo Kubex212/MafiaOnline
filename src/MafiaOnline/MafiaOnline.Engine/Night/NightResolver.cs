@@ -258,6 +258,15 @@ public class NightResolver
             events.Add(new AlchemistClueEvent(alchemistId, clue, clue));
         }
 
+        // sorcerer clues
+        foreach (var kv in context.SorcererSelections)
+        {
+            var sorcererId = kv.Key;
+            var selected = kv.Value;
+            var count = selected.Count(id => alivePlayers.Any(p => p.Id == id && p.Role.VisibleTeam == Team.Werewolves));
+            events.Add(new SorcererClueEvent(sorcererId, count));
+        }
+
         // Include any events directly registered in context
         events.AddRange(context.Events);
 

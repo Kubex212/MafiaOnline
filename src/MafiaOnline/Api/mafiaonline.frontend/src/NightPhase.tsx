@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, AnyClueResponse, GameConfig, AlchemistClueResponse } from './api';
+import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, AnyClueResponse, GameConfig } from './api';
 import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
@@ -111,6 +111,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     setLog(t('rangerClueLong', { times: info.clue }));
                 } else if (info.type === 'Alchemist') {
                     setLog(displayAlchemistClue(info.clue, t));
+                } else if (info.type === 'Sorcerer') {
+                    setLog(t('sorcererClueLong', { count: info.clue }));
                 }
             } catch { /* no clue for this role */ }
         },
@@ -331,6 +333,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {nightInfo?.type === 'Alchemist' && (
                         <div className="resolution__clue">
                             🧪 {displayAlchemistClue(nightInfo.clue, t)}
+                        </div>
+                    )}
+                    {nightInfo?.type === 'Sorcerer' && (
+                        <div className="resolution__clue">
+                            🕯 {t('sorcererClueLong', { count: nightInfo.clue })}
                         </div>
                     )}
                 </div>

@@ -194,6 +194,7 @@ export const roleTypes = [
     'Spy',
     'Ranger',
     'Alchemist',
+    'Sorcerer',
     'Fool',
     'Dracula',
     'Deceiver',
@@ -262,7 +263,8 @@ export enum ClueType {
     Peeper = "Peeper",
     Spy = "Spy",
     Ranger = "Ranger",
-    Alchemist = "Alchemist"
+    Alchemist = "Alchemist",
+    Sorcerer = "Sorcerer"
 }
 
 export interface ClueResponse { type: ClueType; data: Record<string, unknown>; clue: unknown; }
@@ -277,10 +279,11 @@ export interface PeeperClueResponse extends ClueResponse { type: ClueType.Peeper
 export interface SpyClueResponse extends ClueResponse { type: ClueType.Spy; clue: boolean; }
 export interface RangerClueResponse extends ClueResponse { type: ClueType.Ranger; clue: number; }
 export interface AlchemistClueResponse extends ClueResponse { type: ClueType.Alchemist; clue: any; }
+export interface SorcererClueResponse extends ClueResponse { type: ClueType.Sorcerer; clue: number; }
 
 
 export type AnyClueResponse =
-    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse;
+    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse | SorcererClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;

@@ -13,6 +13,7 @@ public enum ClueType
     Spy,
     Ranger,
     Alchemist,
+    Sorcerer,
 }
 
 public abstract class NightEvent
@@ -227,6 +228,20 @@ public sealed class AlchemistClueEvent : ClueEvent<AlchemistClue>
 
     public AlchemistClueEvent(Guid alchemistId, AlchemistClue clue, AlchemistClue fakeClue)
         : base(alchemistId, clue, fakeClue)
+    {
+    }
+}
+
+public sealed class SorcererClueEvent : ClueEvent<int>
+{
+    public override ClueType ClueType => ClueType.Sorcerer;
+
+    public SorcererClueEvent()
+    {
+    }
+
+    public SorcererClueEvent(Guid sorcererId, int count)
+        : base(sorcererId, count, Math.Max(0, count - 1))
     {
     }
 }

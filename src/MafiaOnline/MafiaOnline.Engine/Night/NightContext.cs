@@ -74,6 +74,11 @@ public class NightContext(Game game)
     /// </summary>
     internal Guid? AlchemistId { get; set; } = null;
 
+    /// <summary>
+    /// Sorcerer selections: mapping from sorcerer player id to list of selected player ids.
+    /// </summary>
+    internal Dictionary<Guid, List<Guid>> SorcererSelections { get; } = new();
+
     // ---------- finalised outcomes (populated by NightResolver) ----------
 
     internal List<NightEvent> Events { get; } = new();
