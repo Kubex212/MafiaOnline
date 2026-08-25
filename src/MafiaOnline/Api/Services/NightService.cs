@@ -82,11 +82,10 @@ public class NightService : INightService
         if (ShouldAdvance(lobby, actorId))
         {
             _logger.LogDebug("Advancing night session for lobby {LobbyCode} actor={ActorId}", lobbyCode, actorId);
+            CancelTimer(lobbyCode);
             lobby.NightSession.Advance();
             await _repository.Update(lobby);
-
             await AdvanceTurnAsync(lobby);
-            CancelTimer(lobbyCode);
         }
         return;
     }
@@ -124,6 +123,7 @@ public class NightService : INightService
         if (lobby.NightSession is null || lobby.NightSession.IsFinished)
         {
             _logger.LogDebug("Night session finished or null for lobby {LobbyCode}", lobby.Code);
+            CancelTimer(lobby.Code);
             await ResolveNightAsync(lobby);
             return;
         }
@@ -163,8 +163,15 @@ public class NightService : INightService
             forbiddenTargets = lobby.Game!.GetForbiddenTargets(active.Id)
         });
 
+        var currentTurnId = lobby.NightSession.CurrentTurnId;
         var cts = new CancellationTokenSource();
-        lock (_timers) { _timers[lobby.Code] = cts; }
+        lock (_timers)
+        {
+            if (_timers.TryGetValue(lobby.Code, out var previous))
+                previous.Cancel();
+
+            _timers[lobby.Code] = cts;
+        }
 
         _ = Task.Run(async () =>
         {
@@ -172,10 +179,20 @@ public class NightService : INightService
             {
                 _logger.LogDebug("Starting night turn timer for lobby {LobbyCode} seconds={Seconds}", lobby.Code, turnSeconds);
                 await Task.Delay(TimeSpan.FromSeconds(turnSeconds), cts.Token);
+
+                lock (_timers)
+                {
+                    if (!_timers.TryGetValue(lobby.Code, out var currentTimer) || currentTimer != cts)
+                    {
+                        _logger.LogDebug("Ignoring stale night timer for lobby {LobbyCode}", lobby.Code);
+                        return;
+                    }
+                }
+
                 using var scope = _scopeFactory.CreateScope();
                 var lobbyService = scope.ServiceProvider.GetRequiredService<ILobbyService>();
                 var current = await lobbyService.GetLobby(lobby.Code);
-                if (current.NightSession?.ActivePlayer?.Id == active.Id)
+                if (current.NightSession?.ActivePlayer?.Id == active.Id && current.NightSession.CurrentTurnId == currentTurnId)
                 {
                     _logger.LogInformation("Night turn timer expired for lobby {LobbyCode} activePlayer={PlayerId}, forcing advance", lobby.Code, active.Id);
                     current.NightSession.ForceAdvance();
@@ -194,6 +211,16 @@ public class NightService : INightService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in night timer task for lobby {LobbyCode}", lobby.Code);
+            }
+            finally
+            {
+                lock (_timers)
+                {
+                    if (_timers.TryGetValue(lobby.Code, out var current) && current == cts)
+                        _timers.Remove(lobby.Code);
+                }
+
+                cts.Dispose();
             }
         }, CancellationToken.None);
     }

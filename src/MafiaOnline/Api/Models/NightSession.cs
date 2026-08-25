@@ -35,11 +35,12 @@ public class NightSession
         // Turn order = alive players sorted by seat index (clockwise from seat 0)
         _turnOrder = alivePlayers.OrderBy(p => p.SeatIndex).ToList();
         CurrentTurnIndex = 0;
+        CurrentTurnId = Guid.NewGuid();
     }
 
     public int CurrentTurnIndex { get; private set; }
     public DateTime CurrentTurnStart { get; private set; }
-
+    public Guid CurrentTurnId { get; set; }
     public bool IsFinished => CurrentTurnIndex >= _turnOrder.Count;
 
     public bool Resolved { get; set; }
@@ -69,6 +70,7 @@ public class NightSession
     {
         CurrentTurnIndex++;
         CurrentTurnStart = DateTime.UtcNow;
+        CurrentTurnId = Guid.NewGuid();
     }
 
     private void AssertIsActivePlayer(Guid actorId)

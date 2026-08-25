@@ -89,6 +89,7 @@ public class DayService : IDayService
         _logger.LogInformation("DayStarted broadcast for lobby {LobbyCode} duration={Duration} alivePlayers={Count}", lobbyCode, duration, alivePlayers.Count);
 
         // Start day countdown timer
+        var currentId = lobby.DaySession!.CurrentTurnId;
         var cts = new CancellationTokenSource();
         lock (_timers) { _timers[lobby.Code] = cts; }
 
@@ -98,9 +99,17 @@ public class DayService : IDayService
             {
                 _logger.LogDebug("Starting day timer for lobby {LobbyCode} seconds={Seconds}", lobbyCode, duration);
                 await Task.Delay(TimeSpan.FromSeconds(duration), cts.Token);
-                _logger.LogInformation("Day timer expired for lobby {LobbyCode}", lobbyCode);
+
+                var lobbyService = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<ILobbyService>();
+                var current = await lobbyService.GetLobby(lobby.Code);
+
+                if(current.DaySession is null || current.DaySession.CurrentTurnId != currentId)
+                {
+                    return; // the day session has already been resolved (maybe a new one has started)
+                }
+
                 var dayService = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<IDayService>();
-                await dayService.ResolveDayAsync(lobbyCode);
+                await dayService.ResolveDayAsync(lobbyCode);    
             }
             catch (TaskCanceledException)
             {

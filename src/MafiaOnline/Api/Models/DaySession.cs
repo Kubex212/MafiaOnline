@@ -23,13 +23,13 @@ public class DaySession
     public DaySession(IEnumerable<LobbyPlayer> alivePlayers)
     {
         _alivePlayers = alivePlayers.Select(p => p.Id).ToHashSet();
+        CurrentTurnId = Guid.NewGuid();
     }
 
     public IReadOnlyDictionary<Guid, Guid?> Votes => _votes;
-
     public bool AllVoted => _alivePlayers.All(id => _votes.ContainsKey(id));
-
     public bool Resolved { get; set; }
+    public Guid CurrentTurnId { get; set; }
 
     /// <summary>Cast or change a vote. Idempotent – the last submitted vote wins.</summary>
     public void CastVote(Guid voterId, Guid? candidateId)
