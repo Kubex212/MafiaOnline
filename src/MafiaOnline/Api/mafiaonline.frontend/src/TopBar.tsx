@@ -8,11 +8,13 @@ interface Props {
     showStatus?: boolean;
     onProfile?: () => void;
     compact?: boolean;
+    showRoles?: boolean;
+    onToggleRoles?: () => void;
 }
 
 const LANGS = ['en', 'pl'] as const;
 
-export default function TopBar({ connected, showStatus = true, onProfile, compact = false }: Props) {
+export default function TopBar({ connected, showStatus = true, onProfile, compact = false, showRoles, onToggleRoles }: Props) {
     const { t, i18n } = useTranslation();
     const prefs = useSoundPrefs();
 
@@ -59,6 +61,17 @@ export default function TopBar({ connected, showStatus = true, onProfile, compac
                 aria-label={prefs.vibrate ? t('vibrationOn') : t('vibrationOff')}>
                 {prefs.vibrate ? '📳' : '📴'}
             </button>
+
+            {onToggleRoles && (
+                <button type="button"
+                    className={`icon-toggle ${showRoles ? 'is-on' : ''}`}
+                    onClick={onToggleRoles}
+                    title={t('meetTheRoles')}
+                    aria-pressed={showRoles}
+                    aria-label={t('meetTheRoles')}>
+                    📜
+                </button>
+            )}
 
             {onProfile && (
                 <button className="btn btn--ghost btn--sm" onClick={onProfile}>

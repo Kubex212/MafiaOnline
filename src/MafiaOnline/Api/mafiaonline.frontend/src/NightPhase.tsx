@@ -8,6 +8,7 @@ import EventLog from './EventLog';
 import { addLog as pushLog } from './gameLog';
 import type { ActionInfo } from './RoundTable';
 import type { TFunction } from 'i18next';
+import { roleDescKey, roleDescParams, roleSigil } from './roleText';
 
 interface Props {
     lobbyCode: string;
@@ -17,6 +18,7 @@ interface Props {
     deadIds?: string[];
     config?: GameConfig | null;
     otherWerewolvesIds?: string[];
+    showRoles?: boolean;
 }
 
 export interface NightPhaseHandle {
@@ -41,7 +43,7 @@ export enum ActionType {
 const TURN_SECONDS = 1000;
 
 const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
-    { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [] }, ref
+    { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [], showRoles = false }, ref
 ) {
     const { t } = useTranslation();
     const [activeTurn, setActiveTurn] = useState<NightTurnStarted | null>(null);
@@ -214,6 +216,22 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         <div className="phase-stack">
             <RoleInfo role={myRole} config={config} />
 
+            {config && showRoles && (
+                <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+                    {Array.from(new Set(['Werewolf', 'Villager', ...(config.enabledRoles ?? [])])).map(roleName => (
+                        <div key={roleName} className="role-card" style={{ padding: 8, borderRadius: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ fontSize: 20 }}>{roleSigil(roleName)}</div>
+                                <div style={{ fontWeight: 600 }}>{t(roleName)}</div>
+                            </div>
+                            <div style={{ marginTop: 6, color: 'var(--text-dim)', fontSize: 13 }}>
+                                {t(roleDescKey(roleName, 'Short'), roleDescParams(config))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {activeTurn && !resolved && (
                 <div className={`turn-banner ${teamClass} ${isMyTurn ? 'turn-banner--me' : ''}`}>
                     <div>
@@ -290,7 +308,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                         : <div className="resolution__saved">🕊 {t('everyoneSurvived')}</div>
                     }
                     {resolved.attackBlocked && (
-                        <div style={{ color: 'var(--town-2)', marginTop: 4 }}>🛡 {t('attackBlocked')}</div>
+                        <div style={{ color: 'var(--town-2)', marginTop: 4 }}>⚔️ {t('attackBlocked')}</div>
                     )}
                     {nightInfo?.type === 'Detective' && (
                         <div className="resolution__clue">

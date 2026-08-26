@@ -292,6 +292,7 @@ export type LobbyOrderChangedPayload = {
 export type GameStartedPayload = {
     seats: SeatInfo[];
     drunkPresent: boolean;
+    config?: GameConfig;
 };
 
 export type DayStartedPayload = {

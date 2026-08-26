@@ -174,7 +174,7 @@ public class LobbyService : ILobbyService
             var drunkPresent = lobby.Game!.DrunkPlayer != null && lobby.Game.Config?.Drunk?.AnnounceDrunkOccurance == true;
             await _hubContext.Clients
                 .Group(lobby.Code)
-                .SendAsync("GameStarted", new { seats, drunkPresent });
+                .SendAsync("GameStarted", new { seats, drunkPresent, config = lobby.Config });
         }
         catch (Exception ex)
         {

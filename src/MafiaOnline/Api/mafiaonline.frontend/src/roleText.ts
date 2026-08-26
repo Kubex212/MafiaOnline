@@ -46,13 +46,13 @@ export function roleDescParams(config?: GameConfig | null) {
 
 export const ROLE_SIGILS: Record<string, string> = {
     Werewolf: '🐺',
-    Guardian: '🛡',
+    Guardian: '⚔️',
     Detective: '🔍',
     Seer: '🔮',
     Fool: '🃏',
     Dogtamer: '🐕',
     DogTamer: '🐕',
-    Poacher: '🪤',
+    Poacher: '🏹',
     Trailer: '🐾',
     Peeper: '👀',
     Spy: '🕵️‍',

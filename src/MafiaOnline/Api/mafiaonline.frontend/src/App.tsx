@@ -27,7 +27,8 @@ import { playSound, cueYourTurn } from './sound';
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
 function whenActivated(): Promise<void> {
-    if (!document.prerendering) return Promise.resolve();
+    const doc: any = document;
+    if (!doc.prerendering) return Promise.resolve();
     return new Promise(resolve => {
         document.addEventListener('prerenderingchange', () => resolve(), { once: true });
     });
@@ -50,6 +51,7 @@ export default function App() {
     const [profileOpen, setProfileOpen] = useState(false);
     const [rematchCode, setRematchCode] = useState<string | null>(null);
     const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
+    const [showRolesPanel, setShowRolesPanel] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
 
     // mark rematchCode as used for TS
@@ -107,6 +109,9 @@ export default function App() {
         else if (view === 'day') { addLog(t('dayBreaks'), 'day'); playSound('day-start'); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view]);
+
+    // Close roles panel when leaving night view
+    useEffect(() => { if (view !== 'night') setShowRolesPanel(false); }, [view]);
 
     // ── SignalR wiring ────────────────────────────────────────────────────
     useEffect(() => {
@@ -595,21 +600,21 @@ export default function App() {
         return (
             <div className={`phase${spectatorClass}`}><div className="phase__inner">
                 <div className="phase-veil phase-veil--night" key="veil-night" aria-hidden />
-                <TopBar showStatus={false} compact />
+                <TopBar showStatus={false} compact onToggleRoles={() => setShowRolesPanel(s => !s)} showRoles={showRolesPanel} />
                 <SpectatorBanner />
                 <h2 className="phase__title">
                     🌙 {t('nightPhase')}
                     <small>Lobby <span className="phase__code">{lobby?.code}</span></small>
                 </h2>
                 <NightPhase ref={instance => {
-                    nightRef.current = instance;
-                    if (instance && pendingNightStartedRef.current) {
+                     nightRef.current = instance;
+                     if (instance && pendingNightStartedRef.current) {
                         instance.onTurnStarted(pendingNightStartedRef.current);
                         pendingNightStartedRef.current = null;
-                    }
+                     }
 
-                    // deliver any queued werewolf attack notifications
-                    if (instance && pendingWerewolfAttacksRef.current?.length) {
+                     // deliver any queued werewolf attack notifications
+                     if (instance && pendingWerewolfAttacksRef.current?.length) {
                         pendingWerewolfAttacksRef.current.forEach(a => {
                             instance.onWerewolfAttackCast({ actorId: a.actorId, targetId: a.targetId });
                             if (a.actorId !== myPlayerIdRef.current) {
@@ -617,24 +622,25 @@ export default function App() {
                             }
                         });
                         pendingWerewolfAttacksRef.current = [];
-                    }
+                     }
 
-                    // deliver pending night-resolved if present
-                    if (instance && pendingNightResolvedRef.current) {
-                        instance.onNightResolved(pendingNightResolvedRef.current);
-                        pendingNightResolvedRef.current = null;
-                    }
+                     // deliver pending night-resolved if present
+                     if (instance && pendingNightResolvedRef.current) {
+                         instance.onNightResolved(pendingNightResolvedRef.current);
+                         pendingNightResolvedRef.current = null;
+                     }
                 }}
-                    lobbyCode={lobby!.code}
-                    seats={seats}
-                    myPlayerId={myPlayerId}
-                    myRole={myRole}
-                    deadIds={deadIds}
-                    otherWerewolvesIds={otherWerewolvesIds}
-                    config={lobby?.config} />
-            </div></div>
-        );
-    }
+                     lobbyCode={lobby!.code}
+                     seats={seats}
+                     myPlayerId={myPlayerId}
+                     myRole={myRole}
+                     deadIds={deadIds}
+                     otherWerewolvesIds={otherWerewolvesIds}
+                     config={lobby?.config}
+                     showRoles={showRolesPanel} />
+             </div></div>
+         );
+     }
 
     // ── DAY PHASE ────────────────────────────────────────────────────────
     if (view === 'day' && seats && myPlayerId && myRole) {
