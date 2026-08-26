@@ -12,7 +12,7 @@ export function getStoredToken(): string | null {
 function storeToken(token: string) {
     sessionStorage.setItem(SESSION_KEY, token);
     console.log('stored token');
-        }
+}
 
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -181,6 +181,10 @@ export type DrunkConfig = {
     announceDrunkOccurance: boolean;
 };
 
+export type InnkeeperConfig = {
+    suspectCount: number;
+};
+
 export const roleTypes = [
     'Villager',
     'Werewolf',
@@ -195,11 +199,12 @@ export const roleTypes = [
     'Ranger',
     'Alchemist',
     'Sorcerer',
+    'Innkeeper',
     'Fool',
     'Dracula',
     'Deceiver',
     'Ghost',
-    'Charmer'
+    'Charmer',
 ] as const;
 
 export const nonStandardRoleTypes = roleTypes.filter(
@@ -219,6 +224,7 @@ export type GameConfig = {
     poacher: PoacherConfig;
     werewolf: WerewolfConfig;
     ghost: GhostConfig;
+    innkeeper: InnkeeperConfig;
     drunk?: DrunkConfig;
 };
 
@@ -264,10 +270,11 @@ export enum ClueType {
     Spy = "Spy",
     Ranger = "Ranger",
     Alchemist = "Alchemist",
-    Sorcerer = "Sorcerer"
+    Sorcerer = "Sorcerer",
+    Innkeeper = "Innkeeper"
 }
 
-export interface ClueResponse { type: ClueType; data: Record<string, unknown>; clue: unknown; }
+export interface ClueResponse { type: ClueType | string; data: Record<string, unknown>; clue: unknown; }
 export interface DetectiveClueResponse extends ClueResponse { type: ClueType.Detective; clue: string; }
 export interface DogTamerClueResponse extends ClueResponse { type: ClueType.DogTamer; clue: boolean; }
 export interface SeerClueResponse extends ClueResponse {
@@ -280,10 +287,10 @@ export interface SpyClueResponse extends ClueResponse { type: ClueType.Spy; clue
 export interface RangerClueResponse extends ClueResponse { type: ClueType.Ranger; clue: number; }
 export interface AlchemistClueResponse extends ClueResponse { type: ClueType.Alchemist; clue: any; }
 export interface SorcererClueResponse extends ClueResponse { type: ClueType.Sorcerer; clue: number; }
-
+export interface InnkeeperClueResponse extends ClueResponse { type: ClueType.Innkeeper; clue: string[]; }
 
 export type AnyClueResponse =
-    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse | SorcererClueResponse;
+    | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse | SorcererClueResponse | InnkeeperClueResponse;
 
 export type LobbyOrderChangedPayload = {
     id: string; nickname: string; isHost: boolean; lobbyPosition: number;

@@ -100,6 +100,7 @@
   "Ranger": "Leśniczy",
   "Alchemist": "Alchemist",
   "Sorcerer": "Sorcerer",
+  "Innkeeper": "Innkeeper",
   "Fool": "Fool",
   "WerewolfDescriptionLong": "A werewolf with no special ability. Each night you and other werewolves select a target to attack. Your goal is to devour most of the villagers and not get caught.",
   "WerewolfDescriptionShort": "Devour villagers and don't get caught.",
@@ -133,6 +134,10 @@
   "RangerDescriptionShort": "Set a tripwire between two players to count how many crossed it overnight.",
   "AlchemistDescriptionLong": "You're brewing a potion. The longer you wait with drinking it the better clue you will obtain. The best possible reward is available since night 5. The clue will refer to the roles in current game.",
   "AlchemistDescriptionShort": "Wait with drinking your potion to get a better clue about the roles in the game.",
+  "SorcererDescriptionLong": "Once per game, you can perform a ritual on any group of players you choose, revealing how many of them are werewolves.",
+  "SorcererDescriptionShort": "Discover how many werewolves there are among the selected group of players.",
+  "InnkeeperDescriptionLong": "Each night you may drink a few cold ones with a player. If that player is killed by werewolves the following night, you will be told a list of players smelling of alcohol - one of them is the killer.",
+  "InnkeeperDescriptionShort": "You can smell alcohol from a group of players. One of them must be a werewolf!",
   "FoolDescriptionLong": "You pose as a villager, but you secretly want to be banished. If you are banished, you win the game.",
   "FoolDescriptionShort": "Convince the villagers to banish you.",
 
@@ -153,6 +158,7 @@
   "alchemistClue4": "Alchemist clue 4/5 - werewolf role pool is: {{pool}}.",
   "alchemistClue5": "Alchemist clue 5+/5 - the werewolves are: {{werewolves}}.",
   "sorcererClueLong": "Sorcerer clue - there are {{count}} werewolves among your selected players.",
+  "innkeeperClueLong": "Innkeeper clue — these players smell of alcohol: {{list}}.",
 
   "poacherTrapPlaced": "You set a trap on {{target}}.",
   "poacherTriggered": "Trap triggered! A werewolf also died (target: {{target}}).",
@@ -178,6 +184,7 @@
   "dogTamerNumWerewolves": "Werewolves for the dog to bark",
   "allowSelfTarget": "Can target themselves",
   "shouldGetAlibi": "Should obtain alibi",
+  "innkeeperSuspectCount": "Number of suspects",
 
   "villageOfSecrets": "A party game based on bluffing and deduction",
   "tagline": "Trust no one. Vote wisely. Survive till dawn.",

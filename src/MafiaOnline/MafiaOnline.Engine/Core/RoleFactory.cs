@@ -29,6 +29,7 @@ public static class RoleFactory
             RoleType.Charmer => new Charmer(),
 
             RoleType.Fool => new Fool(),
+            RoleType.Innkeeper => new Innkeeper(config.Innkeeper),
 
             _ => throw new ArgumentOutOfRangeException(nameof(type))
         };

@@ -122,6 +122,12 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                                             <Flag on={config.ghost?.shouldGetAlibi ?? false} t={t} /></label>
                                     </div>
                                 )}
+                                {key === 'Innkeeper' && enabled && (
+                                    <div className="role-card__sub">
+                                        <label><span>{t('innkeeperSuspectCount')}</span>
+                                            <span className="config__value">{config.innkeeper?.suspectCount ?? 2}</span></label>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

@@ -1,5 +1,6 @@
-using MafiaOnline.Engine.Roles;
 using MafiaOnline.Engine.Config;
+using MafiaOnline.Engine.Roles;
+using System.Runtime.InteropServices;
 
 namespace MafiaOnline.Engine.Night;
 
@@ -19,9 +20,9 @@ public class NightResolver
     public NightResult Resolve(
         IReadOnlyList<Player> allPlayers,
         IReadOnlyList<NightAction> submittedActions,
-        Game game,
-        GameConfig config = null)
+        Game game)
     {
+        var config = game.Config;
         if (config is null)
             config = GameConfig.GetDefault();
 
@@ -213,7 +214,7 @@ public class NightResolver
 
         if (context.TripwireVertices is not null)
         {
-            
+
             var positions = allPlayers
                 .Select((player, index) => (player.Id, index))
                 .ToDictionary(x => x.Id, x => x.index);
@@ -249,7 +250,7 @@ public class NightResolver
             events.Add(new RangerClueEvent(context.TripwireVertices.Value.Ranger, count));
         }
 
-        if(context.AlchemistId is not null)
+        if (context.AlchemistId is not null)
         {
             var alchemistId = context.AlchemistId.Value;
             var alchemist = alivePlayers.FirstOrDefault(p => p.Id == alchemistId);
@@ -265,6 +266,62 @@ public class NightResolver
             var selected = kv.Value;
             var count = selected.Count(id => alivePlayers.Any(p => p.Id == id && p.Role.VisibleTeam == Team.Werewolves));
             events.Add(new SorcererClueEvent(sorcererId, count));
+        }
+
+        // innkeeper clue if they selected someone who was killed by werewolves, give them a list of players that smell of alcohol
+        var innkeeperSelections = context.Events.OfType<InnkeeperSelectionEvent>().ToList();
+        foreach (var sel in innkeeperSelections)
+        {
+            var innkeeperId = sel.InnkeeperId;
+            var selectedId = sel.SelectedId;
+
+            // was the selected player killed by werewolves? check for a PlayerKilledEvent
+            var killedByWerewolf = events.OfType<PlayerKilledEvent>().Any(e => e.PlayerId == selectedId);
+            if (!killedByWerewolf) continue;
+
+            // choose one werewolf attacker if present
+            var attackers = context.WerewolfAttacks.Where(kvp => kvp.Value == selectedId).Select(kvp => kvp.Key).ToList();
+            Guid? chosenWerewolf = null;
+            if (attackers.Count > 0)
+            {
+                chosenWerewolf = attackers[Random.Shared.Next(attackers.Count)];
+            }
+            else
+            {
+                continue; // no werewolf attacker, skip innkeeper clue (should not happen)
+            }
+
+            var suspectCount = config?.Innkeeper?.SuspectCount ?? new Config.InnkeeperConfig().SuspectCount;
+            var randomNeeded = Math.Max(0, suspectCount - (chosenWerewolf.HasValue ? 1 : 0));
+            var candidatePool = alivePlayers.Select(p => p.Id).Where(id => id != innkeeperId && id != selectedId && (!chosenWerewolf.HasValue || id != chosenWerewolf.Value)).ToList();
+            Random.Shared.Shuffle(CollectionsMarshal.AsSpan(candidatePool));
+
+            var picked = new List<Guid>();
+
+            if (randomNeeded > 0 && candidatePool.Count != 0)
+                picked.AddRange(candidatePool.Take(randomNeeded));
+
+            var realClue = new List<Guid>(picked);
+            var fakeClue = new List<Guid>(picked);
+
+            if (chosenWerewolf.HasValue)
+                realClue.Add(chosenWerewolf.Value);
+
+            if (candidatePool.Count >= randomNeeded + 1)
+                fakeClue.Add(candidatePool[randomNeeded]); // add a random villager for fake clue if possible
+            else if (chosenWerewolf.HasValue)
+                fakeClue.Add(chosenWerewolf.Value); // if not enough candidates, add the werewolf to the fake clue too
+
+            // shuffle both before retuning
+            Random.Shared.Shuffle(CollectionsMarshal.AsSpan(realClue));
+            Random.Shared.Shuffle(CollectionsMarshal.AsSpan(fakeClue));
+
+            // create the clue event for the innkeeper
+            events.Add(new InnkeeperClueEvent(
+                innkeeperId,
+                realClue.Select(id => alivePlayers.Single(p => p.Id == id).Nickname).ToList(),
+                fakeClue.Select(id => alivePlayers.Single(p => p.Id == id).Nickname).ToList()
+            ));
         }
 
         // Include any events directly registered in context

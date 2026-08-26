@@ -45,7 +45,7 @@ export function roleDescParams(config?: GameConfig | null) {
 }
 
 export const ROLE_SIGILS: Record<string, string> = {
-    Werewolf: '🐺',
+    Villager: '🌾',
     Guardian: '⚔️',
     Detective: '🔍',
     Seer: '🔮',
@@ -58,17 +58,18 @@ export const ROLE_SIGILS: Record<string, string> = {
     Spy: '🕵️‍',
     Ranger: '🧶',
     Alchemist: '🧪',
-    Villager: '🌾',
+    Sorcerer: '🕯',
+    Innkeeper: '🍻', 
+    Werewolf: '🐺',
     Dracula: '🧛',
     Deceiver: '🦹‍',
     Ghost: '👻',
     Charmer: '😴',
-    Sorcerer: '🕯',
 };
 
 /** Sigil lookup tolerant of casing / spacing differences. */
 export function roleSigil(roleName: string) {
-    return ROLE_SIGILS[roleKeyBase(roleName)] ?? ROLE_SIGILS[roleName] ?? '🌾';
+    return ROLE_SIGILS[roleName] ?? '🌾';
 }
 
 /** i18n key for a role's display name, tolerant of casing / spacing. */

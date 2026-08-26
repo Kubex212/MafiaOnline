@@ -27,7 +27,9 @@ public enum RoleType
     Ghost,
     Charmer,
 
-    Fool
+    Fool,
+
+    Innkeeper
 }
 
 public static class RoleTypeExtensions
@@ -51,6 +53,7 @@ public static class RoleTypeExtensions
             case RoleType.Ranger:
             case RoleType.Alchemist:
             case RoleType.Sorcerer:
+            case RoleType.Innkeeper:
                 return true;
             default:
                 return false;

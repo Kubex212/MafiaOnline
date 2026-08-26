@@ -222,6 +222,16 @@ export default function GameConfigPanel({ config, onChange }: GameConfigPanelPro
                                     </label>
                                 </div>
                             )}
+                            {key === 'Innkeeper' && local.enabledRoles?.includes('Innkeeper') && (
+                                <div className="role-card__sub">
+                                    <label>
+                                        <span>{t('innkeeperSuspectCount')}</span>
+                                        <input type="number" min={1} max={10} className="config__num"
+                                            value={local.innkeeper?.supsectCount ?? 2}
+                                            onChange={e => updateNested('innkeeper', { supsectCount: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)) })} />
+                                    </label>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

@@ -115,6 +115,8 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     setLog(displayAlchemistClue(info.clue, t));
                 } else if (info.type === 'Sorcerer') {
                     setLog(t('sorcererClueLong', { count: info.clue }));
+                } else if (info.type === 'Innkeeper') {
+                    setLog(t('innkeeperClueLong', { list: info.clue.join(', ') }));
                 }
             } catch { /* no clue for this role */ }
         },
@@ -356,6 +358,11 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     {nightInfo?.type === 'Sorcerer' && (
                         <div className="resolution__clue">
                             🕯 {t('sorcererClueLong', { count: nightInfo.clue })}
+                        </div>
+                    )}
+                    {nightInfo?.type === 'Innkeeper' && (
+                        <div className="resolution__clue">
+                            🍺 {t('innkeeperClueLong', { list: nightInfo.clue.join(', ') })}
                         </div>
                     )}
                 </div>

@@ -21,6 +21,7 @@ public class GameConfig
     public GhostConfig Ghost { get; set; } = new();
     public DrunkConfig Drunk { get; set; } = new();
     public WerewolfConfig Werewolf { get; set; } = new();
+    public InnkeeperConfig Innkeeper { get; set; } = new();
 
     public GameConfig()
     {
@@ -42,6 +43,7 @@ public class GameConfig
             Werewolf = new WerewolfConfig(),
             Ghost = new GhostConfig(),
             Drunk = new DrunkConfig(),
+            Innkeeper = new InnkeeperConfig(),
         };
     }
 

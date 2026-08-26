@@ -14,6 +14,7 @@ public enum ClueType
     Ranger,
     Alchemist,
     Sorcerer,
+    Innkeeper,
 }
 
 public abstract class NightEvent
@@ -246,7 +247,20 @@ public sealed class SorcererClueEvent : ClueEvent<int>
     }
 }
 
+// Innkeeper clue: provides a list of players considered drunk (list of player ids)
+public sealed class InnkeeperClueEvent : ClueEvent<List<string>>
+{
+    public override ClueType ClueType => ClueType.Innkeeper;
 
+    public InnkeeperClueEvent()
+    {
+    }
+
+    public InnkeeperClueEvent(Guid innkeeperId, List<string> clue, List<string> fakeClue)
+        : base(innkeeperId, clue, fakeClue)
+    {
+    }
+}
 
 public sealed class PlayerKilledEvent : NightEvent
 {
