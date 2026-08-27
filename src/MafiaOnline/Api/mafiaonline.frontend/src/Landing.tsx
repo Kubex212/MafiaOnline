@@ -66,7 +66,7 @@ export default function Landing() {
                         <li key={r}>
                             <span className="role-peek__sigil" aria-hidden>{roleSigil(r)}</span>
                             <div>
-                                <strong>{t(roleLabelKey(r))}</strong>
+                                <strong>{t(r)}</strong>
                                 <span>{t(roleDescKey(r, 'Short'), { numWerewolves: 1, rangeDoubled: 2 })}</span>
                             </div>
                         </li>

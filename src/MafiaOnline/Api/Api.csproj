@@ -11,6 +11,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="mafiaonline.frontend\dist\**" />
+    <Compile Remove="wwwroot\assets\**" />
+    <Content Remove="mafiaonline.frontend\dist\**" />
+    <Content Remove="wwwroot\assets\**" />
+    <EmbeddedResource Remove="mafiaonline.frontend\dist\**" />
+    <EmbeddedResource Remove="wwwroot\assets\**" />
+    <None Remove="mafiaonline.frontend\dist\**" />
+    <None Remove="wwwroot\assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OAuth" Version="2.3.11" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.2.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.*" />

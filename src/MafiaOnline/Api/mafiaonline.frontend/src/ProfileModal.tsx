@@ -171,7 +171,7 @@ export default function ProfileModal({ open, onClose, onSaved }: Props) {
                                                     {roleRows.map(([role, d]) => (
                                                         <li className="role-row" key={role}>
                                                             <span className="role-stats__sigil" aria-hidden>{roleSigil(role)}</span>
-                                                            <span className="role-stats__name">{t(roleLabelKey(role))}</span>
+                                                            <span className="role-stats__name">{t(role)}</span>
                                                             <span className="role-stats__bar">
                                                                 <i style={{ width: `${Math.max(0, d.winRate)}%` }} />
                                                             </span>
@@ -193,7 +193,7 @@ export default function ProfileModal({ open, onClose, onSaved }: Props) {
                                                         {history.slice(0, 10).map((g, i) => (
                                                             <li key={i} className={g.won ? 'history__item is-won' : 'history__item'}>
                                                                 <span className="history__sigil" aria-hidden>{roleSigil(g.role)}</span>
-                                                                <span className="history__role">{t(roleLabelKey(g.role))}</span>
+                                                                <span className="history__role">{t(g.role)}</span>
                                                                 <span className="history__meta">
                                                                     {new Date(g.playedAtUtc).toLocaleDateString(i18n.language)} · {g.playerCount}p · {fmtDuration(g.duration)}
                                                                 </span>
