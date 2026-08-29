@@ -82,12 +82,16 @@ export async function getOrCreateSession(): Promise<{ userId: string }> {
     throw lastErr ?? new Error('Session init failed after retries');
 }
 
-export function getDiscordLoginUrl(): string {
-    return '/api/auth/discord';
+export function getDiscordLoginUrl(returnUrl?: string): string {
+    let url = '/api/auth/discord';
+    if (returnUrl) url += '?returnUrl=' + encodeURIComponent(returnUrl);
+    return url;
 }
 
-export function getGoogleLoginUrl(): string {
-    return '/api/auth/google';
+export function getGoogleLoginUrl(returnUrl?: string): string {
+    let url = '/api/auth/google';
+    if (returnUrl) url += '?returnUrl=' + encodeURIComponent(returnUrl);
+    return url;
 }
 
 function authHeaders(): Record<string, string> {

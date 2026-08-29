@@ -276,5 +276,6 @@
   "drunkEffectChance": "Szansa efektu Pijaka (%)",
   "announceDrunkOccurance": "Ogłaszaj pojawienie się Pijaka",
   "drunkRevealed": "Pijakiem był: {{name}}",
-  "drunkPresent": "W tej grze jest Pijak..."
+  "drunkPresent": "W tej grze jest Pijak...",
+  "copyLink": "Kopiuj link do dołączenia"
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getMe, updateMe, getMyStats, getMyHistory } from './api';
 import type { MeResponse, UserStatisticsResponse, RoleStatisticsResponse, GameHistoryItemResponse } from './api';
 import { useTranslation } from 'react-i18next';
-import { roleSigil, roleLabelKey } from './roleText';
+import { roleSigil } from './roleText';
 
 type Props = {
     open: boolean;

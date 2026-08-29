@@ -273,5 +273,8 @@
   "drunkEffectChance": "Drunk effect chance (%)",
   "announceDrunkOccurance": "Announce Drunk occurrence",
   "drunkRevealed": "Drunk was: {{name}}",
-  "drunkPresent": "A Drunk is in this game..."
+  "drunkPresent": "A Drunk is in this game...",
+  "joinLobbyAs": "Join lobby {{code}} as {{name}}?",
+
+  "copyLink": "Copy join link"
 }

@@ -43,10 +43,18 @@ public class AuthController : ControllerBase
     [HttpGet("discord")]
     public IActionResult DiscordLogin()
     {
+        var returnUrl = Request.Query["returnUrl"].ToString();
+
         var props = new AuthenticationProperties
         {
             RedirectUri = Url.Action(nameof(DiscordCallback), "Auth")
         };
+
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/'))
+        {
+            props.Items["returnUrl"] = returnUrl;
+        }
+
         return Challenge(props, DiscordScheme);
     }
 
@@ -67,6 +75,13 @@ public class AuthController : ControllerBase
         var userId = await _externalAuth.FindOrCreateUserAsync("Discord", providerUserId);
         var session = await _sessionService.CreateForUserAsync(userId);
 
+        // Determine where to redirect
+        var returnUrl = result.Properties?.Items != null && result.Properties.Items.TryGetValue("returnUrl", out var r) ? r : null;
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/'))
+        {
+            return Redirect($"{returnUrl}{(returnUrl.Contains('?') ? '&' : '?')}token={Uri.EscapeDataString(session.Token)}");
+        }
+
         // Redirect to frontend — the JS will pick up the token from the URL query string
         return Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
     }
@@ -77,10 +92,18 @@ public class AuthController : ControllerBase
     [HttpGet("google")]
     public IActionResult GoogleLogin()
     {
+        var returnUrl = Request.Query["returnUrl"].ToString();
+
         var props = new AuthenticationProperties
         {
             RedirectUri = Url.Action(nameof(GoogleCallback), "Auth")
         };
+
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/'))
+        {
+            props.Items["returnUrl"] = returnUrl;
+        }
+
         return Challenge(props, GoogleScheme);
     }
 
@@ -91,17 +114,22 @@ public class AuthController : ControllerBase
     [HttpGet("google/callback")]
     public async Task<IActionResult> GoogleCallback()
     {
-        var result = await HttpContext.AuthenticateAsync(DiscordScheme);
+        var result = await HttpContext.AuthenticateAsync(GoogleScheme);
         if (!result.Succeeded)
-            return BadRequest("Discord authentication failed.");
+            return BadRequest("Google authentication failed.");
 
         var providerUserId = result.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? throw new InvalidOperationException("No NameIdentifier claim from Discord.");
+            ?? throw new InvalidOperationException("No NameIdentifier claim from Google.");
 
-        var userId = await _externalAuth.FindOrCreateUserAsync("Discord", providerUserId);
+        var userId = await _externalAuth.FindOrCreateUserAsync("Google", providerUserId);
         var session = await _sessionService.CreateForUserAsync(userId);
 
-        // Redirect to frontend — the JS will pick up the token from the URL query string
+        var returnUrl = result.Properties?.Items != null && result.Properties.Items.TryGetValue("returnUrl", out var r) ? r : null;
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/'))
+        {
+            return Redirect($"{returnUrl}{(returnUrl.Contains('?') ? '&' : '?')}token={Uri.EscapeDataString(session.Token)}");
+        }
+
         return Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
     }
 }

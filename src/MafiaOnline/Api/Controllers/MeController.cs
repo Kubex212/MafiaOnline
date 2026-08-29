@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace MafiaOnline.Api.Controllers;
 
@@ -32,10 +33,18 @@ public class MeController : ControllerBase
         if (user is null)
             return NotFound();
 
+        // Determine linked external providers for this user. If none, this is likely a guest session-created user.
+        var providers = await _db.ExternalLogins
+            .Where(el => el.UserId == user.Id)
+            .Select(el => el.Provider)
+            .ToListAsync();
+
         return Ok(new MeResponse
         {
             Id = user.Id,
-            PreferredNickname = user.PreferredNickname
+            PreferredNickname = user.PreferredNickname,
+            IsAnonymous = providers.Count == 0,
+            LinkedProviders = providers
         });
     }
 

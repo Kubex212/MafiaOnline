@@ -114,12 +114,16 @@ namespace Api
                             var userId = await externalAuth.FindOrCreateUserAsync("Discord", providerUserId);
                             var session = await sessionService.CreateForUserAsync(userId);
 
-                            // create/find your user
-                            // create session
-
-                            ctx.Response.Redirect(
-                                $"/?token={Uri.EscapeDataString(session.Token)}"
-                            );
+                            // If OAuth flow included a returnUrl in properties, use it
+                            var returnUrl = ctx.Properties?.Items != null && ctx.Properties.Items.TryGetValue("returnUrl", out var r) ? r : null;
+                            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/'))
+                            {
+                                ctx.Response.Redirect($"{returnUrl}{(returnUrl.Contains('?') ? '&' : '?')}token={Uri.EscapeDataString(session.Token)}");
+                            }
+                            else
+                            {
+                                ctx.Response.Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
+                            }
 
                             ctx.HandleResponse();
                         }
@@ -173,7 +177,15 @@ namespace Api
                             var userId = await externalAuth.FindOrCreateUserAsync("Google", providerUserId);
                             var session = await sessionService.CreateForUserAsync(userId);
 
-                            ctx.Response.Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
+                            var returnUrl = ctx.Properties?.Items != null && ctx.Properties.Items.TryGetValue("returnUrl", out var r) ? r : null;
+                            if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/'))
+                            {
+                                ctx.Response.Redirect($"{returnUrl}{(returnUrl.Contains('?') ? '&' : '?')}token={Uri.EscapeDataString(session.Token)}");
+                            }
+                            else
+                            {
+                                ctx.Response.Redirect($"/?token={Uri.EscapeDataString(session.Token)}");
+                            }
 
                             ctx.HandleResponse();
                         }

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo, PlayerResponse,
     NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
-    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig, GameStartedPayload
+    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig, GameStartedPayload, MeResponse
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
@@ -47,12 +47,18 @@ export default function App() {
     const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
     const [creating, setCreating] = useState(false);
     const [codeCopied, setCodeCopied] = useState(false);
+    const [linkCopied, setLinkCopied] = useState(false);
     const [deadIds, setDeadIds] = useState<string[]>([]);
     const [profileOpen, setProfileOpen] = useState(false);
     const [rematchCode, setRematchCode] = useState<string | null>(null);
     const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
     const [showRolesPanel, setShowRolesPanel] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
+
+    // Join-via-link state
+    const [me, setMe] = useState<MeResponse | null>(null);
+    const [joinCodeFromUrl, setJoinCodeFromUrl] = useState<string | null>(null);
+    const [showJoinModal, setShowJoinModal] = useState(false);
 
     // mark rematchCode as used for TS
     useEffect(() => {
@@ -78,6 +84,17 @@ export default function App() {
     useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
     useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
     useEffect(() => { seatsRef.current = seats; }, [seats]);
+
+    // Prevent background scroll when modal open — must be top-level to keep hook order stable
+    useEffect(() => {
+        const prev = document.body.style.overflow;
+        if (showJoinModal) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = prev;
+        }
+        return () => { document.body.style.overflow = prev; };
+    }, [showJoinModal]);
 
     /** Nicknames coming back from the hub -> seat ids, merged into the dead set. */
     const markDeadByNickname = (names: string[]) => {
@@ -124,7 +141,7 @@ export default function App() {
                 if (cancelled) return;
                 await getOrCreateSession();
                 if (cancelled) return;
-         
+ 
                 setSessionReady(true);
 
             } catch (err) {
@@ -133,14 +150,26 @@ export default function App() {
             if (cancelled) return;
 
             try {
-                const me = await getMe();
-                console.log('Loaded profile', JSON.stringify(me));
-                if (me.preferredNickname) setNickname(me.preferredNickname);
+                const meResp = await getMe();
+                setMe(meResp);
+                console.log('Loaded profile', JSON.stringify(meResp));
+                if (meResp.preferredNickname) setNickname(meResp.preferredNickname);
             }
             catch (err) {
                 console.error('Profile load failed', err);
             }
 
+            // If the user navigated to /join/{code}, show join modal.
+            try {
+                const m = window.location.pathname.match(/\/join\/([A-Za-z0-9]+)/i);
+                if (m && m[1]) {
+                    const code = m[1].toUpperCase();
+                    setJoinCodeFromUrl(code);
+                    setCodeToJoin(code);
+                    setShowJoinModal(true);
+                }
+            } catch { /* ignore */ }
+            
             const conn = createHubConnection();
             connRef.current = conn;
 
@@ -316,7 +345,7 @@ export default function App() {
             try {
                 const data = await reconnect(storedLobbyCode);
 
-                    await conn.invoke('JoinLobby', storedLobbyCode);
+                await conn.invoke('JoinLobby', storedLobbyCode);
 
                 if (data.gamePhase === 'day' && data.day) {
                     // Use the pending/ref pattern instead of runAfterCommit
@@ -380,6 +409,32 @@ export default function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    async function joinViaLinkConfirm() {
+        const code = joinCodeFromUrl ?? codeToJoin;
+        if (!code) return;
+        try {
+            const nick = (nickname || '').trim();
+            if (!nick) { alert('Please enter a nickname'); return; }
+            const res = await joinLobby(code, nick);
+            const mePlayer = res.players.find(p => p.nickname.toLowerCase() === nick.toLowerCase());
+            if (mePlayer) setMyPlayerId(mePlayer.id);
+            setLobby(res);
+            sessionStorage.setItem('lobbyCode', res.code);
+            setMessages([t('joinedLobby', { code: res.code })]);
+            playSound('join-lobby');
+            setShowJoinModal(false);
+            try { await joinHubGroup(res.code); } catch { /* ignore */ }
+        } catch (e) {
+            alert(String(e));
+        }
+    }
+
+    function joinViaLinkCancel() {
+        setShowJoinModal(false);
+        setJoinCodeFromUrl(null);
+        try { window.history.replaceState({}, '', window.location.pathname.replace(/\/join\/[A-Za-z0-9]+/i, '/')); } catch { }
+    }
+
     async function joinHubGroup(code: string) {
         const conn = connRef.current;
         if (!conn) return;
@@ -439,6 +494,16 @@ export default function App() {
             await navigator.clipboard.writeText(lobby.code);
             setCodeCopied(true);
             setTimeout(() => setCodeCopied(false), 1500);
+        } catch { /* ignore */ }
+    }
+
+    async function copyJoinLink() {
+        if (!lobby) return;
+        try {
+            const url = `${window.location.origin}/join/${lobby.code}`;
+            await navigator.clipboard.writeText(url);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 1500);
         } catch { /* ignore */ }
     }
 
@@ -687,6 +752,62 @@ export default function App() {
     }
 
     // ── LOBBY VIEW ───────────────────────────────────────────────────────
+
+    // Define JoinModal here (after all hooks) so it's created consistently on every render
+    const JoinModal = ({ show, code, me, nickname, setNickname, onConfirm, onCancel }: {
+        show: boolean; code: string | null; me: MeResponse | null; nickname: string; setNickname: (n: string) => void;
+        onConfirm: () => Promise<void>; onCancel: () => void;
+    }) => {
+        if (!show) return null;
+        const overlayStyle: React.CSSProperties = {
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999,
+        };
+        const modalStyle: React.CSSProperties = { width: 480, maxWidth: '92%', borderRadius: 8, padding: 20 };
+        const c = code ?? '';
+        return (
+            <div style={overlayStyle} role="dialog" aria-modal="true">
+                <div style={modalStyle} className="card card--parchment" aria-labelledby="join-modal-title">
+                    <h3 id="join-modal-title" style={{ marginTop: 0 }}>{t('join')} {c}</h3>
+                    {me && !me.isAnonymous ? (
+                        <div>
+                            <p style={{ color: 'var(--text, #222)', marginTop: 6 }}>{t('joinLobbyAs', { code: c, name: me.preferredNickname ?? t('you') })}</p>
+                            <label className="field">
+                                <span className="field__label">{t('nickname')}</span>
+                                <input className="input" value={nickname}
+                                    onChange={e => setNickname(e.target.value)} maxLength={16} />
+                            </label>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                <button className="btn btn--primary" onClick={onConfirm}>{t('join')}</button>
+                                <button className="btn" onClick={onCancel}>{t('cancel')}</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <p>{t('orLoginWith')}</p>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <a className="btn btn--discord" href={getDiscordLoginUrl(`/join/${c}`)}>{t('loginWithDiscord')}</a>
+                                <a className="btn btn--google" href={getGoogleLoginUrl(`/join/${c}`)}>{t('loginWithGoogle')}</a>
+                            </div>
+                            <div style={{ marginTop: 12 }}>
+                                <label className="field">
+                                    <span className="field__label">{t('nickname')}</span>
+                                    <input className="input" value={nickname}
+                                        onChange={e => setNickname(e.target.value)} maxLength={16} />
+                                </label>
+                                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                    <button className="btn btn--primary" onClick={onConfirm}>{t('join')}</button>
+                                    <button className="btn" onClick={onCancel}>{t('cancel')}</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="phase">
             <div className="phase__inner">
@@ -743,14 +864,14 @@ export default function App() {
 
                             <div className="join-form__divider">{t('orLoginWith')}</div>
 
-                            <a className="btn btn--discord btn--block" href={getDiscordLoginUrl()}>
+                            <a className="btn btn--discord btn--block" href={getDiscordLoginUrl(window.location.pathname)}>
                                 <svg width="20" height="20" viewBox="0 0 127.14 96.36" aria-hidden fill="currentColor">
                                     <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
                                 </svg>
                                 {t('loginWithDiscord')}
                             </a>
 
-                            <a className="btn btn--google btn--block" href={getGoogleLoginUrl()}>
+                            <a className="btn btn--google btn--block" href={getGoogleLoginUrl(window.location.pathname)}>
                                 <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
                                     <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.4 17.7 9.5 24 9.5z" />
                                     <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.1h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.7 6c4.5-4.2 6.4-10.1 6.4-17.3z" />
@@ -781,8 +902,11 @@ export default function App() {
                                     title={t('copyCode')}>
                                     {lobby.code}
                                 </button>
+                                <button className="btn" onClick={copyJoinLink} style={{ marginLeft: 8 }} title={t('copyLink')}>
+                                    🔗
+                                </button>
                                 <div className="lobby-room__code-hint">
-                                    {codeCopied ? '✓ ' + t('codeCopied') : t('tapToCopy')}
+                                    {codeCopied ? '✓ ' + t('codeCopied') : linkCopied ? '✓ ' + t('codeCopied') : t('tapToCopy')}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -876,14 +1000,18 @@ export default function App() {
                                 ))}
                             </div>
                         )}
-                        <ProfileModal
-                            open={profileOpen}
-                            onClose={() => setProfileOpen(false)}
-                            onSaved={name => { if (name) setNickname(name); }}
-                        />
                     </div>
                 )}
             </div>
+            <JoinModal
+                show={showJoinModal}
+                code={codeToJoin}
+                me={me}
+                nickname={nickname}
+                setNickname={setNickname}
+                onConfirm={joinViaLinkConfirm}
+                onCancel={joinViaLinkCancel}
+            />
         </div>
     );
 }

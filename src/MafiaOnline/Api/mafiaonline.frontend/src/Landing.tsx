@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { roleDescKey, roleSigil, roleLabelKey } from './roleText';
+import { roleDescKey, roleSigil } from './roleText';
 import { roleTypes } from './api';
 
 
