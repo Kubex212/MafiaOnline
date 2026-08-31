@@ -9,6 +9,7 @@ namespace MafiaOnline.Engine.Roles;
 public class GuardianProtectAbility(GuardianConfig config) : NightAbility()
 {
     public override bool IsAutomatic => false;
+    public override int MinTargets => 1;
     protected override bool CanTargetSelf => config.CanProtectSelf;
     protected override int TargetCooldown => config.MustAlternate ? 1 : 0;
 
