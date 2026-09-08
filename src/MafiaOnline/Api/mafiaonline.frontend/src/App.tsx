@@ -7,7 +7,7 @@ import type {
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
-    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe, createRematch,
+    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe,
     leaveLobby, kickPlayer
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
@@ -226,10 +226,17 @@ export default function App() {
             conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
                 const prev = lobbyRef.current;
                 if (!prev) return;
-                const newPlayers: PlayerResponse[] = ordered.map(o => ({
-                    id: o.id, nickname: o.nickname, isHost: o.isHost,
-                    seatIndex: -1, lobbyPosition: o.lobbyPosition,
-                }));
+                const newPlayers: PlayerResponse[] = ordered.map(o => {
+                    const existing = prev.players.find(p => p.id === o.id);
+                    return {
+                        id: o.id,
+                        userId: existing?.userId ?? '',
+                        nickname: o.nickname,
+                        isHost: o.isHost,
+                        seatIndex: existing?.seatIndex ?? -1,
+                        lobbyPosition: o.lobbyPosition,
+                    } as PlayerResponse;
+                });
                 setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
             });
 
@@ -590,27 +597,6 @@ export default function App() {
         : [];
 
     // Handlers for rematch creation/joining
-    async function createRematchHandler() {
-        const storedOld = sessionStorage.getItem('lobbyCode');
-        if (!storedOld) { alert('No lobby context'); return; }
-        try {
-            const refreshedLobby = await createRematch(storedOld);
-            setLobby(refreshedLobby);
-            setMessages(m => [...m, t('rematchCreated', { code: refreshedLobby.code })]);
-            setRematchCode(null);
-            setGameOver(null);
-            setSeats(null);
-            setMyRole(null);
-            myRoleRef.current = null;
-            setDeadIds([]);
-            setCurrentGameId(null);
-            setView('lobby');
-            try { await joinHubGroup(refreshedLobby.code); } catch (e) { alert(String(e)); }
-        } catch (e) {
-            alert(String(e));
-        }
-    }
-
     async function joinRematchHandler() {
         const code = sessionStorage.getItem('lobbyCode');
         try {
@@ -637,10 +623,22 @@ export default function App() {
     // ── GAME OVER ───────────────────────────────────────────────────────
     if (view === 'gameover' && gameOver && myRole) {
         // Do not clear session here — keep stored lobbyCode so rematch works
+        const goHomeHandler = async () => {
+            try {
+                const code = lobbyRef.current?.code ?? sessionStorage.getItem('lobbyCode');
+                if (code) await leaveLobby(code);
+            } catch (e) {
+                // ignore errors
+            } finally {
+                sessionStorage.removeItem('lobbyCode');
+                window.location.href = '/';
+            }
+        };
+
         return (
             <div className="phase"><div className="phase__inner">
                 <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} myTeam={myRole.teamId}
-                    onCreateRematch={createRematchHandler} onJoinRematch={joinRematchHandler} />
+                    onJoinRematch={joinRematchHandler} onGoHome={goHomeHandler} />
             </div></div>
         );
     }

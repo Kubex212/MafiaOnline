@@ -7,11 +7,11 @@ interface Props {
     myRoleLabel: string;
     myRole: string;
     myTeam: number;
-    onCreateRematch?: () => Promise<void>;
     onJoinRematch?: () => Promise<void>;
+    onGoHome?: () => Promise<void>;
 }
 
-export default function GameOver({ payload, myRoleLabel, myRole, myTeam, onCreateRematch, onJoinRematch }: Props) {
+export default function GameOver({ payload, myRoleLabel, myRole, myTeam, onJoinRematch, onGoHome }: Props) {
     const { t } = useTranslation();
 
     let won = false;
@@ -31,9 +31,19 @@ export default function GameOver({ payload, myRoleLabel, myRole, myTeam, onCreat
         : payload.winner === 'Werewolves' ? 'var(--accent-2)'
         : 'var(--accent-2)';
 
-    function goHome() {
-        sessionStorage.removeItem('lobbyCode');
-        window.location.href = '/';
+    async function goHome() {
+        if (onGoHome) {
+            try {
+                await onGoHome();
+            } catch {
+                // ignore errors and fallback to direct navigation
+                sessionStorage.removeItem('lobbyCode');
+                window.location.href = '/';
+            }
+        } else {
+            sessionStorage.removeItem('lobbyCode');
+            window.location.href = '/';
+        }
     }
 
     return (
