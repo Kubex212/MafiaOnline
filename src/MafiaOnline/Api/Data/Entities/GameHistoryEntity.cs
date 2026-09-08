@@ -8,6 +8,10 @@ public class GameHistoryEntity
 
     public Guid UserId { get; set; }
 
+    public Guid LobbyId { get; set; }
+
+    public string LobbyCode { get; set; } = null!;
+
     public Guid GameId { get; set; }
 
     public DateTime PlayedAtUtc { get; set; }

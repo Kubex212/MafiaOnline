@@ -17,45 +17,38 @@ public class Lobby
     public Lobby(
         Guid id,
         string code,
-        bool started,
-        Game? game,
+        Game? currentGame,
         NightSession? nightSession,
         DaySession? daySession,
         List<LobbyPlayer> players,
-        GameConfig? config = null)
+        GameConfig? config = null,
+        string? rematchCode = null)
     {
         Id = id;
         Code = code;
-        Started = started;
-        Game = game;
+        CurrentGame = currentGame;
         NightSession = nightSession;
         DaySession = daySession;
-        _players = players ?? new List<LobbyPlayer>();
+        _players = players ?? [];
         Config = config ?? new GameConfig();
+        RematchCode = rematchCode;
     }
 
-    public Lobby(string code)
-        : this(
-            Guid.NewGuid(),
-            code,
-            false,
-            null,
-            null,
-            null,
-            new List<LobbyPlayer>(),
-            new GameConfig())
+    public Lobby(string code) : this(Guid.NewGuid(), code, null, null, null, [], new GameConfig(), null)
     {
     }
 
     public Guid Id { get; }
     public string Code { get; }
-    public bool Started { get; private set; }
-    public Game? Game { get; private set; }
+    public bool Started => CurrentGame is not null && CurrentGame.Phase != GamePhase.Finished;
+    public Game? CurrentGame { get; private set; }
+    [JsonIgnore]
+    public Game? Game => CurrentGame;
     public NightSession? NightSession { get; private set; }
     public DaySession? DaySession { get; private set; }
     public GameConfig Config { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
-    public string? RematchCode { get; set; } = null;
+    public string? RematchCode { get; set; }
 
     // ── Lobby management ──────────────────────────────────────────────────
 
@@ -67,6 +60,7 @@ public class Lobby
         if (_players.Any(x => x.Nickname.Equals(player.Nickname, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Nickname already taken.");
 
+        player.SeatIndex = _players.Count;
         _players.Add(player);
     }
 
@@ -76,6 +70,7 @@ public class Lobby
         var idx = _players.FindIndex(p => p.Id == playerId);
         if (idx <= 0) return;
         (_players[idx], _players[idx - 1]) = (_players[idx - 1], _players[idx]);
+        ResetLobbySeatIndices();
     }
 
     public void MovePlayerDown(Guid playerId)
@@ -84,17 +79,19 @@ public class Lobby
         var idx = _players.FindIndex(p => p.Id == playerId);
         if (idx < 0 || idx >= _players.Count - 1) return;
         (_players[idx], _players[idx + 1]) = (_players[idx + 1], _players[idx]);
+        ResetLobbySeatIndices();
     }
 
     public void ShufflePlayers()
     {
         AssertNotStarted();
         var random = new Random();
-        for (int i = _players.Count - 1; i > 0; i--)
+        for (var i = _players.Count - 1; i > 0; i--)
         {
-            int j = random.Next(i + 1);
+            var j = random.Next(i + 1);
             (_players[i], _players[j]) = (_players[j], _players[i]);
         }
+        ResetLobbySeatIndices();
     }
 
     public void UpdateConfig(GameConfig config)
@@ -117,7 +114,11 @@ public class Lobby
         if (Started)
             throw new InvalidOperationException("Lobby already started.");
 
-        var game = new Game(Id, Config);
+        NightSession = null;
+        DaySession = null;
+        RematchCode = null;
+
+        var game = new Game(Guid.NewGuid(), Config);
 
         foreach (var lp in _players)
             game.Execute(new AddPlayerCommand(lp.Id, lp.Nickname));
@@ -131,8 +132,16 @@ public class Lobby
             lp.SeatIndex = ep.SeatIndex;
         }
 
-        Game = game;
-        Started = true;
+        CurrentGame = game;
+    }
+
+    public void ResetForNextGame()
+    {
+        CurrentGame = null;
+        NightSession = null;
+        DaySession = null;
+        RematchCode = null;
+        ResetLobbySeatIndices();
     }
 
     public void RemovePlayerByUserId(Guid userId)
@@ -154,52 +163,41 @@ public class Lobby
     private void RemovePlayerAtIndex(int idx)
     {
         _players.RemoveAt(idx);
-        // shift seat indices for remaining players (not started yet so SeatIndex should be -1 but keep consistent)
-        for (int i = 0; i < _players.Count; i++)
-        {
-            _players[i].SeatIndex = i;
-        }
+        ResetLobbySeatIndices();
 
-        // If there is no host, promote first player to host
         if (!_players.Any(p => p.IsHost) && _players.Count > 0)
-        {
             _players[0].IsHost = true;
-        }
     }
 
     // ── Night ──────────────────────────────────────────────────────────────
 
     public void BeginNightSession()
     {
-        if (Game is null) throw new InvalidOperationException("Game not started.");
+        if (CurrentGame is null) throw new InvalidOperationException("Game not started.");
 
-        Game.Execute(new StartNightCommand(Guid.Empty));
+        CurrentGame.Execute(new StartNightCommand(Guid.Empty));
 
-        var alive = _players.Where(p => Game.Players.First(ep => ep.Id == p.Id).IsAlive);
+        var alive = _players.Where(p => CurrentGame.Players.First(ep => ep.Id == p.Id).IsAlive);
         NightSession = new NightSession(alive);
+        DaySession = null;
     }
 
     public bool ActivePlayerHasAbility()
     {
-        if (Game is null || NightSession?.ActivePlayer is null) return false;
+        if (CurrentGame is null || NightSession?.ActivePlayer is null) return false;
 
-        var enginePlayer = Game.Players.FirstOrDefault(p => p.Id == NightSession.ActivePlayer.Id);
-        if(enginePlayer?.Role is not IHasNightAbility na)
-        {
+        var enginePlayer = CurrentGame.Players.FirstOrDefault(p => p.Id == NightSession.ActivePlayer.Id);
+        if (enginePlayer?.Role is not IHasNightAbility na)
             return false;
-        }
-        if(na.NightAbility.IsAutomatic)
-        {
+        if (na.NightAbility.IsAutomatic)
             return false;
-        }
-        if(na.NightAbility.Cooldown.HasValue)
+        if (na.NightAbility.Cooldown.HasValue)
         {
-            // check how many nights have passed since the last time this player used their ability
-            var lastUsedNight = Game.Turns
+            var lastUsedNight = CurrentGame.Turns
                 .Where(t => t.Night != null && t.Night.Actions.Any(a => a.Actor == enginePlayer.Id && a.ActionType == ActionType.Ability))
                 .OrderByDescending(t => t.Index)
                 .FirstOrDefault();
-            var isOnCooldown = lastUsedNight != null && (Game.Turns.Count - lastUsedNight.Index) < na.NightAbility.Cooldown.Value;
+            var isOnCooldown = lastUsedNight != null && (CurrentGame.Turns.Count - lastUsedNight.Index) < na.NightAbility.Cooldown.Value;
             return !isOnCooldown;
         }
 
@@ -208,22 +206,23 @@ public class Lobby
 
     public NightResult ResolveNight()
     {
-        if (Game is null) throw new InvalidOperationException("Game not started.");
+        if (CurrentGame is null) throw new InvalidOperationException("Game not started.");
         if (NightSession is null) throw new InvalidOperationException("No active night session.");
 
-        Game.Execute(new ResolveNightCommand(NightSession.SubmittedActions));
+        CurrentGame.Execute(new ResolveNightCommand(NightSession.SubmittedActions));
         NightSession = null;
-        return Game.LastNightResult!;
+        return CurrentGame.LastNightResult!;
     }
 
     // ── Day ───────────────────────────────────────────────────────────────
 
     public void BeginDaySession()
     {
-        if (Game is null) throw new InvalidOperationException("Game not started.");
+        if (CurrentGame is null) throw new InvalidOperationException("Game not started.");
 
-        var alive = _players.Where(p => Game.Players.First(ep => ep.Id == p.Id).IsAlive);
+        var alive = _players.Where(p => CurrentGame.Players.First(ep => ep.Id == p.Id).IsAlive);
         DaySession = new DaySession(alive);
+        NightSession = null;
     }
 
     /// <summary>
@@ -239,7 +238,7 @@ public class Lobby
 
     public DayResult ResolveDay()
     {
-        if (Game is null) throw new InvalidOperationException("Game not started.");
+        if (CurrentGame is null) throw new InvalidOperationException("Game not started.");
         if (DaySession is null) throw new InvalidOperationException("No active day session.");
 
         // Convert nullable votes map to non-null map expected by engine (exclude skips)
@@ -247,9 +246,9 @@ public class Lobby
             .Where(kvp => kvp.Value.HasValue)
             .ToDictionary(k => k.Key, v => v.Value!.Value);
 
-        Game.Execute(new ResolveDayCommand(votesForEngine));
+        CurrentGame.Execute(new ResolveDayCommand(votesForEngine));
         DaySession = null;
-        return Game.LastDayResult!;
+        return CurrentGame.LastDayResult!;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -257,5 +256,11 @@ public class Lobby
     private void AssertNotStarted()
     {
         if (Started) throw new InvalidOperationException("Cannot modify lobby after the game has started.");
+    }
+
+    private void ResetLobbySeatIndices()
+    {
+        for (var i = 0; i < _players.Count; i++)
+            _players[i].SeatIndex = i;
     }
 }

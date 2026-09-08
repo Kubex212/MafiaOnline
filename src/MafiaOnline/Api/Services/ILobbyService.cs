@@ -1,6 +1,7 @@
 ﻿using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Dtos;
 using MafiaOnline.Engine.Roles;
+using Api.Dtos;
 
 namespace MafiaOnline.Api.Services;
 
@@ -17,6 +18,7 @@ public interface ILobbyService
     Task<Lobby> ShufflePlayersAsync(string code);
     Task<ReconnectResponse> ReconnectPlayerAsync(string code);
     Task<Lobby> CreateRematchAsync(string code);
+    Task<IReadOnlyList<LobbyGameHistoryItemResponse>> GetLobbyHistoryAsync(string code, int take = 20);
     Task<Lobby?> LeaveLobbyAsync(string code);
     Task<Lobby?> KickPlayerAsync(string code, Guid targetPlayerId);
     Task DeleteLobbyAsync(string code);

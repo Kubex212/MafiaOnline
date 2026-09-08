@@ -17,7 +17,7 @@ public class LobbyResponse
         return new LobbyResponse
         {
             Code = lobby.Code,
-            Started = lobby.Started,
+            Started = lobby.CurrentGame is not null && lobby.CurrentGame.Phase != MafiaOnline.Engine.GamePhase.Finished,
             // Players are already in lobby/seat order — preserve that order
             Players = lobby.Players
                 .Select((x, i) => new PlayerResponse

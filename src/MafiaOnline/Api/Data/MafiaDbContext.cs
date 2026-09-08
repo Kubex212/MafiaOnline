@@ -15,6 +15,7 @@ public class MafiaDbContext : DbContext
     public DbSet<SessionEntity> Sessions { get; set; }
     public DbSet<ExternalLoginEntity> ExternalLogins { get; set; }
     public DbSet<GameHistoryEntity> GameHistory { get; set; }
+    public DbSet<LobbyGameEntity> LobbyGames { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,9 +45,19 @@ public class MafiaDbContext : DbContext
 
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => new { x.UserId, x.PlayedAtUtc });
+            e.HasIndex(x => x.LobbyId);
+            e.HasIndex(x => new { x.LobbyId, x.PlayedAtUtc });
 
             e.Property(x => x.Role)
-                .HasConversion<int>(); // stores enum as int
+                .HasConversion<int>();
+        });
+
+        modelBuilder.Entity<LobbyGameEntity>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.LobbyId);
+            e.HasIndex(x => new { x.LobbyId, x.FinishedAtUtc });
+            e.HasIndex(x => x.LobbyCode);
         });
     }
 }

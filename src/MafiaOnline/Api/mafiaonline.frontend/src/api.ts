@@ -254,6 +254,7 @@ export type SeatInfo = {
 };
 
 export type NightTurnStarted = {
+    gameId?: string;
     activePlayerId: string;
     activeSeatIndex: number;
     hasAbility: boolean;
@@ -263,7 +264,7 @@ export type NightTurnStarted = {
     forbiddenTargets?: string[];
 };
 
-export type NightResolvedPayload = { killed: string[]; attackBlocked: boolean; };
+export type NightResolvedPayload = { gameId?: string; killed: string[]; attackBlocked: boolean; };
 
 export enum ClueType {
     Detective = "Detective",
@@ -301,12 +302,14 @@ export type LobbyOrderChangedPayload = {
 }[];
 
 export type GameStartedPayload = {
+    gameId?: string;
     seats: SeatInfo[];
     drunkPresent: boolean;
     config?: GameConfig;
 };
 
 export type DayStartedPayload = {
+    gameId?: string;
     durationSeconds: number;
     alivePlayers: SeatInfo[];
     enshrouded?: string[];
@@ -314,10 +317,10 @@ export type DayStartedPayload = {
     showVoteTargets: 'Always' | 'Never' | 'AfterVotingEnds';
 };
 
-export type WerewolfAttackPayload = { actorId: string; targetId: string; targetName: string; };
-export type VoteCastPayload = { voterId: string; candidateId: string | null; totalVotesCast: number; };
-export type DayResolvedPayload = { banished: string[]; thresholdMet: boolean; tally: { playerId: string; votes: number }[]; };
-export type GameOverPayload = { winner: 'Villagers' | 'Werewolves' | 'Fool'; drunkId?: string | null; drunkName?: string | null; rematchCode?: string | null };
+export type WerewolfAttackPayload = { gameId?: string; actorId: string; targetId: string; targetName: string; };
+export type VoteCastPayload = { gameId?: string; voterId: string; candidateId: string | null; totalVotesCast: number; };
+export type DayResolvedPayload = { gameId?: string; banished: string[]; thresholdMet: boolean; tally: { playerId: string; votes: number }[]; };
+export type GameOverPayload = { gameId?: string; winner: 'Villagers' | 'Werewolves' | 'Fool'; drunkId?: string | null; drunkName?: string | null; rematchCode?: string | null };
 
 export type MeResponse = {
     id: string;
@@ -351,6 +354,17 @@ export type GameHistoryItemResponse = {
     won: boolean;
     survived: boolean;
     playerCount: number;
+    duration: string;
+};
+
+export type LobbyGameHistoryItemResponse = {
+    gameId: string;
+    lobbyCode: string;
+    startedAtUtc: string;
+    finishedAtUtc: string;
+    winner: string;
+    playerCount: number;
+    dayCount: number;
     duration: string;
 };
 
@@ -495,6 +509,12 @@ export async function getMyHistory(): Promise<GameHistoryItemResponse[]> {
 
     if (!res.ok) throw new Error('History fetch failed: ' + res.statusText);
 
+    return res.json();
+}
+
+export async function getLobbyHistory(code: string, take = 20): Promise<LobbyGameHistoryItemResponse[]> {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/history?take=${take}`);
+    if (!res.ok) throw new Error('Lobby history fetch failed: ' + res.statusText);
     return res.json();
 }
 

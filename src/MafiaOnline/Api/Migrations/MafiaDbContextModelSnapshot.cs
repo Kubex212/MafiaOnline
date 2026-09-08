@@ -17,7 +17,7 @@ namespace Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.29")
+                .HasAnnotation("ProductVersion", "8.0.30")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -64,6 +64,13 @@ namespace Api.Migrations
                     b.Property<Guid>("GameId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("LobbyCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("LobbyId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("PlayedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -87,7 +94,11 @@ namespace Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("LobbyId");
+
                     b.HasIndex("UserId");
+
+                    b.HasIndex("LobbyId", "PlayedAtUtc");
 
                     b.HasIndex("UserId", "PlayedAtUtc");
 
@@ -117,6 +128,53 @@ namespace Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Lobbies");
+                });
+
+            modelBuilder.Entity("Api.Data.Entities.LobbyGameEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DayCount")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("Duration")
+                        .HasColumnType("interval");
+
+                    b.Property<DateTime>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LobbyCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("LobbyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("PlayerCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Winner")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LobbyCode");
+
+                    b.HasIndex("LobbyId");
+
+                    b.HasIndex("LobbyId", "FinishedAtUtc");
+
+                    b.ToTable("LobbyGames");
                 });
 
             modelBuilder.Entity("Api.Data.Entities.SessionEntity", b =>

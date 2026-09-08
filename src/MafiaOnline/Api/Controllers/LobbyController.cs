@@ -2,6 +2,7 @@
 using MafiaOnline.Api.Identity;
 using MafiaOnline.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Api.Dtos;
 
 namespace MafiaOnline.Api.Controllers;
 
@@ -42,6 +43,13 @@ public class LobbiesController : ControllerBase
         var lobby = await _lobbyService.GetLobby(code);
 
         return Ok(LobbyResponse.FromLobby(lobby));
+    }
+
+    [HttpGet("{code}/history")]
+    public async Task<ActionResult<IReadOnlyList<LobbyGameHistoryItemResponse>>> GetHistory(string code, [FromQuery] int take = 20)
+    {
+        var history = await _lobbyService.GetLobbyHistoryAsync(code, take);
+        return Ok(history);
     }
 
     [HttpPost("{code}/start")]
@@ -95,7 +103,6 @@ public class LobbiesController : ControllerBase
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
-    // Create a new lobby using the same configuration as an existing lobby (rematch)
     [HttpPost("{code}/rematch")]
     public async Task<ActionResult<LobbyResponse>> Rematch(string code)
     {
@@ -103,7 +110,6 @@ public class LobbiesController : ControllerBase
         return Ok(LobbyResponse.FromLobby(newLobby));
     }
 
-    // Player leaves the lobby
     [HttpPost("{code}/leave")]
     public async Task<ActionResult<LobbyResponse?>> Leave(string code)
     {
@@ -112,7 +118,6 @@ public class LobbiesController : ControllerBase
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
-    // Host kicks a player
     [HttpPost("{code}/kick")]
     public async Task<ActionResult<LobbyResponse?>> Kick(string code, MovePlayerRequest request)
     {
@@ -121,7 +126,6 @@ public class LobbiesController : ControllerBase
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 
-    // Delete lobby (admin)
     [HttpDelete("{code}")]
     public async Task<IActionResult> Delete(string code)
     {

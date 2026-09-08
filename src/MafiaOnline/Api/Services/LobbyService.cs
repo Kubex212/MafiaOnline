@@ -10,6 +10,8 @@ using MafiaOnline.Engine.Roles;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using static MafiaOnline.Engine.Game;
+using Api.Dtos;
+using Api.Services;
 
 namespace MafiaOnline.Api.Services;
 
@@ -21,8 +23,9 @@ public class LobbyService : ILobbyService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<LobbyService> _logger;
     private readonly ICurrentUser _currentUser;
+    private readonly IGameHistoryService _gameHistoryService;
 
-    public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService, IServiceScopeFactory scopeFactory, ILogger<LobbyService> logger, ICurrentUser currentUser)
+    public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService, IServiceScopeFactory scopeFactory, ILogger<LobbyService> logger, ICurrentUser currentUser, IGameHistoryService gameHistoryService)
     {
         _repository = repository;
         _hubContext = hubContext;
@@ -30,6 +33,7 @@ public class LobbyService : ILobbyService
         _scopeFactory = scopeFactory;
         _logger = logger;
         _currentUser = currentUser;
+        _gameHistoryService = gameHistoryService;
     }
 
     public async Task<Lobby> CreateLobby(string hostNickname)
@@ -62,48 +66,33 @@ public class LobbyService : ILobbyService
         if (string.IsNullOrWhiteSpace(code))
             throw new ArgumentException("Code is required.", nameof(code));
 
-        // Load existing lobby to copy config from
-        var oldLobby = await _repository.Get(code.Trim().ToUpperInvariant())
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
-        // Generate a new unique code
-        Lobby newLobby;
-        do
-        {
-            var newCode = LobbyCodeGenerator.Generate();
-            newLobby = new Lobby(newCode);
-        }
-        while (await _repository.Get(newLobby.Code) != null);
+        var requester = GetPlayerByUserId(lobby, _currentUser.UserId);
+        if (!requester.IsHost)
+            throw new InvalidOperationException("Only the host can create a rematch.");
 
-        // Copy configuration from existing lobby
-        newLobby.UpdateConfig(oldLobby.Config);
+        if (lobby.CurrentGame?.Phase != GamePhase.Finished)
+            throw new InvalidOperationException("Rematch is only available after the game ends.");
 
-        // Add current user as host
-        // Use the nickname from existing lobby if the same user was in original lobby, otherwise generic
-        var hostNick = oldLobby.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId)?.Nickname ?? "Host";
-        newLobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, hostNick.Trim(), true));
+        lobby.ResetForNextGame();
+        await _repository.Update(lobby);
 
-        // set rematch code in old lobby in case someone reconnects 
-        oldLobby.RematchCode = newLobby.Code;
-        await _repository.Update(oldLobby);
+        _logger.LogInformation("Reset lobby {LobbyCode} for rematch by user={UserId}", lobby.Code, _currentUser.UserId);
 
-        await _repository.Create(newLobby);
-
-        _logger.LogInformation("Created rematch lobby {LobbyCode} from {OldCode} by user={UserId}", newLobby.Code, oldLobby.Code, _currentUser.UserId);
-
-        // Notify players in the old lobby that a rematch has been created
         try
         {
             await _hubContext.Clients
-                .Group(oldLobby.Code)
-                .SendAsync("RematchCreated", newLobby.Code);
+                .Group(lobby.Code)
+                .SendAsync("RematchCreated", lobby.Code);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to notify old lobby {OldCode} about rematch {NewCode}", oldLobby.Code, newLobby.Code);
+            _logger.LogError(ex, "Failed to notify lobby {LobbyCode} about rematch reset", lobby.Code);
         }
 
-        return newLobby;
+        return lobby;
     }
 
     public async Task<Lobby> JoinLobbyAsync(string code, string nickname)
@@ -161,9 +150,8 @@ public class LobbyService : ILobbyService
         lobby.Start(requestingPlayer.Id);
         await _repository.Update(lobby);
 
-        _logger.LogInformation("Lobby {LobbyCode} started by player {PlayerId}", lobby.Code, requestingPlayer.Id);
+        _logger.LogInformation("Lobby {LobbyCode} started by player {PlayerId} game={GameId}", lobby.Code, requestingPlayer.Id, lobby.CurrentGame!.Id);
 
-        // broadcast seat list (no roles) to all players in the group
         var seats = lobby.Players
             .OrderBy(p => p.SeatIndex)
             .Select(p => new { id = p.Id, nickname = p.Nickname, seatIndex = p.SeatIndex })
@@ -171,23 +159,27 @@ public class LobbyService : ILobbyService
 
         try
         {
-            var drunkPresent = lobby.Game!.DrunkPlayer != null && lobby.Game.Config?.Drunk?.AnnounceDrunkOccurance == true;
+            var drunkPresent = lobby.CurrentGame!.DrunkPlayer != null && lobby.CurrentGame.Config?.Drunk?.AnnounceDrunkOccurance == true;
             await _hubContext.Clients
                 .Group(lobby.Code)
-                .SendAsync("GameStarted", new { seats, drunkPresent, config = lobby.Config });
+                .SendAsync("GameStarted", new { gameId = lobby.CurrentGame.Id, seats, drunkPresent, config = lobby.Config });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to broadcast GameStarted for lobby {LobbyCode}", lobby.Code);
         }
 
-        // give clients a moment to see their roles before the first turn fires
         try
         {
+            var gameId = lobby.CurrentGame!.Id;
             await Task.Delay(8000);
             using var scope = _scopeFactory.CreateScope();
-            var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
-            await nightService.BeginNightAsync(lobby.Code);
+            var refreshed = await scope.ServiceProvider.GetRequiredService<ILobbyRepository>().Get(lobby.Code);
+            if (refreshed?.CurrentGame?.Id == gameId)
+            {
+                var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
+                await nightService.BeginNightAsync(lobby.Code);
+            }
         }
         catch (Exception ex)
         {
@@ -206,11 +198,11 @@ public class LobbyService : ILobbyService
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
-        if (!lobby.Started || lobby.Game is null)
+        if (!lobby.Started || lobby.CurrentGame is null)
             throw new InvalidOperationException("Game has not started yet.");
 
         var player = GetPlayerByUserId(lobby, userId);
-        var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == player.Id)
+        var enginePlayer = lobby.CurrentGame.Players.FirstOrDefault(p => p.Id == player.Id)
             ?? throw new InvalidOperationException("Player not found.");
 
         var response = new RoleResponse()
@@ -224,7 +216,7 @@ public class LobbyService : ILobbyService
         var isWerewolf = enginePlayer.Role.Team == Team.Werewolves;
         if (isWerewolf)
         {
-            response.OtherWerewolvesIds = lobby.Game.Players
+            response.OtherWerewolvesIds = lobby.CurrentGame.Players
                 .Where(p => p.Role.Team == Team.Werewolves && p.Id != player.Id)
                 .Select(p => p.Id)
                 .ToList();
@@ -258,7 +250,6 @@ public class LobbyService : ILobbyService
         mutation(lobby);
         await _repository.Update(lobby);
 
-        // Broadcast the new order to everyone in the lobby
         var orderedPlayers = lobby.Players
             .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
             .ToList();
@@ -290,49 +281,42 @@ public class LobbyService : ILobbyService
             MyPlayerId = player.Id,
         };
 
-        if (!lobby.Started)
-        {
+        if (!lobby.Started || lobby.CurrentGame is null)
             return response;
-        }
 
-        // Game has started - determine current phase and provide game state
-        if (lobby.Game != null)
+        var currentGame = lobby.CurrentGame;
+        var enginePlayer = currentGame.Players.FirstOrDefault(p => p.Id == player.Id);
+        if (enginePlayer != null)
         {
-            var enginePlayer = lobby.Game.Players.FirstOrDefault(p => p.Id == player.Id);
-            if (enginePlayer != null)
+            var myRoleResponse = new RoleResponse()
             {
-                var myRoleResponse = new RoleResponse()
-                {
-                    Name = enginePlayer.Role.Name,
-                    TeamName = enginePlayer.Role.Team.ToString(),
-                    TeamId = (int)enginePlayer.Role.Team,
-                    Alibi = enginePlayer.Alibi.ToString()
-                };
+                Name = enginePlayer.Role.Name,
+                TeamName = enginePlayer.Role.Team.ToString(),
+                TeamId = (int)enginePlayer.Role.Team,
+                Alibi = enginePlayer.Alibi.ToString()
+            };
 
-                var isWerewolf = enginePlayer.Role.Team == Team.Werewolves;
-                if (isWerewolf)
-                {
-                    myRoleResponse.OtherWerewolvesIds = lobby.Game.Players
-                        .Where(p => p.Role.Team == Team.Werewolves && p.Id != player.Id)
-                        .Select(p => p.Id)
-                        .ToList();
-                }
-                response.MyRole = myRoleResponse;
+            var isWerewolf = enginePlayer.Role.Team == Team.Werewolves;
+            if (isWerewolf)
+            {
+                myRoleResponse.OtherWerewolvesIds = currentGame.Players
+                    .Where(p => p.Role.Team == Team.Werewolves && p.Id != player.Id)
+                    .Select(p => p.Id)
+                    .ToList();
             }
-
-            // Map players to seat info for the frontend
-            response.Seats = lobby.Players
-                .OrderBy(p => p.SeatIndex)
-                .Select(p => new SeatInfoResponse
-                {
-                    Id = p.Id,
-                    Nickname = p.Nickname,
-                    SeatIndex = p.SeatIndex
-                })
-                .ToList();
+            response.MyRole = myRoleResponse;
         }
 
-        // Determine current game phase
+        response.Seats = lobby.Players
+            .OrderBy(p => p.SeatIndex)
+            .Select(p => new SeatInfoResponse
+            {
+                Id = p.Id,
+                Nickname = p.Nickname,
+                SeatIndex = p.SeatIndex
+            })
+            .ToList();
+
         if (lobby.NightSession != null && !lobby.NightSession.Resolved)
         {
             response.GamePhase = "night";
@@ -342,8 +326,8 @@ public class LobbyService : ILobbyService
                 ActivePlayerId = lobby.NightSession.ActivePlayer?.Id.ToString(),
                 ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
                 HasAbility = lobby.ActivePlayerHasAbility(),
-                RemainingSeconds = (int)(DateTime.UtcNow - lobby.NightSession.CurrentTurnStart).TotalSeconds,
-                AlivePlayers = lobby.Players.Where(p => lobby.Game!.Players.First(ep => ep.Id == p.Id).IsAlive)
+                RemainingSeconds = Math.Max(0, currentGame.Config.TurnDurationSeconds - (int)(DateTime.UtcNow - lobby.NightSession.CurrentTurnStart).TotalSeconds),
+                AlivePlayers = lobby.Players.Where(p => currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
                     .OrderBy(p => p.SeatIndex)
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),
@@ -355,7 +339,7 @@ public class LobbyService : ILobbyService
             response.GamePhase = "day";
 
             var enshrouded = new List<Guid>();
-            var last = lobby.Game?.LastNightResult;
+            var last = currentGame.LastNightResult;
             if (last != null)
             {
                 foreach (var ev in last.Events)
@@ -377,10 +361,10 @@ public class LobbyService : ILobbyService
 
             response.Day = new DayState
             {
-                DurationSeconds = lobby.Game!.Config.Day.DurationSeconds,
+                DurationSeconds = currentGame.Config.Day.DurationSeconds,
                 RemainingSeconds = 0,
-                ShowVoteTargets = lobby.Game!.Config.Day.ShowVoteTargets,
-                AlivePlayers = lobby.Players.Where(p => lobby.Game!.Players.First(ep => ep.Id == p.Id).IsAlive)
+                ShowVoteTargets = currentGame.Config.Day.ShowVoteTargets,
+                AlivePlayers = lobby.Players.Where(p => currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
                     .OrderBy(p => p.SeatIndex)
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),
@@ -389,15 +373,15 @@ public class LobbyService : ILobbyService
                 Asleep = asleep,
             };
         }
-        else if (lobby.Game?.Phase == GamePhase.Finished)
+        else if (currentGame.Phase == GamePhase.Finished)
         {
             response.GamePhase = "gameover";
             response.GameOver = new GameOverPayload
             {
-                Winner = lobby.Game.Winner.ToString(),
-                DrunkId = lobby.Game.DrunkPlayer?.Id,
-                DrunkName = lobby.Game.DrunkPlayer?.Nickname,
-                RematchCode = lobby.RematchCode
+                Winner = currentGame.Winner.ToString(),
+                DrunkId = currentGame.DrunkPlayer?.Id,
+                DrunkName = currentGame.DrunkPlayer?.Nickname,
+                RematchCode = lobby.RematchCode ?? lobby.Code
             };
         }
 
@@ -411,16 +395,13 @@ public class LobbyService : ILobbyService
         var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
             ?? throw new InvalidOperationException("Lobby not found.");
 
-        // find player by userId
         var player = lobby.Players.FirstOrDefault(p => p.UserId == _currentUser.UserId);
         if (player == null) throw new InvalidOperationException("Player not found in lobby.");
 
-        // remove player
         lobby.RemovePlayerByUserId(_currentUser.UserId);
 
         if (lobby.Players.Count == 0)
         {
-            // delete lobby
             await _repository.Delete(lobby.Code);
             try { await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerLeft", player.Nickname); } catch { }
             return null;
@@ -428,14 +409,12 @@ public class LobbyService : ILobbyService
 
         await _repository.Update(lobby);
 
-        // notify group
         try
         {
             await _hubContext.Clients
                 .Group(lobby.Code)
                 .SendAsync("PlayerLeft", player.Nickname);
 
-            // broadcast updated order to clients
             var orderedPlayers = lobby.Players
                 .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
                 .ToList();
@@ -526,6 +505,29 @@ public class LobbyService : ILobbyService
         _logger.LogInformation("ConfigUpdated for lobby {LobbyCode} by {UserId}", lobby.Code, userId);
 
         return lobby;
+    }
+
+    public async Task<IReadOnlyList<LobbyGameHistoryItemResponse>> GetLobbyHistoryAsync(string code, int take = 20)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Code is required.", nameof(code));
+
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        var games = await _gameHistoryService.GetLobbyGamesAsync(lobby.Id, take);
+
+        return games.Select(x => new LobbyGameHistoryItemResponse
+        {
+            GameId = x.Id,
+            LobbyCode = x.LobbyCode,
+            StartedAtUtc = x.StartedAtUtc,
+            FinishedAtUtc = x.FinishedAtUtc,
+            Winner = x.Winner,
+            PlayerCount = x.PlayerCount,
+            DayCount = x.DayCount,
+            Duration = x.Duration
+        }).ToList();
     }
 
     private static LobbyPlayer GetPlayerByUserId(Lobby lobby, Guid userId)

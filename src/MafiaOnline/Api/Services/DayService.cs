@@ -46,11 +46,11 @@ public class DayService : IDayService
         lobby.BeginDaySession();
         await _repository.Update(lobby);
 
-        var duration = lobby.Game!.Config.Day.DurationSeconds;
-        var showTargets = lobby.Game.Config.Day.ShowVoteTargets;
+        var game = lobby.CurrentGame!;
+        var duration = game.Config.Day.DurationSeconds;
+        var showTargets = game.Config.Day.ShowVoteTargets;
 
-        // determine enshrouded and sleeping players from last night, if any
-        var last = lobby.Game?.LastNightResult;
+        var last = game.LastNightResult;
         var enshrouded = new List<Guid>();
         if (last != null)
         {
@@ -71,14 +71,14 @@ public class DayService : IDayService
             }
         }
 
-        // Tell all clients the day has started
         var alivePlayers = lobby.Players
-            .Where(p => lobby.Game.Players.First(ep => ep.Id == p.Id).IsAlive)
+            .Where(p => game.Players.First(ep => ep.Id == p.Id).IsAlive)
             .Select(p => new { id = p.Id, nickname = p.Nickname, seatIndex = p.SeatIndex })
             .ToList();
 
         await _hub.Clients.Group(lobby.Code).SendAsync("DayStarted", new
         {
+            gameId = game.Id,
             durationSeconds = duration,
             showVoteTargets = showTargets.ToString(),
             alivePlayers,
@@ -88,37 +88,39 @@ public class DayService : IDayService
 
         _logger.LogInformation("DayStarted broadcast for lobby {LobbyCode} duration={Duration} alivePlayers={Count}", lobbyCode, duration, alivePlayers.Count);
 
-        // Start day countdown timer
         var currentId = lobby.DaySession!.CurrentTurnId;
+        var timerKey = GetTimerKey(lobby.Code, game.Id);
         var cts = new CancellationTokenSource();
-        lock (_timers) { _timers[lobby.Code] = cts; }
+        lock (_timers)
+        {
+            if (_timers.TryGetValue(timerKey, out var previous))
+                previous.Cancel();
+            _timers[timerKey] = cts;
+        }
 
         _ = Task.Run(async () =>
         {
             try
             {
-                _logger.LogDebug("Starting day timer for lobby {LobbyCode} seconds={Seconds}", lobbyCode, duration);
+                _logger.LogDebug("Starting day timer for lobby {LobbyCode} game={GameId} seconds={Seconds}", lobbyCode, game.Id, duration);
                 await Task.Delay(TimeSpan.FromSeconds(duration), cts.Token);
 
                 var lobbyService = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<ILobbyService>();
                 var current = await lobbyService.GetLobby(lobby.Code);
 
-                if(current.DaySession is null || current.DaySession.CurrentTurnId != currentId)
-                {
-                    return; // the day session has already been resolved (maybe a new one has started)
-                }
+                if (current.CurrentGame?.Id != game.Id || current.DaySession is null || current.DaySession.CurrentTurnId != currentId)
+                    return;
 
                 var dayService = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<IDayService>();
-                await dayService.ResolveDayAsync(lobbyCode);    
+                await dayService.ResolveDayAsync(lobbyCode);
             }
             catch (TaskCanceledException)
             {
-                _logger.LogDebug("Day timer cancelled for lobby {LobbyCode}", lobbyCode);
-                /* all players voted early */
+                _logger.LogDebug("Day timer cancelled for lobby {LobbyCode} game={GameId}", lobbyCode, game.Id);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in day timer task for lobby {LobbyCode}", lobbyCode);
+                _logger.LogError(ex, "Error in day timer task for lobby {LobbyCode} game={GameId}", lobbyCode, game.Id);
             }
         }, CancellationToken.None);
     }
@@ -134,14 +136,14 @@ public class DayService : IDayService
         var voterId = lobby.Players.FirstOrDefault(p => p.UserId == userId)?.Id
             ?? throw new InvalidOperationException("Player not found in lobby.");
 
-        var alreadyVoted = lobby.DaySession.HasVoted(voterId);
         var votes = lobby.CastVote(voterId, candidateId);
         await _repository.Update(lobby);
 
-        var showTargets = lobby.Game!.Config.Day.ShowVoteTargets;
+        var showTargets = lobby.CurrentGame!.Config.Day.ShowVoteTargets;
 
         await _hub.Clients.Group(lobby.Code).SendAsync("VoteCast", new
         {
+            gameId = lobby.CurrentGame.Id,
             voterId,
             candidateId = showTargets != Engine.Config.ShowDayVotes.Never ? (Guid?)candidateId : null,
             totalVotesCast = votes.Count
@@ -152,7 +154,7 @@ public class DayService : IDayService
         if (lobby.DaySession.AllVoted)
         {
             _logger.LogInformation("All players voted for lobby {LobbyCode}, resolving day", lobbyCode);
-            CancelTimer(lobbyCode);
+            CancelTimer(GetTimerKey(lobby.Code, lobby.CurrentGame!.Id));
             await ResolveDayAsync(lobbyCode);
         }
     }
@@ -162,16 +164,15 @@ public class DayService : IDayService
         _logger.LogInformation("ResolveDayAsync called for lobby {LobbyCode}", lobbyCode);
         var lobby = await GetLobby(lobbyCode);
 
-        if (lobby.DaySession is null) return; // already resolved (timer race)
+        if (lobby.DaySession is null) return;
 
+        var game = lobby.CurrentGame ?? throw new InvalidOperationException("Game not started.");
+        var gameId = game.Id;
         var result = lobby.ResolveDay();
-        if (lobby.DaySession != null)
-            lobby.DaySession.Resolved = true;
         await _repository.Update(lobby);
 
-        // Determine enshrouded players from last night, if any (so DayResolved can also reflect)
         var enshrouded = new HashSet<Guid>();
-        var last = lobby.Game?.LastNightResult;
+        var last = game.LastNightResult;
         if (last != null)
         {
             foreach (var ev in last.Events)
@@ -181,20 +182,19 @@ public class DayService : IDayService
             }
         }
 
-        // Filter out enshrouded players from banishment
         var filteredBanished = result.Banished.Where(id => !enshrouded.Contains(id)).ToList();
 
         var banishedNames = filteredBanished
             .Select(id => lobby.Players.FirstOrDefault(p => p.Id == id)?.Nickname ?? "?")
             .ToList();
 
-        // Build a public tally (player IDs only — names resolved on client from seat list)
         var tally = result.VoteTally
             .Select(kvp => new { playerId = kvp.Key, votes = kvp.Value })
             .ToList();
 
         await _hub.Clients.Group(lobby.Code).SendAsync("DayResolved", new
         {
+            gameId,
             banished = banishedNames,
             thresholdMet = result.ThresholdMet,
             tally
@@ -202,37 +202,39 @@ public class DayService : IDayService
 
         _logger.LogInformation("DayResolved broadcast for lobby {LobbyCode} banishedCount={Count} thresholdMet={Threshold}", lobbyCode, banishedNames.Count, result.ThresholdMet);
 
-        // wait a few seconds before transitioning to night/gameover so players can see the results
         await Task.Delay(5000);
 
-        // Check game over
-        if (lobby.Game!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
+        var refreshed = await _repository.Get(lobby.Code);
+        if (refreshed?.CurrentGame?.Id != gameId)
+            return;
+
+        if (refreshed.CurrentGame!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
         {
             _logger.LogInformation("Game finished for lobby {LobbyCode}, recording history", lobbyCode);
-            await _gameHistory_service.RecordGameAsync(lobby);
+            await _gameHistory_service.RecordGameAsync(refreshed);
 
             await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new GameOverPayload
             {
-                Winner = lobby.Game.Winner.ToString(),
-                DrunkId = lobby.Game.DrunkPlayer?.Id,
-                DrunkName = lobby.Game.DrunkPlayer != null ? lobby.Players.FirstOrDefault(p => p.Id == lobby.Game.DrunkPlayer.Id)?.Nickname : null
+                Winner = refreshed.CurrentGame.Winner.ToString(),
+                DrunkId = refreshed.CurrentGame.DrunkPlayer?.Id,
+                DrunkName = refreshed.CurrentGame.DrunkPlayer != null ? refreshed.Players.FirstOrDefault(p => p.Id == refreshed.CurrentGame.DrunkPlayer.Id)?.Nickname : null,
+                RematchCode = refreshed.Code
             });
             return;
         }
 
-        // transition back to night
         await _night_service.Value.BeginNightAsync(lobbyCode);
     }
 
-    private void CancelTimer(string code)
+    private void CancelTimer(string key)
     {
         lock (_timers)
         {
-            if (_timers.TryGetValue(code, out var cts))
+            if (_timers.TryGetValue(key, out var cts))
             {
-                _logger.LogDebug("Cancelling day timer for lobby {LobbyCode}", code);
+                _logger.LogDebug("Cancelling day timer {TimerKey}", key);
                 cts.Cancel();
-                _timers.Remove(code);
+                _timers.Remove(key);
             }
         }
     }
@@ -240,4 +242,7 @@ public class DayService : IDayService
     private async Task<Lobby> GetLobby(string code)
         => await _repository.Get(code.ToUpperInvariant())
            ?? throw new InvalidOperationException($"Lobby {code} not found.");
+
+    private static string GetTimerKey(string lobbyCode, Guid gameId)
+        => $"{lobbyCode.ToUpperInvariant()}:{gameId}";
 }

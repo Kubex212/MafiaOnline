@@ -54,6 +54,7 @@ export default function App() {
     const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
     const [showRolesPanel, setShowRolesPanel] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
+    const [currentGameId, setCurrentGameId] = useState<string | null>(null);
 
     // Join-via-link state
     const [me, setMe] = useState<MeResponse | null>(null);
@@ -238,6 +239,7 @@ export default function App() {
             conn.on('GameStarted', async (payload: GameStartedPayload) => {
                 if (view !== 'lobby') return; // ignore if already in a phase
 
+                if (payload.gameId) setCurrentGameId(payload.gameId);
                 const seatList: SeatInfo[] = payload?.seats ?? [];
                 const drunkFlag: boolean = (payload?.drunkPresent ?? false);
                 const sorted = [...seatList].sort((a, b) => a.seatIndex - b.seatIndex);
@@ -254,18 +256,21 @@ export default function App() {
                         myRoleRef.current = myRoleResponse;
                         setView('role-reveal');
                         playSound('game-start');
-                        setTimeout(() => setView('night'), 8000);
+                        setTimeout(() => {
+                            if (!payload.gameId || payload.gameId === currentGameId || currentGameId === null) {
+                                setView('night');
+                            }
+                        }, 8000);
                     } catch { /* ignore */ }
                 }
             });
 
             conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
-                // Ensure the NightPhase component receives the turn even if it
-                // isn't mounted yet (mobile browsers may be slow to render).
+                if (turn.gameId && currentGameId && turn.gameId !== currentGameId) return;
+                if (turn.gameId) setCurrentGameId(turn.gameId);
                 pendingNightStartedRef.current = turn;
                 setView('night');
                 if (turn.activePlayerId && turn.activePlayerId === myPlayerIdRef.current) cueYourTurn();
-                // If already mounted, deliver immediately and clear the pending slot.
                 if (nightRef.current) {
                     nightRef.current.onTurnStarted(turn);
                     pendingNightStartedRef.current = null;
@@ -273,6 +278,7 @@ export default function App() {
             });
 
             conn.on('NightResolved', (payload: NightResolvedPayload) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
                 markDeadByNickname(payload.killed);
                 playSound('night-resolved');
                 if (nightRef.current) {
@@ -283,7 +289,7 @@ export default function App() {
             });
 
             conn.on('DayStarted', (payload: DayStartedPayload) => {
-                // Authoritative alive list — anyone missing from it is dead.
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
                 const alive = new Set(payload.alivePlayers.map(p => p.id));
                 const all = seatsRef.current ?? [];
                 setDeadIds(all.filter(s => !alive.has(s.id)).map(s => s.id));
@@ -293,6 +299,7 @@ export default function App() {
             });
 
             conn.on('VoteCast', (payload: VoteCastPayload) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
                 if (dayRef.current) {
                     dayRef.current.onVoteCast(payload);
                 } else {
@@ -301,6 +308,7 @@ export default function App() {
             });
 
             conn.on('DayResolved', (payload: DayResolvedPayload) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
                 markDeadByNickname(payload.banished);
                 playSound('day-resolved');
                 if (dayRef.current) {
@@ -311,14 +319,14 @@ export default function App() {
             });
 
             conn.on('GameOver', (payload: GameOverPayload) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
                 setGameOver(payload);
                 setView('gameover');
             });
 
-            conn.on('WerewolfAttackCast', (payload: { actorId: string; actorName: string, targetId: string; targetName: string }) => {
-                // Only notify local werewolf players (client can inspect role)
+            conn.on('WerewolfAttackCast', (payload: { gameId?: string; actorId: string; actorName: string, targetId: string; targetName: string }) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
                 if (myRoleRef.current?.teamId === 1) {
-                    // Draw the kill vote as an arrow on the table (werewolves only).
                     if (nightRef.current) {
                         nightRef.current.onWerewolfAttackCast({ actorId: payload.actorId, targetId: payload.targetId });
                         if (payload.actorId !== myPlayerIdRef.current) {
@@ -330,9 +338,20 @@ export default function App() {
                 }
             });
 
-            conn.on('RematchCreated', (newCode: string) => {
-                setMessages(m => [...m, t('rematchCreated', { code: newCode })]);
-                setRematchCode(newCode);
+            conn.on('RematchCreated', async (sameCode: string) => {
+                setMessages(m => [...m, t('rematchCreated', { code: sameCode })]);
+                setRematchCode(sameCode);
+                try {
+                    const refreshed = await getLobby(sameCode);
+                    setLobby(refreshed);
+                    setSeats(null);
+                    setMyRole(null);
+                    myRoleRef.current = null;
+                    setGameOver(null);
+                    setDeadIds([]);
+                    setCurrentGameId(null);
+                    setView('lobby');
+                } catch { /* ignore */ }
             });
 
             await conn.start();
@@ -350,6 +369,7 @@ export default function App() {
                 if (data.gamePhase === 'day' && data.day) {
                     // Use the pending/ref pattern instead of runAfterCommit
                     pendingDayStartedRef.current = {
+                        gameId: undefined,
                         durationSeconds: data.day.durationSeconds,
                         showVoteTargets: data.day.showVoteTargets,
                         alivePlayers: data.day.alivePlayers,
@@ -370,6 +390,7 @@ export default function App() {
                 } else if (data.gamePhase === 'night' && data.night) {
                     // Use the pending/ref pattern instead of runAfterCommit - first set pending then set view so NightPhase can pick it up on mount
                     pendingNightStartedRef.current = {
+                        gameId: undefined,
                         activePlayerId: data.night.activePlayerId ?? '',
                         activeSeatIndex: data.night.activeSeatIndex,
                         hasAbility: data.night.hasAbility,
@@ -391,6 +412,7 @@ export default function App() {
                 setLobby(data.lobby);
                 setMyPlayerId(data.myPlayerId);
                 setMyRole(data.myRole ?? null);
+                setCurrentGameId(data.lobby.started ? (data.gameOver?.gameId ?? null) : null);
 
                 const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
                 setDeadIds((data.seats ?? []).filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id));
@@ -566,39 +588,44 @@ export default function App() {
 
     // Handlers for rematch creation/joining
     async function createRematchHandler() {
-        // Use stored lobby code (the lobby that just finished)
         const storedOld = sessionStorage.getItem('lobbyCode');
         if (!storedOld) { alert('No lobby context'); return; }
         try {
-            const newLobby = await createRematch(storedOld);
-            // Set lobby state to the newly created lobby and set current player id to host
-            setLobby(newLobby);
-            const hostPlayer = newLobby.players.find(p => p.isHost);
-            if (hostPlayer) setMyPlayerId(hostPlayer.id);
-            setMessages(m => [...m, t('rematchCreated', { code: newLobby.code })]);
+            const refreshedLobby = await createRematch(storedOld);
+            setLobby(refreshedLobby);
+            setMessages(m => [...m, t('rematchCreated', { code: refreshedLobby.code })]);
             setRematchCode(null);
+            setGameOver(null);
+            setSeats(null);
+            setMyRole(null);
+            myRoleRef.current = null;
+            setDeadIds([]);
+            setCurrentGameId(null);
             setView('lobby');
-            // Join hub group for the new lobby so the host immediately receives hub events
-            try { await joinHubGroup(newLobby.code); } catch (e) { alert(String(e)); }
+            try { await joinHubGroup(refreshedLobby.code); } catch (e) { alert(String(e)); }
         } catch (e) {
             alert(String(e));
         }
     }
 
     async function joinRematchHandler() {
-        // rematchCode must have been signalled via SignalR to clients
         const code = rematchCode;
         if (!code) { alert(t('waitForRematch')); return; }
         try {
-            // Join the rematch lobby as a normal player using current nickname
-            const res = await joinLobby(code, nickname);
-            const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
-            setMyPlayerId(me.id);
+            const res = await getLobby(code);
+            const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())
+                ?? res.players.find(p => p.id === myPlayerId);
+            if (me) setMyPlayerId(me.id);
             setLobby(res);
             setRematchCode(null);
+            setGameOver(null);
+            setSeats(null);
+            setMyRole(null);
+            myRoleRef.current = null;
+            setDeadIds([]);
+            setCurrentGameId(null);
             setView('lobby');
             setMessages(m => [...m, t('joinedLobby', { code: res.code })]);
-            // Join SignalR group
             try { await joinHubGroup(res.code); } catch (e) { alert(String(e)); }
         } catch (e) {
             alert(String(e));

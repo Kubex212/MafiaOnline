@@ -62,7 +62,7 @@ public class PostgresLobbyRepository : ILobbyRepository
             try
             {
                 var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings)!;
-                lobby.Game?.Initialize();
+                lobby.CurrentGame?.Initialize();
 
                 return lobby;
             }
