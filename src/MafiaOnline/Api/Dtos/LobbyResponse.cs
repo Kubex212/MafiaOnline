@@ -23,6 +23,7 @@ public class LobbyResponse
                 .Select((x, i) => new PlayerResponse
                 {
                     Id = x.Id,
+                    UserId = x.UserId,
                     Nickname = x.Nickname,
                     IsHost = x.IsHost,
                     LobbyPosition = i,
@@ -37,9 +38,8 @@ public class LobbyResponse
 public class PlayerResponse
 {
     public Guid Id { get; set; }
-
+    public Guid UserId { get; set; }
     public string Nickname { get; set; } = "";
-
     public bool IsHost { get; set; }
 
     /// <summary>Current position in the lobby order (0 = first to act at night).</summary>

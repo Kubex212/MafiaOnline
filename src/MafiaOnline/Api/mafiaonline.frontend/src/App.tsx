@@ -41,6 +41,7 @@ export default function App() {
     const [messages, setMessages] = useState<string[]>([]);
     const [hubStarted, setHubStarted] = useState(false);
     const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+    const [myUserId, setMyUserId] = useState<string | null>(null);
     const [seats, setSeats] = useState<SeatInfo[] | null>(null);
     const [myRole, setMyRole] = useState<RoleResponse | null>(null);
     const [view, setView] = useState<GameView>('lobby');
@@ -140,7 +141,9 @@ export default function App() {
             try {
                 await whenActivated();       // <-- wait until this is the real, visible document
                 if (cancelled) return;
-                await getOrCreateSession();
+                const id = await getOrCreateSession();
+                console.log('id ', id);
+                setMyUserId(id.userId);
                 if (cancelled) return;
  
                 setSessionReady(true);
@@ -482,7 +485,7 @@ export default function App() {
     async function onJoin() {
         try {
             const res = await joinLobby(codeToJoin, nickname);
-            const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())!;
+            const me = res.players.find(p => p.userId === myUserId);
             setMyPlayerId(me.id);
             setLobby(res);
             sessionStorage.setItem('lobbyCode', res.code);

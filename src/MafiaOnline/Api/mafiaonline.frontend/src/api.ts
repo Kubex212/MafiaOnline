@@ -142,6 +142,7 @@ async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}, maxAtte
 
 export type PlayerResponse = {
     id: string;
+    userId: string;
     nickname: string;
     isHost: boolean;
     lobbyPosition: number;
