@@ -609,8 +609,7 @@ export default function App() {
     }
 
     async function joinRematchHandler() {
-        const code = rematchCode;
-        if (!code) { alert(t('waitForRematch')); return; }
+        const code = sessionStorage.getItem('lobbyCode');
         try {
             const res = await getLobby(code);
             const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())
@@ -638,7 +637,6 @@ export default function App() {
         return (
             <div className="phase"><div className="phase__inner">
                 <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} myTeam={myRole.teamId}
-                    isHost={isHost} rematchCode={rematchCode}
                     onCreateRematch={createRematchHandler} onJoinRematch={joinRematchHandler} />
             </div></div>
         );

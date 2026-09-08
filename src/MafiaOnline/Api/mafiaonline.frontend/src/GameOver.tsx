@@ -7,15 +7,12 @@ interface Props {
     myRoleLabel: string;
     myRole: string;
     myTeam: number;
-    isHost?: boolean;
-    rematchCode?: string | null;
     onCreateRematch?: () => Promise<void>;
     onJoinRematch?: () => Promise<void>;
 }
 
-export default function GameOver({ payload, myRoleLabel, myRole, myTeam, isHost, rematchCode, onCreateRematch, onJoinRematch }: Props) {
+export default function GameOver({ payload, myRoleLabel, myRole, myTeam, onCreateRematch, onJoinRematch }: Props) {
     const { t } = useTranslation();
-    console.log(isHost);
 
     let won = false;
     if (payload.winner === 'Fool') {
@@ -35,6 +32,7 @@ export default function GameOver({ payload, myRoleLabel, myRole, myTeam, isHost,
         : 'var(--accent-2)';
 
     function goHome() {
+        sessionStorage.removeItem('lobbyCode');
         window.location.href = '/';
     }
 
@@ -59,15 +57,9 @@ export default function GameOver({ payload, myRoleLabel, myRole, myTeam, isHost,
                 <button className="btn" onClick={goHome}>
                     {t('backToMenu')}
                 </button>
-                {isHost ? (
-                    <button className="btn btn--primary" onClick={onCreateRematch}>
-                        {t('playAgain')}
-                    </button>
-                ) : (
-                    <button className="btn btn--primary" onClick={onJoinRematch} disabled={!rematchCode}>
-                        {rematchCode ? t('joinRematch') : t('waitForRematch')}
-                    </button>
-                )}
+                <button className="btn btn--primary" onClick={onJoinRematch}>
+                    {t('playAgain')}
+                </button>
             </div>
         </div>
     );
