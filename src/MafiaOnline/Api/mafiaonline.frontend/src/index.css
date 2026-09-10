@@ -657,6 +657,20 @@ code {
     background: linear-gradient(90deg, rgba(217,164,65,0.08), transparent);
 }
 
+/* Indicator for players who haven't clicked "play again" — dim and desaturate them */
+.player-list__item--not-ready {
+    opacity: 0.6;
+    filter: grayscale(0.6);
+}
+
+.player-list__item--not-ready .player-name {
+    color: var(--text-dim);
+}
+
+.player-list__item--not-ready .seat-num {
+    opacity: 0.7;
+}
+
 .seat-num {
     width: 26px;
     height: 26px;

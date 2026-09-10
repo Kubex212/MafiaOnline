@@ -132,4 +132,11 @@ public class LobbiesController : ControllerBase
         await _lobbyService.DeleteLobbyAsync(code);
         return NoContent();
     }
+
+    [HttpPost("{code}/ready-for-rematch")]
+    public async Task<ActionResult> MarkReady(string code)
+    {
+        await _lobbyService.MarkReadyForRematchAsync(code);
+        return NoContent();
+    }
 }

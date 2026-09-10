@@ -242,9 +242,10 @@ public class NightService : INightService
             attackBlocked
         });
 
-        if (lobby.CurrentGame!.Phase == global::MafiaOnline.Engine.GamePhase.Finished)
+        if (lobby.CurrentGame!.Phase == GamePhase.Finished)
         {
             _logger.LogInformation("Game over for lobby {LobbyCode} winner={Winner}", lobby.Code, lobby.CurrentGame.Winner);
+
             await _hub.Clients.Group(lobby.Code).SendAsync("GameOver", new
             {
                 gameId,

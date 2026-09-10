@@ -251,12 +251,12 @@ public class LobbyService : ILobbyService
         await _repository.Update(lobby);
 
         var orderedPlayers = lobby.Players
-            .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
+            .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
             .ToList();
 
         await _hubContext.Clients
             .Group(lobby.Code)
-            .SendAsync("LobbyOrderChanged", orderedPlayers);
+            .SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
 
         _logger.LogInformation("Lobby order changed for {LobbyCode} by {UserId}", lobby.Code, userId);
 
@@ -381,7 +381,6 @@ public class LobbyService : ILobbyService
                 Winner = currentGame.Winner.ToString(),
                 DrunkId = currentGame.DrunkPlayer?.Id,
                 DrunkName = currentGame.DrunkPlayer?.Nickname,
-                RematchCode = lobby.RematchCode ?? lobby.Code
             };
         }
 
@@ -416,10 +415,10 @@ public class LobbyService : ILobbyService
                 .SendAsync("PlayerLeft", player.Nickname);
 
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, readyForRematch = p.Ready })
                 .ToList();
 
-            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", orderedPlayers);
+            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
         }
         catch (Exception ex)
         {
@@ -459,10 +458,10 @@ public class LobbyService : ILobbyService
             await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerKicked", target.Nickname);
 
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, readyForRematch = p.Ready })
                 .ToList();
 
-            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", orderedPlayers);
+            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
         }
         catch (Exception ex)
         {
@@ -533,4 +532,31 @@ public class LobbyService : ILobbyService
     private static LobbyPlayer GetPlayerByUserId(Lobby lobby, Guid userId)
         => lobby.Players.FirstOrDefault(p => p.UserId == userId)
            ?? throw new InvalidOperationException("Player not found in lobby.");
+
+    public async Task MarkReadyForRematchAsync(string code)
+    {
+        _logger.LogInformation("MarkReadyForRematchAsync called for lobby={LobbyCode} by user={UserId}", code, _currentUser.UserId);
+
+        if (string.IsNullOrWhiteSpace(code))
+            throw new ArgumentException("Code is required.", nameof(code));
+
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        lobby.MarkPlayerReadyForRematch(_currentUser.UserId);
+        await _repository.Update(lobby);
+
+        try
+        {
+            var orderedPlayers = lobby.Players
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
+                .ToList();
+
+            await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to notify lobby {LobbyCode} about ready state", lobby.Code);
+        }
+    }
 }

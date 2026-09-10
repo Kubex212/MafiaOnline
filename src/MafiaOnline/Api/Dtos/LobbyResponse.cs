@@ -8,9 +8,11 @@ public class LobbyResponse
 
     public bool Started { get; set; }
 
-    public List<PlayerResponse> Players { get; set; } = [];
+    public List<PlayerResponse> Players { get; set; } = new();
 
     public GameConfigDto Config { get; set; } = new();
+
+    public string? RematchCode { get; set; }
 
     public static LobbyResponse FromLobby(Lobby lobby)
     {
@@ -27,7 +29,8 @@ public class LobbyResponse
                     Nickname = x.Nickname,
                     IsHost = x.IsHost,
                     LobbyPosition = i,
-                    SeatIndex = x.SeatIndex
+                    SeatIndex = x.SeatIndex,
+                    ReadyForRematch = x.Ready
                 })
                 .ToList(),
             Config = GameConfigDto.FromConfig(lobby.Config)
@@ -47,4 +50,6 @@ public class PlayerResponse
 
     /// <summary>-1 until the game has started; equals LobbyPosition once started.</summary>
     public int SeatIndex { get; set; } = -1;
+
+    public bool ReadyForRematch { get; set; } = false;
 }

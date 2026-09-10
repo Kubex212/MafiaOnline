@@ -22,4 +22,5 @@ public interface ILobbyService
     Task<Lobby?> LeaveLobbyAsync(string code);
     Task<Lobby?> KickPlayerAsync(string code, Guid targetPlayerId);
     Task DeleteLobbyAsync(string code);
+    Task MarkReadyForRematchAsync(string code);
 }

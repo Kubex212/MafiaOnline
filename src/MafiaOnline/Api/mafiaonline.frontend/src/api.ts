@@ -147,6 +147,7 @@ export type PlayerResponse = {
     isHost: boolean;
     lobbyPosition: number;
     seatIndex: number;
+    ready?: boolean;
 };
 
 export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';
@@ -238,6 +239,7 @@ export type LobbyResponse = {
     started: boolean;
     players: PlayerResponse[];
     config: GameConfig;
+    rematchCode?: string | null;
 };
 
 export type RoleResponse = {
@@ -299,8 +301,8 @@ export type AnyClueResponse =
     | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse | SorcererClueResponse | InnkeeperClueResponse;
 
 export type LobbyOrderChangedPayload = {
-    id: string; nickname: string; isHost: boolean; lobbyPosition: number;
-}[];
+    players: PlayerResponse[];
+};
 
 export type GameStartedPayload = {
     gameId?: string;
@@ -590,4 +592,9 @@ export async function kickPlayer(code: string, targetPlayerId: string): Promise<
     });
     if (res.status === 204) return;
     if (!res.ok) throw new Error('Kick failed: ' + res.statusText);
+}
+
+export async function markReadyForRematch(code: string): Promise<void> {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/ready-for-rematch`, { method: 'POST' });
+    if (!res.ok) throw new Error('Mark ready failed: ' + res.statusText);
 }

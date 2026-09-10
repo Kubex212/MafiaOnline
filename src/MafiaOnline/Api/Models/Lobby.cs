@@ -11,7 +11,7 @@ namespace MafiaOnline.Api.Models;
 public class Lobby
 {
     [JsonProperty]
-    private List<LobbyPlayer> _players = new();
+    public List<LobbyPlayer> _players = new();
 
     [JsonConstructor]
     public Lobby(
@@ -29,12 +29,11 @@ public class Lobby
         CurrentGame = currentGame;
         NightSession = nightSession;
         DaySession = daySession;
-        _players = players ?? [];
+        _players = players ?? new List<LobbyPlayer>();
         Config = config ?? new GameConfig();
-        RematchCode = rematchCode;
     }
 
-    public Lobby(string code) : this(Guid.NewGuid(), code, null, null, null, [], new GameConfig(), null)
+    public Lobby(string code) : this(Guid.NewGuid(), code, null, null, null, new List<LobbyPlayer>(), new GameConfig(), null)
     {
     }
 
@@ -48,7 +47,6 @@ public class Lobby
     public DaySession? DaySession { get; private set; }
     public GameConfig Config { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
-    public string? RematchCode { get; set; }
 
     // ── Lobby management ──────────────────────────────────────────────────
 
@@ -61,6 +59,7 @@ public class Lobby
             throw new InvalidOperationException("Nickname already taken.");
 
         player.SeatIndex = _players.Count;
+        player.Ready = true;
         _players.Add(player);
     }
 
@@ -116,7 +115,7 @@ public class Lobby
 
         NightSession = null;
         DaySession = null;
-        RematchCode = null;
+        foreach (var p in _players) p.Ready = false;
 
         var game = new Game(Guid.NewGuid(), Config);
 
@@ -140,8 +139,14 @@ public class Lobby
         CurrentGame = null;
         NightSession = null;
         DaySession = null;
-        RematchCode = null;
+        foreach (var p in _players) p.Ready = false;
         ResetLobbySeatIndices();
+    }
+
+    public void MarkPlayerReadyForRematch(Guid userId)
+    {
+        var player = _players.FirstOrDefault(p => p.UserId == userId);
+        if (player != null) player.Ready = true;
     }
 
     public void RemovePlayerByUserId(Guid userId)

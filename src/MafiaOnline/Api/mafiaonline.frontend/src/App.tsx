@@ -8,7 +8,7 @@ import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
     updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe,
-    leaveLobby, kickPlayer
+    leaveLobby, kickPlayer, markReadyForRematch
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -51,7 +51,6 @@ export default function App() {
     const [linkCopied, setLinkCopied] = useState(false);
     const [deadIds, setDeadIds] = useState<string[]>([]);
     const [profileOpen, setProfileOpen] = useState(false);
-    const [rematchCode, setRematchCode] = useState<string | null>(null);
     const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
     const [showRolesPanel, setShowRolesPanel] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
@@ -61,11 +60,6 @@ export default function App() {
     const [me, setMe] = useState<MeResponse | null>(null);
     const [joinCodeFromUrl, setJoinCodeFromUrl] = useState<string | null>(null);
     const [showJoinModal, setShowJoinModal] = useState(false);
-
-    // mark rematchCode as used for TS
-    useEffect(() => {
-        if (rematchCode) console.debug('Rematch code available', rematchCode);
-    }, [rematchCode]);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -181,7 +175,11 @@ export default function App() {
                 setMessages(m => [...m, t('playerJoined', { nick })]);
                 const code = lobbyRef.current?.code;
                 if (code) {
-                    try { setLobby(await getLobby(code)); } catch { /* ignore */ }
+                    try {
+                        const refreshed = await getLobby(code);
+                        // Use server-provided ready flags directly to avoid keeping stale client state
+                        setLobby(refreshed);
+                    } catch { /* ignore */ }
                 }
             });
 
@@ -189,26 +187,32 @@ export default function App() {
                 setMessages(m => [...m, t('playerLeft', { nick })]);
                 const code = lobbyRef.current?.code;
                 if (code) {
-                    try { setLobby(await getLobby(code)); } catch (e) {
+                    try {
+                        const refreshed = await getLobby(code);
+                        setLobby(refreshed);
+                    } catch (e) {
                         // If lobby was deleted, clear local state
                         sessionStorage.removeItem('lobbyCode');
                         setLobby(null);
                         setMyPlayerId(null);
                     }
                 }
-                // If I was the one who left/kicked, ensure local state cleared
-                if (nick === nickname) {
+                 // If I was the one who left/kicked, ensure local state cleared
+                 if (nick === nickname) {
                     sessionStorage.removeItem('lobbyCode');
                     setLobby(null);
                     setMyPlayerId(null);
-                }
+                 }
             });
 
             conn.on('PlayerKicked', async (nick: string) => {
                 setMessages(m => [...m, t('playerKickedMessage', { nick })]);
                 const code = lobbyRef.current?.code;
                 if (code) {
-                    try { setLobby(await getLobby(code)); } catch (e) {
+                    try {
+                        const refreshed = await getLobby(code);
+                        setLobby(refreshed);
+                    } catch (e) {
                         sessionStorage.removeItem('lobbyCode');
                         setLobby(null);
                         setMyPlayerId(null);
@@ -223,10 +227,11 @@ export default function App() {
                 }
             });
 
-            conn.on('LobbyOrderChanged', (ordered: LobbyOrderChangedPayload) => {
+            conn.on('LobbyOrderChanged', (payload: LobbyOrderChangedPayload) => {
                 const prev = lobbyRef.current;
                 if (!prev) return;
-                const newPlayers: PlayerResponse[] = ordered.map(o => {
+
+                const newPlayers: PlayerResponse[] = payload.players.map(o => {
                     const existing = prev.players.find(p => p.id === o.id);
                     return {
                         id: o.id,
@@ -235,8 +240,10 @@ export default function App() {
                         isHost: o.isHost,
                         seatIndex: existing?.seatIndex ?? -1,
                         lobbyPosition: o.lobbyPosition,
+                        readyForRematch: o.ready ?? existing?.ready ?? false,
                     } as PlayerResponse;
                 });
+
                 setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
             });
 
@@ -350,7 +357,6 @@ export default function App() {
 
             conn.on('RematchCreated', async (sameCode: string) => {
                 setMessages(m => [...m, t('rematchCreated', { code: sameCode })]);
-                setRematchCode(sameCode);
                 try {
                     const refreshed = await getLobby(sameCode);
                     setLobby(refreshed);
@@ -375,6 +381,8 @@ export default function App() {
                 const data = await reconnect(storedLobbyCode);
 
                 await conn.invoke('JoinLobby', storedLobbyCode);
+
+                let didRefreshLobby = false;
 
                 if (data.gamePhase === 'day' && data.day) {
                     // Use the pending/ref pattern instead of runAfterCommit
@@ -415,11 +423,29 @@ export default function App() {
                 } else if (data.gamePhase === 'gameover') {
                     setView(data.gamePhase);
                     setGameOver(data.gameOver ?? null);
-                    setRematchCode(data.gameOver?.rematchCode ?? null);
+
+                    // If we reconnected into gameover, mark ourselves ready for rematch automatically
+                    try {
+                        if (storedLobbyCode) {
+                            // mark ready then refresh lobby state so ready flags are accurate
+                            try {
+                                await markReadyForRematch(storedLobbyCode);
+                            } catch { /* ignore */ }
+                            try {
+                                const refreshed = await getLobby(storedLobbyCode);
+                                setLobby(refreshed);
+                                console.debug('Reconnected lobby players ready flags:', refreshed.players.map(p => ({ nick: p.nickname, ready: p.readyForRematch })));
+                                didRefreshLobby = true;
+                            } catch { /* ignore */ }
+                        }
+                    } catch { /* ignore */ }
                 }
 
+                // Only apply the reconnect payload lobby if we didn't refresh from the server above
+                if (!didRefreshLobby) {
+                    setLobby(data.lobby);
+                }
 
-                setLobby(data.lobby);
                 setMyPlayerId(data.myPlayerId);
                 setMyRole(data.myRole ?? null);
                 setCurrentGameId(data.lobby.started ? (data.gameOver?.gameId ?? null) : null);
@@ -600,12 +626,16 @@ export default function App() {
     async function joinRematchHandler() {
         const code = sessionStorage.getItem('lobbyCode');
         try {
+            // Signal server that I'm ready for rematch
+            if (code) {
+                try { await markReadyForRematch(code); } catch { /* ignore */ }
+            }
+
             const res = await getLobby(code);
             const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())
                 ?? res.players.find(p => p.id === myPlayerId);
             if (me) setMyPlayerId(me.id);
             setLobby(res);
-            setRematchCode(null);
             setGameOver(null);
             setSeats(null);
             setMyRole(null);
@@ -965,7 +995,7 @@ export default function App() {
                             <ul className="player-list">
                                 {orderedPlayers.map((p, i) => (
                                     <li key={p.id}
-                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''}`}>
+                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''} ${!p.readyForRematch ? 'player-list__item--not-ready' : ''}`}>
                                         <span className="seat-num">{i + 1}</span>
                                         <span className="player-name">{p.nickname}</span>
                                         {p.isHost && <span className="lobby-tag">{t('host')}</span>}
