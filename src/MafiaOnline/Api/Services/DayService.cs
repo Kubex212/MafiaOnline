@@ -151,9 +151,10 @@ public class DayService : IDayService
 
         _logger.LogDebug("VoteCast broadcast lobby={LobbyCode} voter={VoterId} totalVotesCast={Total}", lobbyCode, voterId, votes.Count);
 
-        if (lobby.DaySession.AllVoted)
+        // If all players voted or the result can be determined early, resolve the day
+        if (ShouldResolveDay(lobby))
         {
-            _logger.LogInformation("All players voted for lobby {LobbyCode}, resolving day", lobbyCode);
+            _logger.LogInformation("Resolving day early for lobby {LobbyCode}", lobbyCode);
             CancelTimer(GetTimerKey(lobby.Code, lobby.CurrentGame!.Id));
             await ResolveDayAsync(lobbyCode);
         }
@@ -245,4 +246,76 @@ public class DayService : IDayService
 
     private static string GetTimerKey(string lobbyCode, Guid gameId)
         => $"{lobbyCode.ToUpperInvariant()}:{gameId}";
+
+    // Determine whether the day voting can be resolved early based on current votes and config.
+    private bool ShouldResolveDay(Lobby lobby)
+    {
+        var session = lobby.DaySession;
+        var game = lobby.CurrentGame;
+        if (session is null || game is null) return false;
+
+        var config = game.Config.Day;
+
+        // Count alive players according to the game state
+        var alivePlayers = lobby.Players.Where(p => game.Players.First(ep => ep.Id == p.Id).IsAlive).Select(p => p.Id).ToList();
+        var aliveCount = alivePlayers.Count;
+
+        // Votes map (includes skips as null)
+        var votesMap = session.Votes;
+
+        // Build tally for non-skip votes
+        var tally = new Dictionary<Guid, int>();
+        foreach (var kvp in votesMap)
+        {
+            if (!kvp.Value.HasValue) continue;
+            var candidate = kvp.Value.Value;
+            tally.TryGetValue(candidate, out var cur);
+            tally[candidate] = cur + 1;
+        }
+
+        int maxVotes = tally.Any() ? tally.Values.Max() : 0;
+        int requiredVotes = (int)Math.Ceiling(aliveCount * config.VotesRequiredFraction);
+
+        // Remaining players who haven't cast a vote yet
+        var remaining = Math.Max(0, aliveCount - votesMap.Count);
+
+        // If nobody can possibly reach the threshold even if all remaining votes go to a single candidate
+        var maxPossibleAny = (tally.Any() ? tally.Values.Max() : 0) + remaining;
+        if (maxPossibleAny < requiredVotes)
+            return true;
+
+        // If no votes yet, cannot resolve early
+        if (!tally.Any())
+            return false;
+
+        // If threshold already met by some candidate, ensure no other candidate can also meet it
+        if (maxVotes >= requiredVotes)
+        {
+            // Candidates currently at maxVotes
+            var currentLeaders = tally.Where(kvp => kvp.Value == maxVotes).Select(kvp => kvp.Key).ToList();
+
+            // If more than one leader already, the draw is already decided by config (tie among top)
+            if (currentLeaders.Count > 1)
+                return true;
+
+            // Compute max possible votes for every other alive candidate (including those with 0 votes)
+            foreach (var pid in alivePlayers)
+            {
+                if (currentLeaders.Contains(pid)) continue; // skip current leader
+                tally.TryGetValue(pid, out var curVotes);
+                var maxPossibleForPid = curVotes + remaining;
+                // If any other candidate could still reach the required threshold, we cannot resolve yet
+                if (maxPossibleForPid >= requiredVotes)
+                    return false;
+            }
+
+            // No other candidate can reach threshold -> safe to resolve
+            return true;
+        }
+
+        if (session.AllVoted)
+            return true;
+
+        return false;
+    }
 }
