@@ -19,8 +19,8 @@ public class DeceiverAbility : NightAbility
 {
     public DeceiverAbility() : base() { }
 
+    protected override int TargetCooldown => 1;
     public override bool IsAutomatic => false;
-
     public override int MinTargets => 1;
     public override int MaxTargets => 1;
 
