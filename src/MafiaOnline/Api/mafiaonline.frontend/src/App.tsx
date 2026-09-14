@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo, PlayerResponse,
-    NightTurnStarted, NightResolvedPayload, LobbyOrderChangedPayload,
-    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig, GameStartedPayload, MeResponse
+    NightStartedPayload, NightResolvedPayload, LobbyOrderChangedPayload,
+    DayStartedPayload, VoteCastPayload, DayResolvedPayload, GameOverPayload, GameConfig, GameStartedPayload, MeResponse, TurnFinishedPayload
 } from './api';
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
@@ -22,7 +22,7 @@ import TopBar from './TopBar';
 import { useTranslation } from 'react-i18next';
 import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
 import { addLog, clearLog } from './gameLog';
-import { playSound, cueYourTurn } from './sound';
+import { playSound } from './sound';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
@@ -68,12 +68,16 @@ export default function App() {
     const nightRef = useRef<NightPhaseHandle | null>(null);
     const dayRef = useRef<DayPhaseHandle | null>(null);
     const pendingDayStartedRef = useRef<DayStartedPayload | null>(null);
-    const pendingNightStartedRef = useRef<NightTurnStarted | null>(null);
+    const pendingNightStartedRef = useRef<NightStartedPayload | null>(null);
     const pendingNightResolvedRef = useRef<NightResolvedPayload | null>(null);
     const pendingWerewolfAttacksRef = useRef<{ actorId: string; actorName: string; targetId: string; targetName: string }[]>([]);
+    const pendingActionSubmittedRef = useRef<TurnFinishedPayload[]>([]);
+    const pendingFinishedPlayersRef = useRef<string[] | null>(null);
     const pendingDayResolvedRef = useRef<DayResolvedPayload | null>(null);
     const pendingVoteCastsRef = useRef<VoteCastPayload[]>([]);
     const myRoleRef = useRef<RoleResponse | null>(null);
+    // New: pending concrete submitted actions recovered from reconnect
+    const pendingSubmittedActionsRef = useRef<Array<{ actorId: string; actionType: number; targets: string[] }> | null>(null);
 
     const { t } = useTranslation();
 
@@ -282,15 +286,23 @@ export default function App() {
                 }
             });
 
-            conn.on('NightTurnStarted', (turn: NightTurnStarted) => {
-                if (turn.gameId && currentGameId && turn.gameId !== currentGameId) return;
-                if (turn.gameId) setCurrentGameId(turn.gameId);
-                pendingNightStartedRef.current = turn;
+            conn.on('NightStarted', (payload: NightStartedPayload) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
+                if (payload.gameId) setCurrentGameId(payload.gameId);
+                pendingNightStartedRef.current = payload;
                 setView('night');
-                if (turn.activePlayerId && turn.activePlayerId === myPlayerIdRef.current) cueYourTurn();
                 if (nightRef.current) {
-                    nightRef.current.onTurnStarted(turn);
+                    nightRef.current.onNightStarted(payload);
                     pendingNightStartedRef.current = null;
+                }
+            });
+
+            conn.on('TurnFinished', (payload: TurnFinishedPayload) => {
+                if (payload.gameId && currentGameId && payload.gameId !== currentGameId) return;
+                if (nightRef.current) {
+                    nightRef.current.onActionSubmitted(payload);
+                } else {
+                    pendingActionSubmittedRef.current = [...(pendingActionSubmittedRef.current ?? []), payload];
                 }
             });
 
@@ -409,13 +421,24 @@ export default function App() {
                     // Use the pending/ref pattern instead of runAfterCommit - first set pending then set view so NightPhase can pick it up on mount
                     pendingNightStartedRef.current = {
                         gameId: undefined,
-                        activePlayerId: data.night.activePlayerId ?? '',
-                        activeSeatIndex: data.night.activeSeatIndex,
-                        hasAbility: data.night.hasAbility,
-                        timeoutSeconds: data.night.remainingSeconds ?? 1000,
-                        minTargets: undefined,
-                        maxTargets: undefined,
-                    } as NightTurnStarted;
+                        durationSeconds: data.night.durationSeconds,
+                        playerInfos: data.night.playerInfos,
+                        allAlivePlayers: data.night.allAlivePlayers,
+                    } as NightStartedPayload;
+
+                    // Record players who the server considers fully finished this turn
+                    if (data.night.submittedPlayers) {
+                        pendingFinishedPlayersRef.current = data.night.submittedPlayers;
+                    } else {
+                        pendingFinishedPlayersRef.current = null;
+                    }
+
+                    // If server supplied concrete submitted actions, store them for NightPhase to recover (but don't mark players done here)
+                    if (data.night.submittedActions) {
+                        pendingSubmittedActionsRef.current = data.night.submittedActions.map(a => ({ actorId: a.actorId, actionType: a.actionType, targets: a.targets }));
+                    } else {
+                        pendingSubmittedActionsRef.current = null;
+                    }
 
                     setSeats((data.seats ?? null) as SeatInfo[] | null);
                     setView(data.gamePhase);
@@ -434,7 +457,7 @@ export default function App() {
                             try {
                                 const refreshed = await getLobby(storedLobbyCode);
                                 setLobby(refreshed);
-                                console.debug('Reconnected lobby players ready flags:', refreshed.players.map(p => ({ nick: p.nickname, ready: p.readyForRematch })));
+                                console.debug('Reconnected lobby players ready flags:', refreshed.players.map(p => ({ nick: p.nickname, ready: p.ready })));
                                 didRefreshLobby = true;
                             } catch { /* ignore */ }
                         }
@@ -450,7 +473,7 @@ export default function App() {
                 setMyRole(data.myRole ?? null);
                 setCurrentGameId(data.lobby.started ? (data.gameOver?.gameId ?? null) : null);
 
-                const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.alivePlayers) ?? [];
+                const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.allAlivePlayers) ?? [];
                 setDeadIds((data.seats ?? []).filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id));
 
             } catch (e) {
@@ -716,7 +739,7 @@ export default function App() {
         );
     }
 
-    // ── NIGHT PHASE ──────────────────────────────────────────────────────
+    // ── NIGHT PHASE ─────────────────────────────────────────────────────
     if (view === 'night' && seats && myPlayerId && myRole) {
         return (
             <div className={`phase${spectatorClass}`}><div className="phase__inner">
@@ -730,25 +753,31 @@ export default function App() {
                 <NightPhase ref={instance => {
                      nightRef.current = instance;
                      if (instance && pendingNightStartedRef.current) {
-                        instance.onTurnStarted(pendingNightStartedRef.current);
+                        instance.onNightStarted(pendingNightStartedRef.current);
                         pendingNightStartedRef.current = null;
                      }
 
-                     // deliver any queued werewolf attack notifications
-                     if (instance && pendingWerewolfAttacksRef.current?.length) {
-                        pendingWerewolfAttacksRef.current.forEach(a => {
-                            instance.onWerewolfAttackCast({ actorId: a.actorId, targetId: a.targetId });
-                            if (a.actorId !== myPlayerIdRef.current) {
-                                instance.addLog(t('werewolfXAttackedY', { attacker: a.actorName, target: a.targetName }));
+                     // deliver recovered submitted actions if present
+                     if (instance && (pendingSubmittedActionsRef.current?.length || pendingFinishedPlayersRef.current?.length)) {
+                        const recovered = pendingSubmittedActionsRef.current ?? [];
+                        const finished = pendingFinishedPlayersRef.current ?? [];
+                        if ((instance as any).onRecoveredSubmittedActions) {
+                            (instance as any).onRecoveredSubmittedActions({ actions: recovered, finished });
+                        } else {
+                            // fallback: mark fully finished players, and replay werewolf attack votes for actions
+                            if (finished.length) {
+                                finished.forEach(pid => {
+                                    instance.onActionSubmitted({ gameId: undefined, actorId: pid, actorName: '' });
+                                });
                             }
-                        });
-                        pendingWerewolfAttacksRef.current = [];
-                     }
-
-                     // deliver pending night-resolved if present
-                     if (instance && pendingNightResolvedRef.current) {
-                         instance.onNightResolved(pendingNightResolvedRef.current);
-                         pendingNightResolvedRef.current = null;
+                            recovered.forEach(a => {
+                                if (a.actionType === 0 && a.targets && a.targets.length > 0) {
+                                    instance.onWerewolfAttackCast({ actorId: a.actorId, targetId: a.targets[0] });
+                                }
+                            });
+                        }
+                        pendingSubmittedActionsRef.current = null;
+                        pendingFinishedPlayersRef.current = null;
                      }
                 }}
                      lobbyCode={lobby!.code}

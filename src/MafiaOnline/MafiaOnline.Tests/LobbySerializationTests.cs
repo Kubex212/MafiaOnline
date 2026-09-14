@@ -132,16 +132,20 @@ public class LobbySerializationTests
 
         lobby.BeginNightSession();
 
-        var active = lobby.NightSession!.ActivePlayer!;
-        // submit an action and advance
-        lobby.NightSession.SubmitAction(new Engine.Night.NightAction(active.Id, new List<Guid> { p2.Id }, Engine.Night.ActionType.Ability));
+        // submit an action for one player
+        lobby.NightSession.SubmitAction(new Engine.Night.NightAction(host.Id, new List<Guid> { p2.Id }, Engine.Night.ActionType.Ability));
 
         var json = JsonConvert.SerializeObject(lobby, Settings);
         var restored = JsonConvert.DeserializeObject<Lobby>(json, Settings);
 
         Assert.NotNull(restored);
         Assert.NotNull(restored!.NightSession);
-        Assert.True(restored.NightSession.SubmittedActions.SingleOrDefault(sa => sa.Actor == active.Id && sa.ActionType == Engine.Night.ActionType.Ability) != null);
+        Assert.True(restored.NightSession.SubmittedActions.SingleOrDefault(sa => sa.Actor == host.Id && sa.ActionType == Engine.Night.ActionType.Ability) != null);
+        // host should no longer need to act, but others should
+        Assert.False(restored.NightSession.PlayersPendingAction.Contains(host.Id));
+        Assert.True(restored.NightSession.PlayersPendingAction.Contains(p2.Id));
+        Assert.True(restored.NightSession.PlayersPendingAction.Contains(p3.Id));
+        Assert.True(restored.NightSession.PlayersPendingAction.Contains(p4.Id));
     }
 
     [Fact]

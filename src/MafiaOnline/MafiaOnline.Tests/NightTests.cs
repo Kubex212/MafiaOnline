@@ -11,7 +11,7 @@ namespace MafiaOnline.Tests;
 public class NightTests
 {
     [Fact]
-    public void FirstPlayer_ShouldNotBeSkipped_DuringNight()
+    public void AllAlivePlayers_ShouldNeedAction_DuringNight()
     {
         var lobby = new Lobby("TEST123");
         var firstPlayer = new LobbyPlayer(Guid.NewGuid(), "Player1", true);
@@ -48,7 +48,11 @@ public class NightTests
         // act
         var night = new NightSession(lobby.Players);
 
-        // assert
-        Assert.Equal(firstPlayerId, night.ActivePlayer.Id);
+        // assert - all alive players should need to submit an action
+        Assert.Equal(4, night.PlayersPendingAction.Count);
+        Assert.Contains(firstPlayerId, night.PlayersPendingAction);
+        Assert.Contains(secondPlayerId, night.PlayersPendingAction);
+        Assert.Contains(thirdPlayerId, night.PlayersPendingAction);
+        Assert.Contains(fourthPlayerId, night.PlayersPendingAction);
     }
 }

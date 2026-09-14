@@ -34,8 +34,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     const [showVoteTargets, setShowVoteTargets] = useState<ShowVotes>('Never');
     const [timeLeft, setTimeLeft] = useState(180);
     const [votes, setVotes] = useState<Record<string, string | null>>({});
-    // undefined = not voted yet, null = skipped, string = candidate id
-    const [myVote, setMyVote] = useState<string | null | undefined>(undefined);
+    const [myVote, setMyVote] = useState<string | null | undefined>(undefined); // undefined = not voted yet, null = skipped, string = candidate id
     const [resolved, setResolved] = useState<DayResolvedPayload | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState<string | null>(null);

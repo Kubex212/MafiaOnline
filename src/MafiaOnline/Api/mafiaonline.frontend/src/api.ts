@@ -267,6 +267,25 @@ export type NightTurnStarted = {
     forbiddenTargets?: string[];
 };
 
+export type NightStartedPayload = {
+    gameId?: string;
+    durationSeconds: number;
+    playerInfos: Array<{
+        playerId: string;
+        hasAbility: boolean;
+        minTargets: number;
+        maxTargets: number;
+        forbiddenTargets: string[];
+    }>;
+    allAlivePlayers: SeatInfo[];
+};
+
+export type TurnFinishedPayload = {
+    gameId?: string;
+    actorId: string;
+    actorName: string;
+};
+
 export type NightResolvedPayload = { gameId?: string; killed: string[]; attackBlocked: boolean; };
 
 export enum ClueType {
@@ -537,12 +556,23 @@ export type ReconnectResponse = {
         asleep?: string[];
     };
     night?: {
-        activePlayerId?: string | null;
-        activeSeatIndex: number;
-        hasAbility: boolean;
-        alivePlayers: SeatInfo[];
+        durationSeconds: number;
         remainingSeconds: number;
-        submittedActions?: Record<string, string>;
+        playerInfos: Array<{
+            playerId: string;
+            hasAbility: boolean;
+            minTargets: number;
+            maxTargets: number;
+            forbiddenTargets: string[];
+        }>;
+        allAlivePlayers: SeatInfo[];
+        submittedPlayers?: string[];
+        // concrete submitted actions so client can reconstruct per-player submission state
+        submittedActions?: Array<{
+            actorId: string;
+            actionType: number; // matches Engine.Night.ActionType enum
+            targets: string[];
+        }>;
     };
     gameOver?: GameOverPayload;
 };

@@ -20,6 +20,7 @@ export interface TableSeatState {
     /** Targetable by day voting */
     isTargetable?: boolean;
     hasVoted?: boolean;
+    hasSubmitted?: boolean;
     isEnshrouded?: boolean;
     isAsleep?: boolean;
     /** Fellow werewolf (or self) — only ever set for viewers who are werewolves themselves. */
@@ -182,6 +183,7 @@ export default function RoundTable({
                 const isSelected = !!st?.isSelected;
                 const isTargetable = !!st?.isTargetableByAbility || !!st?.isTargetableByAttack || !!st?.isTargetable;
                 const hasVoted = !!st?.hasVoted;
+                const hasSubmitted = !!st?.hasSubmitted;
                 const isEnshrouded = !!st?.isEnshrouded;
                 const isAsleep = !!st?.isAsleep;
                 const displayAsWerewolf = !!st?.isWerewolf;
@@ -251,7 +253,7 @@ export default function RoundTable({
                             <text y={17} textAnchor="middle" fill="var(--accent)"
                                 fontSize={9} fontWeight={700}>▸ {t('target')}</text>
                         )}
-                        {hasVoted && isAlive && (
+                        {(hasVoted || hasSubmitted) && isAlive && (
                             <text x={-22} y={-22} textAnchor="middle" fontSize={13}>✔️</text>
                         )}
                         {isEnshrouded && isAlive && (

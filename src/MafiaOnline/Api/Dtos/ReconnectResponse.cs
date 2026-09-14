@@ -1,5 +1,6 @@
 using Api.Dtos;
 using MafiaOnline.Engine.Config;
+using MafiaOnline.Engine.Night;
 using System;
 using System.Collections.Generic;
 
@@ -45,10 +46,28 @@ public class DayState
 
 public class NightState
 {
-    public string? ActivePlayerId { get; set; }
-    public int ActiveSeatIndex { get; set; }
-    public bool HasAbility { get; set; }
-    public List<SeatInfoResponse> AlivePlayers { get; set; } = new();
+    public int DurationSeconds { get; set; }
     public int RemainingSeconds { get; set; }
-    public Dictionary<Guid, Guid>? SubmittedActions { get; set; }
+    public List<PlayerNightInfoResponse> PlayerInfos { get; set; } = new();
+    public List<SeatInfoResponse> AllAlivePlayers { get; set; } = new();
+    public List<Guid> SubmittedPlayers { get; set; } = new();
+
+    // Concrete submitted actions so clients can reconstruct per-player submission state
+    public List<SubmittedActionResponse> SubmittedActions { get; set; } = new();
+}
+
+public class PlayerNightInfoResponse
+{
+    public Guid PlayerId { get; set; }
+    public bool HasAbility { get; set; }
+    public int MinTargets { get; set; }
+    public int MaxTargets { get; set; }
+    public List<Guid> ForbiddenTargets { get; set; } = new();
+}
+
+public class SubmittedActionResponse
+{
+    public Guid ActorId { get; set; }
+    public ActionType ActionType { get; set; }
+    public List<Guid> Targets { get; set; } = new();
 }

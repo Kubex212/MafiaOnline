@@ -16,12 +16,12 @@ public interface INightService
     Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType);
     Task SkipTurnAsync(string lobbyCode, Guid userId);
     Task<ClueResponse?> GetClueAsync(string lobbyCode, Guid userId);
-    Task AdvanceTurnAsync(Lobby lobby);
+    Task ResolveNightAsync(Lobby lobby);
 }
 
 public class NightService : INightService
 {
-    private const int TurnSeconds = 1000;
+    private const int NightDurationSeconds = 1000;
 
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
@@ -45,7 +45,109 @@ public class NightService : INightService
         var lobby = await GetLobby(lobbyCode);
         lobby.BeginNightSession();
         await _repository.Update(lobby);
-        await AdvanceTurnAsync(lobby);
+
+        var game = lobby.CurrentGame ?? throw new InvalidOperationException("Game not started.");
+        var gameId = game.Id;
+        var alivePlayers = lobby.Players.Where(p => game.Players.First(ep => ep.Id == p.Id).IsAlive).ToList();
+
+        // Get info for each player: do they have an ability?
+        var playerInfos = new List<dynamic>();
+        foreach (var player in alivePlayers)
+        {
+            var hasAbility = lobby.PlayerHasAbility(player.Id);
+            var minTargets = 0;
+            var maxTargets = 1;
+
+            if (hasAbility && lobby.CurrentGame != null)
+            {
+                var enginePlayer = lobby.CurrentGame.Players.FirstOrDefault(p => p.Id == player.Id);
+                if (enginePlayer?.Role is IHasNightAbility na)
+                {
+                    minTargets = na.NightAbility.MinTargets;
+                    maxTargets = na.NightAbility.MaxTargets;
+                }
+            }
+
+            var forbiddenIds = lobby.CurrentGame!.GetForbiddenTargets(player.Id);
+            _logger.LogDebug("Night targets for {Nickname} ({PlayerId}): hasAbility={HasAbility}, forbidden={ForbiddenCount}, forbiddenList={Forbidden}",
+                player.Nickname, player.Id, hasAbility, forbiddenIds.Count, string.Join(",", forbiddenIds.Take(3)));
+
+            playerInfos.Add(new
+            {
+                playerId = player.Id,
+                hasAbility,
+                minTargets,
+                maxTargets,
+                forbiddenTargets = forbiddenIds
+            });
+        }
+
+        var nightDurationSeconds = lobby.CurrentGame?.Config.TurnDurationSeconds ?? NightDurationSeconds;
+
+        await _hub.Clients.Group(lobby.Code).SendAsync("NightStarted", new
+        {
+            gameId,
+            durationSeconds = nightDurationSeconds,
+            playerInfos,
+            allAlivePlayers = alivePlayers.Select(p => new { id = p.Id, nickname = p.Nickname, seatIndex = p.SeatIndex }).ToList()
+        });
+
+        _logger.LogInformation("NightStarted broadcast for lobby {LobbyCode} duration={Duration} alivePlayers={Count}", lobbyCode, nightDurationSeconds, alivePlayers.Count);
+
+        var timerKey = GetTimerKey(lobby.Code, gameId);
+        var cts = new CancellationTokenSource();
+        lock (_timers)
+        {
+            if (_timers.TryGetValue(timerKey, out var previous))
+                previous.Cancel();
+            _timers[timerKey] = cts;
+        }
+
+        var sessionStartId = lobby.NightSession!.SessionStartId;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _logger.LogDebug("Starting night timer for lobby {LobbyCode} game={GameId} seconds={Seconds}", lobbyCode, gameId, nightDurationSeconds);
+                await Task.Delay(TimeSpan.FromSeconds(nightDurationSeconds), cts.Token);
+
+                using var scope = _scopeFactory.CreateScope();
+                var lobbyService = scope.ServiceProvider.GetRequiredService<ILobbyService>();
+                var current = await lobbyService.GetLobby(lobby.Code);
+
+                if (current.CurrentGame?.Id != gameId || current.NightSession is null || current.NightSession.SessionStartId != sessionStartId)
+                {
+                    _logger.LogDebug("Night timer expired but session has changed for lobby {LobbyCode}", lobbyCode);
+                    return;
+                }
+
+                _logger.LogInformation("Night timer expired for lobby {LobbyCode} game={GameId}, resolving night", lobbyCode, gameId);
+                var lobbyRepository = scope.ServiceProvider.GetRequiredService<ILobbyRepository>();
+                var lobbyToResolve = await lobbyRepository.Get(lobby.Code);
+                if (lobbyToResolve?.CurrentGame?.Id == gameId && lobbyToResolve.NightSession != null)
+                {
+                    var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
+                    await nightService.ResolveNightAsync(lobbyToResolve);
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogDebug("Night timer cancelled for lobby {LobbyCode} game={GameId}", lobbyCode, gameId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in night timer task for lobby {LobbyCode} game={GameId}", lobbyCode, gameId);
+            }
+            finally
+            {
+                lock (_timers)
+                {
+                    if (_timers.TryGetValue(timerKey, out var current) && current == cts)
+                        _timers.Remove(timerKey);
+                }
+                cts.Dispose();
+            }
+        }, CancellationToken.None);
     }
 
     public async Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType)
@@ -56,7 +158,8 @@ public class NightService : INightService
         var action = new NightAction(actorId, targets, actionType);
 
         lobby.NightSession!.SubmitAction(action);
-        await _repository.Update(lobby);
+
+        var gameId = lobby.CurrentGame?.Id ?? throw new InvalidOperationException("Game not started.");
 
         if (actionType == ActionType.Attack)
         {
@@ -70,7 +173,7 @@ public class NightService : INightService
                     var targetName = lobby.Players.FirstOrDefault(p => p.Id == attackTarget)?.Nickname ?? "?";
                     await _hub.Clients.Group(lobby.Code).SendAsync("WerewolfAttackCast", new
                     {
-                        gameId = lobby.CurrentGame!.Id,
+                        gameId,
                         actorId,
                         actorName = lobby.Players.FirstOrDefault(p => p.Id == actorId)?.Nickname ?? "?",
                         targetId = attackTarget,
@@ -80,28 +183,35 @@ public class NightService : INightService
             }
         }
 
-        if (ShouldAdvance(lobby, actorId))
+        // Check if this player is now done with all their required actions
+        bool playerJustFinished = TryMarkPlayerDone(lobby, actorId);
+        await _repository.Update(lobby);
+
+        // Only broadcast ActionSubmitted if player is truly done
+        if (playerJustFinished)
         {
-            _logger.LogDebug("Advancing night session for lobby {LobbyCode} actor={ActorId}", lobbyCode, actorId);
-            CancelTimer(GetTimerKey(lobby));
-            lobby.NightSession.Advance();
-            await _repository.Update(lobby);
-            await AdvanceTurnAsync(lobby);
+            await _hub.Clients.Group(lobby.Code).SendAsync("TurnFinished", new
+            {
+                gameId,
+                actorId,
+                actorName = lobby.Players.FirstOrDefault(p => p.Id == actorId)?.Nickname ?? "?"
+            });
+
+            _logger.LogDebug("Player completed all actions for lobby {LobbyCode} actor={ActorId} playerStillPending={Count}", 
+                lobbyCode, actorId, lobby.NightSession.PlayersPendingAction.Count);
         }
-    }
+        else
+        {
+            _logger.LogDebug("Player submitted action for lobby {LobbyCode} actor={ActorId} action={ActionType} (not done yet)", 
+                lobbyCode, actorId, actionType);
+        }
 
-    private bool ShouldAdvance(Lobby lobby, Guid userId)
-    {
-        var isWerewolf = lobby.CurrentGame?.Players.FirstOrDefault(p => p.Id == userId)?.Role.Team == Team.Werewolves;
-        var hasAbility = lobby.ActivePlayerHasAbility();
-
-        if (!isWerewolf || !hasAbility)
-            return true;
-
-        var submittedAttack = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Actor == userId && sa.ActionType == ActionType.Attack);
-        var submittedAbility = lobby.NightSession?.SubmittedActions?.Any(sa => sa.Actor == userId && sa.ActionType == ActionType.Ability);
-
-        return submittedAttack == true && submittedAbility == true;
+        if (IsNightComplete(lobby))
+        {
+            _logger.LogInformation("All players submitted actions for lobby {LobbyCode}, resolving night immediately", lobbyCode);
+            CancelTimer(GetTimerKey(lobby.Code, gameId));
+            await ResolveNightAsync(lobby);
+        }
     }
 
     public async Task SkipTurnAsync(string lobbyCode, Guid userId)
@@ -111,118 +221,87 @@ public class NightService : INightService
         var actorId = GetActorId(lobby, userId);
         lobby.NightSession!.Skip(actorId);
         await _repository.Update(lobby);
-        CancelTimer(GetTimerKey(lobby));
-        await AdvanceTurnAsync(lobby);
-    }
 
-    public async Task AdvanceTurnAsync(Lobby lobby)
-    {
-        if (lobby.NightSession is null || lobby.NightSession.IsFinished)
-        {
-            _logger.LogDebug("Night session finished or null for lobby {LobbyCode}", lobby.Code);
-            CancelTimer(GetTimerKey(lobby));
-            await ResolveNightAsync(lobby);
-            return;
-        }
-
-        var active = lobby.NightSession.ActivePlayer!;
         var gameId = lobby.CurrentGame?.Id ?? throw new InvalidOperationException("Game not started.");
-        _logger.LogInformation("Starting night turn for lobby {LobbyCode} activePlayer={PlayerId} game={GameId}", lobby.Code, active.Id, gameId);
-        var hasAbility = lobby.ActivePlayerHasAbility();
 
-        var minTargets = 0;
-        var maxTargets = 1;
-
-        if (hasAbility && lobby.CurrentGame != null)
-        {
-            var enginePlayer = lobby.CurrentGame.Players.FirstOrDefault(p => p.Id == active.Id);
-            if (enginePlayer?.Role is IHasNightAbility na)
-            {
-                minTargets = na.NightAbility.MinTargets;
-                maxTargets = na.NightAbility.MaxTargets;
-            }
-        }
-
-        var turnSeconds = lobby.CurrentGame?.Config.TurnDurationSeconds ?? TurnSeconds;
-
-        await _hub.Clients.Group(lobby.Code).SendAsync("NightTurnStarted", new
+        // Broadcast that this player has submitted/completed their action (skip)
+        await _hub.Clients.Group(lobby.Code).SendAsync("TurnFinished", new
         {
             gameId,
-            activePlayerId = active.Id,
-            activeSeatIndex = active.SeatIndex,
-            hasAbility,
-            timeoutSeconds = turnSeconds,
-            minTargets,
-            maxTargets,
-            forbiddenTargets = lobby.CurrentGame!.GetForbiddenTargets(active.Id)
+            actorId,
+            actorName = lobby.Players.FirstOrDefault(p => p.Id == actorId)?.Nickname ?? "?"
         });
 
-        var currentTurnId = lobby.NightSession.CurrentTurnId;
-        var timerKey = GetTimerKey(lobby.Code, gameId);
-        var cts = new CancellationTokenSource();
-        lock (_timers)
-        {
-            if (_timers.TryGetValue(timerKey, out var previous))
-                previous.Cancel();
+        _logger.LogDebug("Player skipped for lobby {LobbyCode} actor={ActorId} playerStillPending={Count}", 
+            lobbyCode, actorId, lobby.NightSession.PlayersPendingAction.Count);
 
-            _timers[timerKey] = cts;
+        if (IsNightComplete(lobby))
+        {
+            _logger.LogInformation("All players submitted actions for lobby {LobbyCode}, resolving night immediately", lobbyCode);
+            CancelTimer(GetTimerKey(lobby.Code, gameId));
+            await ResolveNightAsync(lobby);
         }
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                _logger.LogDebug("Starting night turn timer for lobby {LobbyCode} game={GameId} seconds={Seconds}", lobby.Code, gameId, turnSeconds);
-                await Task.Delay(TimeSpan.FromSeconds(turnSeconds), cts.Token);
-
-                lock (_timers)
-                {
-                    if (!_timers.TryGetValue(timerKey, out var currentTimer) || currentTimer != cts)
-                    {
-                        _logger.LogDebug("Ignoring stale night timer for lobby {LobbyCode} game={GameId}", lobby.Code, gameId);
-                        return;
-                    }
-                }
-
-                using var scope = _scopeFactory.CreateScope();
-                var lobbyService = scope.ServiceProvider.GetRequiredService<ILobbyService>();
-                var current = await lobbyService.GetLobby(lobby.Code);
-                if (current.CurrentGame?.Id != gameId)
-                    return;
-
-                if (current.NightSession?.ActivePlayer?.Id == active.Id && current.NightSession.CurrentTurnId == currentTurnId)
-                {
-                    _logger.LogInformation("Night turn timer expired for lobby {LobbyCode} game={GameId} activePlayer={PlayerId}, forcing advance", lobby.Code, gameId, active.Id);
-                    current.NightSession.ForceAdvance();
-
-                    var repository = scope.ServiceProvider.GetRequiredService<ILobbyRepository>();
-                    await repository.Update(current);
-                    var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
-                    await nightService.AdvanceTurnAsync(current);
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                _logger.LogDebug("Night turn timer cancelled for lobby {LobbyCode} game={GameId}", lobby.Code, gameId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in night timer task for lobby {LobbyCode} game={GameId}", lobby.Code, gameId);
-            }
-            finally
-            {
-                lock (_timers)
-                {
-                    if (_timers.TryGetValue(timerKey, out var current) && current == cts)
-                        _timers.Remove(timerKey);
-                }
-
-                cts.Dispose();
-            }
-        }, CancellationToken.None);
     }
 
-    private async Task ResolveNightAsync(Lobby lobby)
+    /// <summary>
+    /// Check if a player has completed all their required actions and mark them done if so.
+    /// Returns true only if player was marked as done (i.e., completed all requirements).
+    /// Werewolves with abilities must submit both attack and ability.
+    /// Others submit one action or skip.
+    /// </summary>
+    private bool TryMarkPlayerDone(Lobby lobby, Guid playerId)
+    {
+        if (lobby.NightSession is null || lobby.CurrentGame is null)
+            return false;
+
+        var game = lobby.CurrentGame;
+        var enginePlayer = game.Players.FirstOrDefault(p => p.Id == playerId);
+        if (enginePlayer is null)
+            return false;
+
+        var submitted = lobby.NightSession.SubmittedActions;
+        var isWerewolf = enginePlayer.Role.Team == Team.Werewolves;
+        var hasAbility = lobby.PlayerHasAbility(playerId);
+
+        if (isWerewolf)
+        {
+            // Werewolves must submit attack
+            var hasAttack = submitted.Any(a => a.Actor == playerId && a.ActionType == ActionType.Attack);
+            if (!hasAttack)
+                return false; // Not done yet
+
+            // Werewolves must submit ability if they have one
+            if (hasAbility)
+            {
+                var hasAbilityAction = submitted.Any(a => a.Actor == playerId && a.ActionType == ActionType.Ability);
+                if (!hasAbilityAction)
+                    return false; // Not done yet - still waiting for ability
+            }
+
+            // Werewolf has submitted all required actions
+            lobby.NightSession.MarkPlayerDone(playerId);
+            return true;
+        }
+        else
+        {
+            // Non-werewolves are done as soon as they submit one action or skip
+            lobby.NightSession.MarkPlayerDone(playerId);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Check if night is complete. All players must be done with their required actions.
+    /// </summary>
+    private bool IsNightComplete(Lobby lobby)
+    {
+        if (lobby.NightSession is null)
+            return false;
+        
+        return lobby.NightSession.PlayersPendingAction.Count == 0;
+    }
+
+    public async Task ResolveNightAsync(Lobby lobby)
     {
         _logger.LogInformation("Resolving night for lobby {LobbyCode}", lobby.Code);
         var gameId = lobby.CurrentGame?.Id ?? throw new InvalidOperationException("Game not started.");
@@ -280,20 +359,12 @@ public class NightService : INightService
         => await _repository.Get(code.ToUpperInvariant())
            ?? throw new InvalidOperationException("Lobby not found.");
 
-    public int GetTimerSeconds(string lobbyCode)
-    {
-        lock (_timers)
-        {
-            var prefix = lobbyCode.ToUpperInvariant() + ":";
-            if (_timers.Keys.Any(k => k.StartsWith(prefix, StringComparison.Ordinal)))
-                return TurnSeconds;
-        }
-        return 0;
-    }
-
     private static Guid GetActorId(Lobby lobby, Guid userId)
         => lobby.Players.FirstOrDefault(p => p.UserId == userId)?.Id
            ?? throw new InvalidOperationException("Player not found in lobby.");
+
+    private static string GetTimerKey(string lobbyCode, Guid gameId)
+        => $"{lobbyCode.ToUpperInvariant()}:{gameId}";
 
     public async Task<ClueResponse?> GetClueAsync(string code, Guid userId)
     {
@@ -324,10 +395,4 @@ public class NightService : INightService
             Data = clueEvent.GetAdditionalInfoDictionary(lobby.CurrentGame.Players)
         };
     }
-
-    private static string GetTimerKey(Lobby lobby)
-        => GetTimerKey(lobby.Code, lobby.CurrentGame?.Id ?? Guid.Empty);
-
-    private static string GetTimerKey(string lobbyCode, Guid gameId)
-        => $"{lobbyCode.ToUpperInvariant()}:{gameId}";
 }

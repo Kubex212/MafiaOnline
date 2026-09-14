@@ -321,17 +321,69 @@ public class LobbyService : ILobbyService
         {
             response.GamePhase = "night";
 
+            var alivePlayers = lobby.Players.Where(p => currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
+                .OrderBy(p => p.SeatIndex)
+                .ToList();
+
+            var playerNightInfos = new List<dynamic>();
+            foreach (var ap in alivePlayers)
+            {
+                var hasAbility = lobby.PlayerHasAbility(ap.Id);
+                var minTargets = 0;
+                var maxTargets = 1;
+
+                if (hasAbility && currentGame != null)
+                {
+                    var engPlayer = currentGame.Players.FirstOrDefault(p => p.Id == ap.Id);
+                    if (engPlayer?.Role is IHasNightAbility na)
+                    {
+                        minTargets = na.NightAbility.MinTargets;
+                        maxTargets = na.NightAbility.MaxTargets;
+                    }
+                }
+
+                playerNightInfos.Add(new
+                {
+                    playerId = ap.Id,
+                    hasAbility,
+                    minTargets,
+                    maxTargets,
+                    forbiddenTargets = currentGame.GetForbiddenTargets(ap.Id)
+                });
+            }
+
+            var submittedPlayerIds = alivePlayers
+                .Where(p => !lobby.NightSession.PlayersPendingAction.Contains(p.Id))
+                .Select(p => p.Id)
+                .ToList();
+
+            // Build list of concrete submitted actions (actor, type, targets) for client recovery
+            var submittedActions = lobby.NightSession.SubmittedActions
+                .Select(a => new SubmittedActionResponse
+                {
+                    ActorId = a.Actor,
+                    ActionType = a.ActionType,
+                    Targets = a.Targets.ToList()
+                })
+                .ToList();
+
             response.Night = new NightState
             {
-                ActivePlayerId = lobby.NightSession.ActivePlayer?.Id.ToString(),
-                ActiveSeatIndex = lobby.NightSession.ActivePlayer?.SeatIndex ?? 0,
-                HasAbility = lobby.ActivePlayerHasAbility(),
+                DurationSeconds = currentGame.Config.TurnDurationSeconds,
                 RemainingSeconds = Math.Max(0, currentGame.Config.TurnDurationSeconds - (int)(DateTime.UtcNow - lobby.NightSession.CurrentTurnStart).TotalSeconds),
-                AlivePlayers = lobby.Players.Where(p => currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
-                    .OrderBy(p => p.SeatIndex)
+                PlayerInfos = playerNightInfos.Cast<dynamic>().Select(pi => new PlayerNightInfoResponse
+                {
+                    PlayerId = pi.playerId,
+                    HasAbility = pi.hasAbility,
+                    MinTargets = pi.minTargets,
+                    MaxTargets = pi.maxTargets,
+                    ForbiddenTargets = pi.forbiddenTargets
+                }).ToList(),
+                AllAlivePlayers = alivePlayers
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),
-                SubmittedActions = null
+                SubmittedPlayers = submittedPlayerIds,
+                SubmittedActions = submittedActions
             };
         }
         else if (lobby.DaySession != null && !lobby.DaySession.Resolved)

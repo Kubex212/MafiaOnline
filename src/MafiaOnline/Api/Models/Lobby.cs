@@ -189,13 +189,28 @@ public class Lobby
 
     public bool ActivePlayerHasAbility()
     {
-        if (CurrentGame is null || NightSession?.ActivePlayer is null) return false;
+        if (CurrentGame is null || NightSession?.PlayersPendingAction.Count == 0) return false;
+        return true;  // In simultaneous mode, we don't check individual players here
+    }
 
-        var enginePlayer = CurrentGame.Players.FirstOrDefault(p => p.Id == NightSession.ActivePlayer.Id);
+    /// <summary>Check if a specific player has a night ability (not on cooldown).</summary>
+    public bool PlayerHasAbility(Guid playerId)
+    {
+        if (CurrentGame is null) return false;
+
+        var enginePlayer = CurrentGame.Players.FirstOrDefault(p => p.Id == playerId);
         if (enginePlayer?.Role is not IHasNightAbility na)
             return false;
+
+        // Werewolves always have an attack ability, even if automatic
+        if (enginePlayer.Role.Team == Team.Werewolves)
+            return true;
+
+        // For other roles, check if ability is automatic
         if (na.NightAbility.IsAutomatic)
             return false;
+
+        // Check cooldown for non-automatic abilities
         if (na.NightAbility.Cooldown.HasValue)
         {
             var lastUsedNight = CurrentGame.Turns

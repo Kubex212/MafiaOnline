@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
-import type { SeatInfo, RoleResponse, NightTurnStarted, NightResolvedPayload, AnyClueResponse, GameConfig } from './api';
+import type { SeatInfo, RoleResponse, NightStartedPayload, NightResolvedPayload, AnyClueResponse, GameConfig, TurnFinishedPayload } from './api';
 import { submitNightAction, skipNightTurn, getPlayerNightInfo } from './api';
 import { useTranslation } from 'react-i18next';
 import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
@@ -22,10 +22,13 @@ interface Props {
 }
 
 export interface NightPhaseHandle {
-    onTurnStarted(turn: NightTurnStarted): void;
+    onNightStarted(payload: NightStartedPayload): void;
+    onActionSubmitted(payload: TurnFinishedPayload): void;
     onNightResolved(payload: NightResolvedPayload): void;
     addLog(message: string): void;
     onWerewolfAttackCast(vote: { actorId: string; targetId: string }): void;
+    // Optional: recover concrete submitted actions after reconnect
+    onRecoveredSubmittedActions?(payload: { actions: Array<{ actorId: string; actionType: number; targets: string[] }>; finished: string[] }): void;
 }
 
 export interface ActionData {
@@ -40,36 +43,38 @@ export enum ActionType {
     Other = 2,
 }
 
-const TURN_SECONDS = 1000;
+const NIGHT_SECONDS = 1000;
 
 const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [], showRoles = false }, ref
 ) {
     const { t } = useTranslation();
-    const [activeTurn, setActiveTurn] = useState<NightTurnStarted | null>(null);
-    const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
+    const [nightPayload, setNightPayload] = useState<NightStartedPayload | null>(null);
+    const [timeLeft, setTimeLeft] = useState(NIGHT_SECONDS);
     const [resolved, setResolved] = useState<NightResolvedPayload | null>(null);
     const [nightInfo, setNightInfo] = useState<AnyClueResponse | null>(null);
     const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [wolfVotes, setWolfVotes] = useState<Record<string, string>>({});
+    const [donePlayerIds, setDonePlayerIds] = useState<Set<string>>(new Set());
+    const [mySubmittedActions, setMySubmittedActions] = useState<Set<string>>(new Set());
+    const recoveredPartialRef = useRef<Set<string>>(new Set());
+    const recoveredFinishedRef = useRef<Set<string>>(new Set());
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const setLog = (msg: string) => pushLog(msg, 'night');
-    const [attackSubmitted, setAttackSubmitted] = useState(false);
-    const [abilitySubmitted, setAbilitySubmitted] = useState(false);
     const [myAction, setMyAction] = useState<ActionInfo | null>(null);
 
     useImperativeHandle(ref, () => ({
-        onTurnStarted(turn: NightTurnStarted) {
-            setActiveTurn(turn);
-            setTimeLeft(turn.timeoutSeconds ?? TURN_SECONDS);
+        onNightStarted(payload: NightStartedPayload) {
+            setNightPayload(payload);
+            setTimeLeft(payload.durationSeconds ?? NIGHT_SECONDS);
             setSelectedTargets([]);
             setSubmitting(false);
-            setAttackSubmitted(false);
-            setAbilitySubmitted(false);
-            const who = seats.find(s => s.id === turn.activePlayerId);
-            const isMe = turn.activePlayerId === myPlayerId;
-            setLog(isMe ? t('yourTurn') : t('playerTurn', { nick: who?.nickname ?? '?' }));
+            setDonePlayerIds(new Set());
+            setMySubmittedActions(new Set());
+            recoveredPartialRef.current = new Set();
+            recoveredFinishedRef.current = new Set();
+            setLog(t('nightStarted'));
             if (timerRef.current) clearInterval(timerRef.current);
             timerRef.current = setInterval(() => {
                 setTimeLeft(prev => {
@@ -78,9 +83,14 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 });
             }, 1000);
         },
+        onActionSubmitted(payload: TurnFinishedPayload) {
+            // Server's TurnFinished is authoritative: mark actor done and log it.
+            setDonePlayerIds(prev => new Set([...prev, payload.actorId]));
+            setLog(t('playerSubmittedAction', { name: payload.actorName }));
+        },
         async onNightResolved(payload: NightResolvedPayload) {
             if (timerRef.current) clearInterval(timerRef.current);
-            setActiveTurn(null);
+            setNightPayload(null);
             setResolved(payload);
             setWolfVotes({});
             if (payload.killed.length > 0)
@@ -101,7 +111,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     setLog(t('seerClueLong', {
                         a: String(info.data.SubjectAName),
                         b: String(info.data.SubjectBName),
-                        relation: info.clue ? t('sameTeam') : t('differentTeams'),
+                        relation: info.clue ? t('sameTeam') : t('differenceTeams'),
                     }));
                 } else if (info.type === 'Trailer') {
                     setLog(t('trailerClueLong', { dir: t(info.clue) }));
@@ -124,19 +134,56 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         onWerewolfAttackCast({ actorId, targetId }) {
             setWolfVotes(prev => ({ ...prev, [actorId]: targetId }));
         },
+        onRecoveredSubmittedActions(payload?: { actions: Array<{ actorId: string; actionType: number; targets: string[] }>; finished: string[] }) {
+            if (!payload) return;
+            const actions = payload.actions ?? [];
+            const finished = new Set(payload.finished ?? []);
+
+            // Apply actions: set wolf votes and my submitted action state, but DO NOT mark players done here
+            actions.forEach(a => {
+                if (a.actionType === ActionType.Attack && a.targets && a.targets.length > 0) {
+                    setWolfVotes(prev => ({ ...prev, [a.actorId]: a.targets[0] }));
+                }
+                if (a.actorId === myPlayerId) {
+                    if (a.actionType === ActionType.Attack) {
+                        setMySubmittedActions(prev => new Set([...prev, 'Attack']));
+                        if (a.targets && a.targets.length > 0) setWolfVotes(prev => ({ ...prev, [a.actorId]: a.targets[0] }));
+                    } else if (a.actionType === ActionType.Ability) {
+                        setMySubmittedActions(prev => new Set([...prev, 'Ability']));
+                        setMyAction({ roleName: myRole.name, targets: a.targets });
+                    }
+                }
+            });
+
+            // Only mark players as done if server indicated they are fully finished this turn
+            if (finished.size > 0) {
+                setDonePlayerIds(prev => {
+                    const next = new Set(prev);
+                    finished.forEach(id => next.add(id));
+                    return next;
+                });
+            }
+            // Track recovered partial submissions: any actor with actions but not in finished list is partial
+            const partial = new Set<string>();
+            actions.forEach(a => { if (!finished.has(a.actorId)) partial.add(a.actorId); });
+            recoveredPartialRef.current = partial;
+            recoveredFinishedRef.current = finished;
+         }
     }), [lobbyCode, myPlayerId, seats, t]);
 
     useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
-    const isMyTurn = activeTurn?.activePlayerId === myPlayerId;
-    const minTargets = activeTurn?.minTargets ?? 0;
-    const maxTargets = activeTurn?.maxTargets ?? 1;
-    const timeoutMax = activeTurn?.timeoutSeconds ?? TURN_SECONDS;
+    // Get my player's ability info
+    const myPlayerInfo = nightPayload?.playerInfos.find(p => p.playerId === myPlayerId);
+    const minTargets = myPlayerInfo?.minTargets ?? 0;
+    const maxTargets = myPlayerInfo?.maxTargets ?? 1;
+    const timeoutMax = nightPayload?.durationSeconds ?? NIGHT_SECONDS;
     const ringPct = 1 - timeLeft / timeoutMax;
     const ringLen = 2 * Math.PI * 22;
     const timeUrgent = timeLeft <= 3;
 
     function toggleTarget(seatId: string) {
+        if (submitting) return; // Don't allow changes after submission
         setSelectedTargets(prev => {
             if (prev.includes(seatId)) return prev.filter(x => x !== seatId);
             if (prev.length >= maxTargets) return prev;
@@ -145,31 +192,41 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     }
 
     async function submitAttack() {
-        if (!isMyTurn || submitting || selectedTargets.length === 0) return;
+        if (submitting || selectedTargets.length === 0) return;
         setSubmitting(true);
         try {
             await submitNightAction(lobbyCode, selectedTargets[0], ActionType.Attack);
-            setAttackSubmitted(true);
             setWolfVotes(prev => ({ ...prev, [myPlayerId]: selectedTargets[0] }));
+            setMySubmittedActions(prev => {
+                const next = new Set([...prev, 'Attack']);
+                return next;
+            });
             setLog(t('attackSubmitted'));
+            // Clear selection for next action (ability)
+            setSelectedTargets([]);
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
 
     async function submitAbility() {
-        if (!isMyTurn || submitting || selectedTargets.length < minTargets) return;
+        if (submitting || selectedTargets.length < minTargets) return;
         setSubmitting(true);
         try {
             await submitNightAction(lobbyCode, selectedTargets, ActionType.Ability);
-            setAbilitySubmitted(true);
-            setMyAction({ roleName: myRole.name , targets: selectedTargets });
+            setMyAction({ roleName: myRole.name, targets: selectedTargets });
+            setMySubmittedActions(prev => {
+                const next = new Set([...prev, 'Ability']);
+                return next;
+            });
             setLog(t('actionSubmitted'));
+            // Clear selection after ability
+            setSelectedTargets([]);
         } catch (e) { alert(String(e)); }
         finally { setSubmitting(false); }
     }
 
     async function handleSkip() {
-        if (!isMyTurn || submitting) return;
+        if (submitting) return;
         setSubmitting(true);
         try {
             await skipNightTurn(lobbyCode);
@@ -181,24 +238,24 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     const seatStates: TableSeatState[] = seats.map(seat => {
         const isAlive = !deadIds.includes(seat.id);
         const isMe = seat.id === myPlayerId;
-        const isForbidden = activeTurn?.forbiddenTargets?.includes(seat.id) ?? false;
-        const canAct = isMyTurn && !resolved && !submitting;
+        const isForbidden = myPlayerInfo?.forbiddenTargets?.includes(seat.id) ?? false;
+        const isDone = donePlayerIds.has(seat.id);
+        const canAct = !resolved && !submitting;
         const isViewerWerewolf = myRole.teamId === 1;
         const isSeatWerewolf = otherWerewolvesIds?.includes(seat.id) || (seat.id === myPlayerId && myRole.teamId === 1);
-        const isTargetableByAbility = canAct && !isForbidden;
+        const isTargetableByAbility = canAct && !isForbidden && myPlayerInfo?.hasAbility;
         const isTargetableByAttack = canAct && isViewerWerewolf && isAlive && !isSeatWerewolf && !isMe;
         return {
             seat,
             isMe,
-            isActive: seat.id === activeTurn?.activePlayerId && !resolved,
+            isActive: false, // No single "active" player in simultaneous mode
             isAlive,
             isSelected: selectedTargets.includes(seat.id),
-            // ability-specific and attack-specific flags
             isTargetableByAbility,
             isTargetableByAttack,
-            // keep old single flag for compatibility
             isTargetable: isTargetableByAbility || isTargetableByAttack,
             isWerewolf: otherWerewolvesIds?.includes(seat.id) || (isMe && myRole.teamId === 1),
+            hasSubmitted: isDone,
         };
     });
 
@@ -234,20 +291,16 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 </div>
             )}
 
-            {activeTurn && !resolved && (
-                <div className={`turn-banner ${teamClass} ${isMyTurn ? 'turn-banner--me' : ''}`}>
+            {nightPayload && !resolved && (
+                <div className={`turn-banner ${teamClass}`}>
                     <div>
                         <div className="turn-banner__title">
-                            {isMyTurn
-                                ? t('yourTurnBanner')
-                                : <>{t('waitingFor')} <b style={{ color: 'var(--accent-2)' }}>
-                                    {seats.find(s => s.id === activeTurn.activePlayerId)?.nickname ?? '?'}
-                                </b>…</>}
+                            {t('chooseYourAction')}
                         </div>
                         <div className="turn-banner__hint">
-                            {isMyTurn && (activeTurn.hasAbility
+                            {myPlayerInfo?.hasAbility
                                 ? (minTargets > 1 ? t('pickTargetsConfirmOrSkip') : t('pickTargetConfirmOrSkip'))
-                                : t('noAbilitySkip'))}
+                                : t('noAbilitySkip')}
                         </div>
                     </div>
                     <div className="ring" aria-label={`${timeLeft}s`}>
@@ -278,25 +331,32 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 myAction={myAction}
             />
 
-            {isMyTurn && !resolved && (
+            {nightPayload && !resolved && (
                 <div className="phase-actions">
-                    {isWerewolf && (
+                    {isWerewolf && !donePlayerIds.has(myPlayerId) && (
                         <button className="btn btn--danger"
-                            disabled={attackSubmitted || !selectedAllAttackable || submitting}
+                            disabled={!selectedAllAttackable || submitting || mySubmittedActions.has('Attack')}
                             onClick={submitAttack}>
                             {t('attack')}
                         </button>
                     )}
-                    {activeTurn!.hasAbility && (
+                    {myPlayerInfo?.hasAbility && !donePlayerIds.has(myPlayerId) && (
                         <button className="btn btn--primary"
-                            disabled={abilitySubmitted || !selectedAllAbility || submitting}
+                            disabled={!selectedAllAbility || submitting || mySubmittedActions.has('Ability')}
                             onClick={submitAbility}>
                             {t('useAbility')}
                         </button>
                     )}
-                    <button className="btn" disabled={submitting} onClick={handleSkip}>
-                        {t('skip')}
-                    </button>
+                    {!donePlayerIds.has(myPlayerId) && (
+                        <button className="btn" disabled={submitting} onClick={handleSkip}>
+                            {t('skip')}
+                        </button>
+                    )}
+                    {donePlayerIds.has(myPlayerId) && (
+                        <div style={{ padding: '10px 20px', color: 'var(--text-dim)', fontSize: '14px', fontStyle: 'italic' }}>
+                            ✔ {t('yourActionSubmitted')}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -388,6 +448,4 @@ function displayAlchemistClue(clueData: any, t: TFunction): string {
         default:
             return t(resource, { werewolves: clueData.data.join(", ") });
     }
-
-    return "";
 }
