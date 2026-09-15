@@ -276,5 +276,8 @@
   "drunkPresent": "A Drunk is in this game...",
   "joinLobbyAs": "Join lobby {{code}} as {{name}}?",
 
-  "copyLink": "Copy join link"
+  "copyLink": "Copy join link",
+  "availableLobbies": "Available Lobbies",
+  "noLobbies": "No lobbies found",
+  "loadMore": "Load more"
 }

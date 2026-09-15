@@ -611,4 +611,31 @@ public class LobbyService : ILobbyService
             _logger.LogError(ex, "Failed to notify lobby {LobbyCode} about ready state", lobby.Code);
         }
     }
+
+    public async Task<IReadOnlyList<Lobby>> ListAvailableLobbiesAsync(int skip = 0, int take = 50)
+    {
+        var result = new List<Lobby>();
+        var batchSize = Math.Min(100, take);
+        var fetched = 0;
+
+        while (result.Count < take)
+        {
+            var page = await _repository.GetAll(skip + fetched, batchSize);
+            if (page == null || page.Count == 0) break;
+
+            foreach (var l in page)
+            {
+                if (!l.Started && l.Players.Count > 0)
+                {
+                    result.Add(l);
+                    if (result.Count >= take) break;
+                }
+            }
+
+            fetched += page.Count;
+            if (page.Count < batchSize) break; // no more rows
+        }
+
+        return result;
+    }
 }

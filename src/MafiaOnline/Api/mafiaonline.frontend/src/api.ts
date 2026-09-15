@@ -628,3 +628,9 @@ export async function markReadyForRematch(code: string): Promise<void> {
     const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/ready-for-rematch`, { method: 'POST' });
     if (!res.ok) throw new Error('Mark ready failed: ' + res.statusText);
 }
+
+export async function listAvailableLobbies(skip = 0, take = 50): Promise<LobbyResponse[]> {
+    const res = await fetchWithAuth(`/api/lobbies?skip=${skip}&take=${take}`);
+    if (!res.ok) throw new Error('List lobbies failed: ' + res.statusText);
+    return res.json();
+}

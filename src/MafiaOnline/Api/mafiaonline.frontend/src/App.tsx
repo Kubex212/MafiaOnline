@@ -8,7 +8,7 @@ import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
     updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe,
-    leaveLobby, kickPlayer, markReadyForRematch
+    leaveLobby, kickPlayer, markReadyForRematch, listAvailableLobbies
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
 import NightPhase, { type NightPhaseHandle } from './NightPhase';
@@ -60,6 +60,9 @@ export default function App() {
     const [me, setMe] = useState<MeResponse | null>(null);
     const [joinCodeFromUrl, setJoinCodeFromUrl] = useState<string | null>(null);
     const [showJoinModal, setShowJoinModal] = useState(false);
+
+    const [availableLobbies, setAvailableLobbies] = useState<LobbyResponse[] | null>(null);
+    const [showAvailable, setShowAvailable] = useState(false);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -588,6 +591,39 @@ export default function App() {
         } catch { /* ignore */ }
     }
 
+    async function loadAvailableLobbies(append = false) {
+        try {
+            const skip = append && availableLobbies ? availableLobbies.length : 0;
+            const page = await listAvailableLobbies(skip, 20);
+            setAvailableLobbies(prev => append ? ([...(prev ?? []), ...page]) : page);
+        } catch (e) {
+            console.error('Failed to load lobbies', e);
+            setAvailableLobbies([]);
+        }
+    }
+
+    async function loadMoreAvailable() {
+        await loadAvailableLobbies(true);
+    }
+
+    async function joinFromList(code: string) {
+        try {
+            const nick = (nickname || '').trim();
+            if (!nick) { alert('Please enter a nickname'); return; }
+            const res = await joinLobby(code, nick);
+            const mePlayer = res.players.find(p => p.nickname.toLowerCase() === nick.toLowerCase());
+            if (mePlayer) setMyPlayerId(mePlayer.id);
+            setLobby(res);
+            sessionStorage.setItem('lobbyCode', res.code);
+            setMessages([t('joinedLobby', { code: res.code })]);
+            playSound('join-lobby');
+            try { await joinHubGroup(res.code); } catch { /* ignore */ }
+            setShowAvailable(false);
+        } catch (e) {
+            alert(String(e));
+        }
+    }
+
     // Leave lobby handler
     async function onLeaveLobby() {
         if (!lobby) return;
@@ -947,6 +983,12 @@ export default function App() {
                                 </button>
                             </div>
 
+                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                                <button className="btn" onClick={async () => { setShowAvailable(s => !s); if (!availableLobbies) await loadAvailableLobbies(); }}>
+                                    {t('availableLobbies')}
+                                </button>
+                            </div>
+
                             <div className="join-form__divider">{t('orLoginWith')}</div>
 
                             <a className="btn btn--discord btn--block" href={getDiscordLoginUrl(window.location.pathname)}>
@@ -967,6 +1009,32 @@ export default function App() {
                             </a>
 
                         </div>
+
+                        {showAvailable && (
+                            <div className="card card--parchment" style={{ marginTop: 12 }}>
+                                <h3 style={{ marginTop: 0 }}>{t('availableLobbies')}</h3>
+                                <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                                    {availableLobbies === null && <div style={{ color: 'var(--text-dim)' }}>{t('loading')}</div>}
+                                    {availableLobbies && availableLobbies.length === 0 && <div style={{ color: 'var(--text-dim)' }}>{t('noLobbies')}</div>}
+                                    {availableLobbies && availableLobbies.map(l => (
+                                        <div key={l.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>{l.code}</div>
+                                                <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>{l.players.length} players</div>
+                                            </div>
+                                            <div>
+                                                <button className="btn" onClick={() => joinFromList(l.code)}>{t('join')}</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {availableLobbies && availableLobbies.length > 0 && (
+                                        <div style={{ marginTop: 8, textAlign: 'center' }}>
+                                            <button className="btn" onClick={loadMoreAvailable}>{t('loadMore')}</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <Landing />
 

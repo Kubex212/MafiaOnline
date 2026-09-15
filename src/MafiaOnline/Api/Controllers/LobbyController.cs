@@ -19,6 +19,13 @@ public class LobbiesController : ControllerBase
         _currentUser = currentUser;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<LobbyResponse>>> List([FromQuery] int skip = 0, [FromQuery] int take = 50)
+    {
+        var list = await _lobbyService.ListAvailableLobbiesAsync(skip, take);
+        return Ok(list.Select(LobbyResponse.FromLobby).ToList());
+    }
+
     [HttpPost]
     public async Task<ActionResult<LobbyResponse>> Create(CreateLobbyRequest request)
     {

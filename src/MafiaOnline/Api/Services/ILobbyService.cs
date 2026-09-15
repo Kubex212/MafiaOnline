@@ -23,4 +23,5 @@ public interface ILobbyService
     Task<Lobby?> KickPlayerAsync(string code, Guid targetPlayerId);
     Task DeleteLobbyAsync(string code);
     Task MarkReadyForRematchAsync(string code);
+    Task<IReadOnlyList<Lobby>> ListAvailableLobbiesAsync(int skip = 0, int take = 50);
 }

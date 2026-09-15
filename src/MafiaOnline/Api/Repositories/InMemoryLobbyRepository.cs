@@ -30,4 +30,9 @@ public class InMemoryLobbyRepository : ILobbyRepository
     {
         _lobbies.TryRemove(code.ToUpperInvariant(), out _);
     }
+
+    public async Task<IReadOnlyList<Lobby>> GetAll(int skip = 0, int take = 100)
+    {
+        return _lobbies.Values.OrderBy(l => l.Code).Skip(skip).Take(take).ToList();
+    }
 }

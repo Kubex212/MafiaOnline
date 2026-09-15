@@ -277,5 +277,8 @@
   "announceDrunkOccurance": "Ogłaszaj pojawienie się Pijaka",
   "drunkRevealed": "Pijakiem był: {{name}}",
   "drunkPresent": "W tej grze jest Pijak...",
-  "copyLink": "Kopiuj link do dołączenia"
+  "copyLink": "Kopiuj link do dołączenia",
+  "availableLobbies": "Dostępne pokoje",
+  "noLobbies": "Nie znaleziono żadnych pokoi",
+  "loadMore": "Załaduj więcej"
 }

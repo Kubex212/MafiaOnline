@@ -124,4 +124,37 @@ public class PostgresLobbyRepository : ILobbyRepository
             throw;
         }
     }
+
+    public async Task<IReadOnlyList<Lobby>> GetAll(int skip = 0, int take = 100)
+    {
+        try
+        {
+            var entities = await _db.Lobbies
+                .OrderBy(e => e.CreatedAtUtc)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
+
+            var list = new List<Lobby>();
+            foreach (var entity in entities)
+            {
+                try
+                {
+                    var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings)!;
+                    lobby.CurrentGame?.Initialize();
+                    list.Add(lobby);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize lobby JSON for lobby entity {EntityId}, code={LobbyCode}", entity.Id, entity.Code);
+                }
+            }
+            return list;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving lobbies page skip={Skip} take={Take}", skip, take);
+            throw;
+        }
+    }
 }
