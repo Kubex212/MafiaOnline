@@ -280,5 +280,16 @@
   "copyLink": "Kopiuj link do dołączenia",
   "availableLobbies": "Dostępne pokoje",
   "noLobbies": "Nie znaleziono żadnych pokoi",
-  "loadMore": "Załaduj więcej"
+  "loadMore": "Załaduj więcej",
+  "refresh": "Odśwież",
+  "passwordProtected": "Chronione hasłem",
+  "enterPassword": "Podaj hasło do pokoju",
+  "incorrectPassword": "Nieprawidłowe hasło.",
+  "lobbyPrivacy": "Prywatność pokoju",
+  "privateLobby": "Prywatny pokój (ukryty z listy)",
+  "passwordOptional": "Hasło (opcjonalne)",
+  "setPassword": "Ustaw hasło",
+  "updatePassword": "Zmień hasło",
+  "removePassword": "Usuń hasło",
+  "passwordSet": "Hasło jest ustawione"
 }

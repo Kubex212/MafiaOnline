@@ -23,7 +23,9 @@ public class Lobby
         List<LobbyPlayer> players,
         GameConfig? config = null,
         string? rematchCode = null,
-        DateTime? lastActivityAtUtc = null)
+        DateTime? lastActivityAtUtc = null,
+        bool isPrivate = true,
+        string? password = null)
     {
         Id = id;
         Code = code;
@@ -33,6 +35,8 @@ public class Lobby
         _players = players ?? new List<LobbyPlayer>();
         Config = config ?? new GameConfig();
         LastActivityAtUtc = lastActivityAtUtc ?? DateTime.UtcNow;
+        IsPrivate = isPrivate;
+        Password = password;
     }
 
     public Lobby(string code) : this(Guid.NewGuid(), code, null, null, null, new List<LobbyPlayer>(), new GameConfig(), null, DateTime.UtcNow)
@@ -49,6 +53,12 @@ public class Lobby
     public DaySession? DaySession { get; private set; }
     public GameConfig Config { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
+
+    [JsonProperty]
+    public bool IsPrivate { get; private set; }
+
+    [JsonProperty]
+    public string? Password { get; private set; }
 
     /// <summary>
     /// UTC timestamp of the last meaningful activity in this lobby.
@@ -109,6 +119,13 @@ public class Lobby
     {
         AssertNotStarted();
         Config = config;
+    }
+
+    public void SetPrivacySettings(bool isPrivate, string? password)
+    {
+        AssertNotStarted();
+        IsPrivate = isPrivate;
+        Password = string.IsNullOrWhiteSpace(password) ? null : password.Trim();
     }
 
     public void Start(Guid requestingPlayerId)

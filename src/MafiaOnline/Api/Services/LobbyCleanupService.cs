@@ -18,7 +18,7 @@ namespace Api.Services;
 public class LobbyCleanupService : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan InactivityCutoff = TimeSpan.FromHours(1);
+    private static readonly TimeSpan InactivityCutoff = TimeSpan.FromMinutes(30);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<LobbyCleanupService> _logger;

@@ -37,11 +37,15 @@ public class LobbiesController : ControllerBase
     [HttpPost("join")]
     public async Task<ActionResult<LobbyResponse>> Join(JoinLobbyRequest request)
     {
-        var lobby = await _lobbyService.JoinLobbyAsync(
-            request.Code,
-            request.Nickname);
-
-        return Ok(LobbyResponse.FromLobby(lobby));
+        try
+        {
+            var lobby = await _lobbyService.JoinLobbyAsync(request.Code, request.Nickname, request.Password);
+            return Ok(LobbyResponse.FromLobby(lobby));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return UnprocessableEntity(ex.Message);
+        }
     }
 
     [HttpGet("{code}")]
@@ -107,6 +111,13 @@ public class LobbiesController : ControllerBase
     public async Task<ActionResult<LobbyResponse>> UpdateConfig(string code, UpdateConfigRequest request)
     {
         var lobby = await _lobbyService.UpdateConfigAsync(code, request.Config);
+        return Ok(LobbyResponse.FromLobby(lobby));
+    }
+
+    [HttpPost("{code}/privacy")]
+    public async Task<ActionResult<LobbyResponse>> UpdatePrivacy(string code, UpdatePrivacySettingsRequest request)
+    {
+        var lobby = await _lobbyService.UpdatePrivacySettingsAsync(code, request.IsPrivate, request.Password);
         return Ok(LobbyResponse.FromLobby(lobby));
     }
 

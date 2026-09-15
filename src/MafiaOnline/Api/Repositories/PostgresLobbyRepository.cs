@@ -161,9 +161,8 @@ public class PostgresLobbyRepository : ILobbyRepository
                 .Take(take)
                 .ToListAsync();
 
-            // Further filter in-memory: not started, not full (max players checked in lobby config)
             var lobbies = DeserializeEntities(entities);
-            return lobbies.Where(l => !l.Started && l.Players.Count > 0).ToList();
+            return lobbies.Where(l => !l.Started && l.Players.Count > 0 && !l.IsPrivate).ToList();
         }
         catch (Exception ex)
         {

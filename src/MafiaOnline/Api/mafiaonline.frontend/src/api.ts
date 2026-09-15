@@ -240,6 +240,8 @@ export type LobbyResponse = {
     players: PlayerResponse[];
     config: GameConfig;
     rematchCode?: string | null;
+    isPrivate: boolean;
+    hasPassword: boolean;
 };
 
 export type RoleResponse = {
@@ -401,12 +403,15 @@ export async function createLobby(nickname: string): Promise<LobbyResponse> {
     return res.json();
 }
 
-export async function joinLobby(code: string, nickname: string): Promise<LobbyResponse> {
+export async function joinLobby(code: string, nickname: string, password?: string): Promise<LobbyResponse> {
     const res = await fetchWithAuth('/api/lobbies/join', {
         method: 'POST',
-        body: JSON.stringify({ code, nickname })
+        body: JSON.stringify({ code, nickname, password: password ?? null })
     });
-    if (!res.ok) throw new Error('Join failed: ' + res.statusText);
+    if (!res.ok) {
+        if (res.status === 422) throw new Error('passwordRequired');
+        throw new Error('Join failed: ' + res.statusText);
+    }
     return res.json();
 }
 
@@ -594,6 +599,15 @@ export async function updateConfig(code: string, config: GameConfig): Promise<Lo
         body: JSON.stringify({ config })
     });
     if (!res.ok) throw new Error('Update config failed: ' + res.statusText);
+    return res.json();
+}
+
+export async function updatePrivacySettings(code: string, isPrivate: boolean, password: string | null): Promise<LobbyResponse> {
+    const res = await fetchWithAuth(`/api/lobbies/${encodeURIComponent(code)}/privacy`, {
+        method: 'POST',
+        body: JSON.stringify({ isPrivate, password })
+    });
+    if (!res.ok) throw new Error('Update privacy failed: ' + res.statusText);
     return res.json();
 }
 

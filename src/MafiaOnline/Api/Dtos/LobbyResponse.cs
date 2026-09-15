@@ -14,13 +14,16 @@ public class LobbyResponse
 
     public string? RematchCode { get; set; }
 
+    public bool IsPrivate { get; set; }
+
+    public bool HasPassword { get; set; }
+
     public static LobbyResponse FromLobby(Lobby lobby)
     {
         return new LobbyResponse
         {
             Code = lobby.Code,
             Started = lobby.CurrentGame is not null && lobby.CurrentGame.Phase != MafiaOnline.Engine.GamePhase.Finished,
-            // Players are already in lobby/seat order — preserve that order
             Players = lobby.Players
                 .Select((x, i) => new PlayerResponse
                 {
@@ -33,7 +36,9 @@ public class LobbyResponse
                     ReadyForRematch = x.Ready
                 })
                 .ToList(),
-            Config = GameConfigDto.FromConfig(lobby.Config)
+            Config = GameConfigDto.FromConfig(lobby.Config),
+            IsPrivate = lobby.IsPrivate,
+            HasPassword = lobby.Password != null
         };
     }
 }

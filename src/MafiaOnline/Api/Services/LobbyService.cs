@@ -26,7 +26,7 @@ public class LobbyService : ILobbyService
     private readonly IGameHistoryService _gameHistoryService;
 
     // How long a waiting lobby stays visible / joinable without any activity
-    private static readonly TimeSpan LobbyActivityWindow = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan LobbyActivityWindow = TimeSpan.FromMinutes(15);
 
     public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService, IServiceScopeFactory scopeFactory, ILogger<LobbyService> logger, ICurrentUser currentUser, IGameHistoryService gameHistoryService)
     {
@@ -98,7 +98,7 @@ public class LobbyService : ILobbyService
         return lobby;
     }
 
-    public async Task<Lobby> JoinLobbyAsync(string code, string nickname)
+    public async Task<Lobby> JoinLobbyAsync(string code, string nickname, string? password = null)
     {
         _logger.LogInformation("JoinLobbyAsync called code={Code} nickname={Nickname} user={UserId}", code, nickname, _currentUser.UserId);
 
@@ -119,6 +119,9 @@ public class LobbyService : ILobbyService
         // Reject joins to lobbies that have gone stale (no activity within the window)
         if (DateTime.UtcNow - lobby.LastActivityAtUtc > LobbyActivityWindow)
             throw new InvalidOperationException("Lobby is no longer active.");
+
+        if (lobby.Password != null && lobby.Password != password?.Trim())
+            throw new UnauthorizedAccessException("Incorrect password.");
 
         lobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
 
@@ -561,6 +564,25 @@ public class LobbyService : ILobbyService
             .SendAsync("ConfigUpdated", configDto);
 
         _logger.LogInformation("ConfigUpdated for lobby {LobbyCode} by {UserId}", lobby.Code, userId);
+
+        return lobby;
+    }
+
+    public async Task<Lobby> UpdatePrivacySettingsAsync(string code, bool isPrivate, string? password)
+    {
+        _logger.LogInformation("UpdatePrivacySettingsAsync called for lobby={LobbyCode} user={UserId}", code, _currentUser.UserId);
+
+        var lobby = await _repository.Get(code.Trim().ToUpperInvariant())
+            ?? throw new InvalidOperationException("Lobby not found.");
+
+        var requester = GetPlayerByUserId(lobby, _currentUser.UserId);
+        if (!requester.IsHost)
+            throw new InvalidOperationException("Only the host can change privacy settings.");
+
+        lobby.SetPrivacySettings(isPrivate, password);
+        await _repository.Update(lobby);
+
+        _logger.LogInformation("PrivacySettings updated for lobby {LobbyCode} isPrivate={IsPrivate} hasPassword={HasPassword}", lobby.Code, isPrivate, password != null);
 
         return lobby;
     }

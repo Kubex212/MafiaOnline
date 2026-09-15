@@ -8,7 +8,8 @@ namespace MafiaOnline.Api.Services;
 public interface ILobbyService
 {
     Task<Lobby> CreateLobby(string hostNickname);
-    Task<Lobby> JoinLobbyAsync(string code, string nickname);
+    Task<Lobby> JoinLobbyAsync(string code, string nickname, string? password = null);
+    Task<Lobby> UpdatePrivacySettingsAsync(string code, bool isPrivate, string? password);
     Task<Lobby> GetLobby(string code);
     Task<Lobby> StartLobbyAsync(string code);
     Task<Lobby> UpdateConfigAsync(string code, GameConfigDto configDto);

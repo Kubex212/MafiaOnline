@@ -279,5 +279,16 @@
   "copyLink": "Copy join link",
   "availableLobbies": "Available Lobbies",
   "noLobbies": "No lobbies found",
-  "loadMore": "Load more"
+  "loadMore": "Load more",
+  "refresh": "Refresh",
+  "passwordProtected": "Password protected",
+  "enterPassword": "Enter lobby password",
+  "incorrectPassword": "Incorrect password.",
+  "lobbyPrivacy": "Lobby Privacy",
+  "privateLobby": "Private lobby (hidden from the list)",
+  "passwordOptional": "Password (optional)",
+  "setPassword": "Set password",
+  "updatePassword": "Update password",
+  "removePassword": "Remove password",
+  "passwordSet": "Password is set"
 }

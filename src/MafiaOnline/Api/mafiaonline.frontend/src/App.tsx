@@ -7,7 +7,7 @@ import type {
 import {
     createLobby, joinLobby, createHubConnection, getLobby,
     startLobby, getMyRole, movePlayerUp, movePlayerDown, shufflePlayers, reconnect,
-    updateConfig, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe,
+    updateConfig, updatePrivacySettings, getOrCreateSession, getDiscordLoginUrl, getGoogleLoginUrl, getMe,
     leaveLobby, kickPlayer, markReadyForRematch, listAvailableLobbies
 } from './api';
 import { HubConnection } from '@microsoft/signalr';
@@ -63,6 +63,7 @@ export default function App() {
 
     const [availableLobbies, setAvailableLobbies] = useState<LobbyResponse[] | null>(null);
     const [showAvailable, setShowAvailable] = useState(false);
+    const [privacyPassword, setPrivacyPassword] = useState('');
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -496,21 +497,10 @@ export default function App() {
     async function joinViaLinkConfirm() {
         const code = joinCodeFromUrl ?? codeToJoin;
         if (!code) return;
-        try {
-            const nick = (nickname || '').trim();
-            if (!nick) { alert('Please enter a nickname'); return; }
-            const res = await joinLobby(code, nick);
-            const mePlayer = res.players.find(p => p.nickname.toLowerCase() === nick.toLowerCase());
-            if (mePlayer) setMyPlayerId(mePlayer.id);
-            setLobby(res);
-            sessionStorage.setItem('lobbyCode', res.code);
-            setMessages([t('joinedLobby', { code: res.code })]);
-            playSound('join-lobby');
-            setShowJoinModal(false);
-            try { await joinHubGroup(res.code); } catch { /* ignore */ }
-        } catch (e) {
-            alert(String(e));
-        }
+        const nick = (nickname || '').trim();
+        if (!nick) { alert('Please enter a nickname'); return; }
+        setShowJoinModal(false);
+        await doJoinAndEnter(code, nick);
     }
 
     function joinViaLinkCancel() {
@@ -541,17 +531,54 @@ export default function App() {
         finally { setCreating(false); }
     }
 
-    async function onJoin() {
+    // Shared join helper used by both manual-code and list-join paths.
+    // knownHasPassword: skip the first attempt and go straight to prompt.
+    async function doJoinAndEnter(code: string, nick: string, knownHasPassword = false) {
+        let password: string | undefined;
+
+        if (knownHasPassword) {
+            const entered = window.prompt(t('enterPassword') ?? 'Enter lobby password:');
+            if (entered === null) return;
+            password = entered;
+        }
+
+        let res;
         try {
-            const res = await joinLobby(codeToJoin, nickname);
-            const me = res.players.find(p => p.userId === myUserId);
-            setMyPlayerId(me.id);
-            setLobby(res);
-            sessionStorage.setItem('lobbyCode', res.code);
-            setMessages([t('joinedLobby', { code: res.code })]);
-            playSound('join-lobby');
-            await joinHubGroup(res.code);
-        } catch (e) { alert(String(e)); }
+            res = await joinLobby(code, nick, password);
+        } catch (e: any) {
+            if (e?.message === 'passwordRequired' && !password) {
+                // Lobby requires a password — ask for it and retry once
+                const entered = window.prompt(t('enterPassword') ?? 'Enter lobby password:');
+                if (entered === null) return;
+                try {
+                    res = await joinLobby(code, nick, entered);
+                } catch (e2: any) {
+                    alert(e2?.message === 'passwordRequired'
+                        ? (t('incorrectPassword') ?? 'Incorrect password.')
+                        : String(e2));
+                    return;
+                }
+            } else if (e?.message === 'passwordRequired') {
+                alert(t('incorrectPassword') ?? 'Incorrect password.');
+                return;
+            } else {
+                alert(String(e));
+                return;
+            }
+        }
+
+        const mePlayer = res.players.find(p => p.userId === myUserId || p.nickname.toLowerCase() === nick.toLowerCase());
+        if (mePlayer) setMyPlayerId(mePlayer.id);
+        setLobby(res);
+        sessionStorage.setItem('lobbyCode', res.code);
+        setMessages([t('joinedLobby', { code: res.code })]);
+        playSound('join-lobby');
+        try { await joinHubGroup(res.code); } catch { /* ignore */ }
+        setShowAvailable(false);
+    }
+
+    async function onJoin() {
+        await doJoinAndEnter(codeToJoin, nickname);
     }
 
     async function onStart() {
@@ -606,22 +633,10 @@ export default function App() {
         await loadAvailableLobbies(true);
     }
 
-    async function joinFromList(code: string) {
-        try {
-            const nick = (nickname || '').trim();
-            if (!nick) { alert('Please enter a nickname'); return; }
-            const res = await joinLobby(code, nick);
-            const mePlayer = res.players.find(p => p.nickname.toLowerCase() === nick.toLowerCase());
-            if (mePlayer) setMyPlayerId(mePlayer.id);
-            setLobby(res);
-            sessionStorage.setItem('lobbyCode', res.code);
-            setMessages([t('joinedLobby', { code: res.code })]);
-            playSound('join-lobby');
-            try { await joinHubGroup(res.code); } catch { /* ignore */ }
-            setShowAvailable(false);
-        } catch (e) {
-            alert(String(e));
-        }
+    async function joinFromList(lobbyEntry: LobbyResponse) {
+        const nick = (nickname || '').trim();
+        if (!nick) { alert('Please enter a nickname'); return; }
+        await doJoinAndEnter(lobbyEntry.code, nick, lobbyEntry.hasPassword);
     }
 
     // Leave lobby handler
@@ -1012,18 +1027,24 @@ export default function App() {
 
                         {showAvailable && (
                             <div className="card card--parchment" style={{ marginTop: 12 }}>
-                                <h3 style={{ marginTop: 0 }}>{t('availableLobbies')}</h3>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <h3 style={{ margin: 0 }}>{t('availableLobbies')}</h3>
+                                    <button className="btn" onClick={() => loadAvailableLobbies()} title={t('refresh') ?? 'Refresh'}>↺</button>
+                                </div>
                                 <div style={{ maxHeight: 300, overflow: 'auto' }}>
                                     {availableLobbies === null && <div style={{ color: 'var(--text-dim)' }}>{t('loading')}</div>}
                                     {availableLobbies && availableLobbies.length === 0 && <div style={{ color: 'var(--text-dim)' }}>{t('noLobbies')}</div>}
                                     {availableLobbies && availableLobbies.map(l => (
                                         <div key={l.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                                             <div>
-                                                <div style={{ fontWeight: 600 }}>{l.code}</div>
-                                                <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>{l.players.length} players</div>
+                                                <div style={{ fontWeight: 600 }}>
+                                                    {l.hasPassword && <span title={t('passwordProtected') ?? 'Password protected'} style={{ marginRight: 4 }}>🔒</span>}
+                                                    {l.code}
+                                                </div>
+                                                <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>{l.players.length} {t('players')}</div>
                                             </div>
                                             <div>
-                                                <button className="btn" onClick={() => joinFromList(l.code)}>{t('join')}</button>
+                                                <button className="btn" onClick={() => joinFromList(l)}>{t('join')}</button>
                                             </div>
                                         </div>
                                     ))}
@@ -1131,6 +1152,56 @@ export default function App() {
                                 {lobby.players.length < 4 && ` — ${t('needMore', { n: 4 - lobby.players.length })}`}
                             </div>
                         </div>
+
+                        {!lobby.started && isHost && (
+                            <div className="card card--parchment" style={{ marginTop: 12 }}>
+                                <span className="field__label" style={{ display: 'block', marginBottom: 10 }}>{t('lobbyPrivacy')}</span>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={lobby.isPrivate}
+                                        onChange={async e => {
+                                            try {
+                                                const updated = await updatePrivacySettings(lobby.code, e.target.checked, lobby.hasPassword ? privacyPassword || null : null);
+                                                setLobby(updated);
+                                            } catch (err) { alert(String(err)); }
+                                        }}
+                                    />
+                                    {t('privateLobby')}
+                                </label>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <input
+                                        className="input"
+                                        type="password"
+                                        placeholder={t('passwordOptional') ?? 'Password (optional)'}
+                                        value={privacyPassword}
+                                        onChange={e => setPrivacyPassword(e.target.value)}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <button className="btn" onClick={async () => {
+                                        try {
+                                            const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, privacyPassword || null);
+                                            setLobby(updated);
+                                            if (!privacyPassword) setPrivacyPassword('');
+                                        } catch (err) { alert(String(err)); }
+                                    }}>
+                                        {lobby.hasPassword ? t('updatePassword') : t('setPassword')}
+                                    </button>
+                                    {lobby.hasPassword && (
+                                        <button className="btn" onClick={async () => {
+                                            try {
+                                                const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, null);
+                                                setLobby(updated);
+                                                setPrivacyPassword('');
+                                            } catch (err) { alert(String(err)); }
+                                        }}>
+                                            {t('removePassword')}
+                                        </button>
+                                    )}
+                                </div>
+                                {lobby.hasPassword && <div style={{ color: 'var(--text-dim)', fontSize: 12, marginTop: 6 }}>🔒 {t('passwordSet')}</div>}
+                            </div>
+                        )}
 
                         {!lobby.started && (
                             isHost
