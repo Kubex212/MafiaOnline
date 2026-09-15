@@ -1,4 +1,4 @@
-﻿using MafiaOnline.Engine;
+using MafiaOnline.Engine;
 using MafiaOnline.Engine.Commands;
 using MafiaOnline.Engine.Config;
 using MafiaOnline.Engine.Day;
@@ -22,7 +22,8 @@ public class Lobby
         DaySession? daySession,
         List<LobbyPlayer> players,
         GameConfig? config = null,
-        string? rematchCode = null)
+        string? rematchCode = null,
+        DateTime? lastActivityAtUtc = null)
     {
         Id = id;
         Code = code;
@@ -31,9 +32,10 @@ public class Lobby
         DaySession = daySession;
         _players = players ?? new List<LobbyPlayer>();
         Config = config ?? new GameConfig();
+        LastActivityAtUtc = lastActivityAtUtc ?? DateTime.UtcNow;
     }
 
-    public Lobby(string code) : this(Guid.NewGuid(), code, null, null, null, new List<LobbyPlayer>(), new GameConfig(), null)
+    public Lobby(string code) : this(Guid.NewGuid(), code, null, null, null, new List<LobbyPlayer>(), new GameConfig(), null, DateTime.UtcNow)
     {
     }
 
@@ -47,6 +49,16 @@ public class Lobby
     public DaySession? DaySession { get; private set; }
     public GameConfig Config { get; private set; }
     public IReadOnlyCollection<LobbyPlayer> Players => _players;
+
+    /// <summary>
+    /// UTC timestamp of the last meaningful activity in this lobby.
+    /// Updated on every persist via <see cref="TouchActivity"/>.
+    /// </summary>
+    [JsonProperty]
+    public DateTime LastActivityAtUtc { get; private set; }
+
+    /// <summary>Sets <see cref="LastActivityAtUtc"/> to the current UTC time.</summary>
+    public void TouchActivity() => LastActivityAtUtc = DateTime.UtcNow;
 
     // ── Lobby management ──────────────────────────────────────────────────
 

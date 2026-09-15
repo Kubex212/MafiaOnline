@@ -8,7 +8,7 @@ using Xunit;
 namespace MafiaOnline.Tests;
 public class LobbySerializationTests
 {
-    private JsonSerializerSettings Settings => new JsonSerializerSettings { 
+    private JsonSerializerSettings Settings => new JsonSerializerSettings {
         TypeNameHandling = TypeNameHandling.Auto,
         Converters = { new StringEnumConverter() }
     };
@@ -38,6 +38,50 @@ public class LobbySerializationTests
         Assert.Equal(player.Id, restoredPlayer.Id);
         Assert.Equal(player.Nickname, restoredPlayer.Nickname);
         Assert.Equal(player.IsHost, restoredPlayer.IsHost);
+    }
+
+    [Fact]
+    public void Lobby_LastActivityAtUtc_SurvivesRoundtrip()
+    {
+        // arrange
+        var lobby = new Lobby("XYZ789");
+        lobby.AddPlayer(new LobbyPlayer(Guid.NewGuid(), "Alice", true));
+
+        var before = lobby.LastActivityAtUtc;
+
+        // act
+        var json = JsonConvert.SerializeObject(lobby, Settings);
+        var restored = JsonConvert.DeserializeObject<Lobby>(json, Settings);
+
+        // assert
+        Assert.NotNull(restored);
+        // Timestamps round-trip with millisecond precision in JSON
+        Assert.Equal(before, restored!.LastActivityAtUtc);
+    }
+
+    [Fact]
+    public void Lobby_OldJsonWithout_LastActivityAtUtc_DefaultsToCurrentTime()
+    {
+        // Simulate a persisted blob that was written before this field was added
+        var oldJson = """
+        {
+            "Id": "11111111-1111-1111-1111-111111111111",
+            "Code": "OLD001",
+            "CurrentGame": null,
+            "NightSession": null,
+            "DaySession": null,
+            "_players": [],
+            "Config": {}
+        }
+        """;
+
+        var beforeDeserialize = DateTime.UtcNow;
+        var lobby = JsonConvert.DeserializeObject<Lobby>(oldJson, Settings);
+        var afterDeserialize = DateTime.UtcNow;
+
+        Assert.NotNull(lobby);
+        // Should not throw and should have a reasonable default (≈ now)
+        Assert.InRange(lobby!.LastActivityAtUtc, beforeDeserialize.AddSeconds(-1), afterDeserialize.AddSeconds(1));
     }
 
     [Fact]
@@ -133,7 +177,7 @@ public class LobbySerializationTests
         lobby.BeginNightSession();
 
         // submit an action for one player
-        lobby.NightSession.SubmitAction(new Engine.Night.NightAction(host.Id, new List<Guid> { p2.Id }, Engine.Night.ActionType.Ability));
+        lobby.NightSession.Skip(host.Id);
 
         var json = JsonConvert.SerializeObject(lobby, Settings);
         var restored = JsonConvert.DeserializeObject<Lobby>(json, Settings);

@@ -51,6 +51,9 @@ namespace Api
                 builder.Services.AddScoped<IGameHistoryService, GameHistoryService>();
                 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
+                // Background service: periodically clean up abandoned / finished lobbies
+                builder.Services.AddHostedService<LobbyCleanupService>();
+
                 builder.Services.Configure<ForwardedHeadersOptions>(options =>
                 {
                     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -199,18 +202,15 @@ namespace Api
 
                 using (var scope = app.Services.CreateScope())
                 {
-                    var services = scope.ServiceProvider;
-                    try
-                    {
-                        var context = services.GetRequiredService<MafiaDbContext>();
-                        context.Database.Migrate();
-                    }
-                    catch (Exception ex)
-                    {
-                        var logger = services.GetRequiredService<ILogger<Program>>();
-                        logger.LogError(ex, "An error occurred while migrating the database.");
-                        Log.Fatal(ex, "An error occurred while migrating the database.");
-                    }
+                    var context = scope.ServiceProvider.GetRequiredService<MafiaDbContext>();
+                    context.Database.Migrate();
+                    context.Database.ExecuteSqlRaw(@"
+                        ALTER TABLE ""Lobbies""
+                        ADD COLUMN IF NOT EXISTS ""LastActivityAtUtc"" timestamp with time zone NOT NULL DEFAULT now()
+                    ");
+                    context.Database.ExecuteSqlRaw(@"
+                        CREATE INDEX IF NOT EXISTS ""IX_Lobbies_LastActivityAtUtc"" ON ""Lobbies"" (""LastActivityAtUtc"")
+                    ");
                 }
 
 

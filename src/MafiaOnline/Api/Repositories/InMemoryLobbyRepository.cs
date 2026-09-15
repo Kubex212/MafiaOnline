@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Utils;
 
@@ -34,5 +34,22 @@ public class InMemoryLobbyRepository : ILobbyRepository
     public async Task<IReadOnlyList<Lobby>> GetAll(int skip = 0, int take = 100)
     {
         return _lobbies.Values.OrderBy(l => l.Code).Skip(skip).Take(take).ToList();
+    }
+
+    public async Task<IReadOnlyList<Lobby>> GetAvailableAsync(DateTime activeSince, int skip = 0, int take = 100)
+    {
+        return _lobbies.Values
+            .Where(l => !l.Started && l.Players.Count > 0 && l.LastActivityAtUtc >= activeSince)
+            .OrderBy(l => l.Code)
+            .Skip(skip)
+            .Take(take)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<Lobby>> GetInactiveAsync(DateTime cutoff)
+    {
+        return _lobbies.Values
+            .Where(l => l.LastActivityAtUtc < cutoff)
+            .ToList();
     }
 }

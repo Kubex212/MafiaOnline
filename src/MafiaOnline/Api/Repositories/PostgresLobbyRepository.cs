@@ -1,4 +1,4 @@
-﻿using Api.Data;
+using Api.Data;
 using Api.Data.Entities;
 using MafiaOnline.Api.Models;
 using MafiaOnline.Api.Repositories;
@@ -30,13 +30,16 @@ public class PostgresLobbyRepository : ILobbyRepository
     {
         try
         {
+            lobby.TouchActivity();
+
             var entity = new LobbyEntity
             {
                 Id = lobby.Id,
                 Code = lobby.Code,
                 StateJson = JsonConvert.SerializeObject(lobby, _settings),
                 CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow
+                UpdatedAtUtc = DateTime.UtcNow,
+                LastActivityAtUtc = lobby.LastActivityAtUtc
             };
 
             _db.Lobbies.Add(entity);
@@ -91,8 +94,11 @@ public class PostgresLobbyRepository : ILobbyRepository
 
             try
             {
+                lobby.TouchActivity();
+
                 entity.StateJson = JsonConvert.SerializeObject(lobby, _settings);
                 entity.UpdatedAtUtc = DateTime.UtcNow;
+                entity.LastActivityAtUtc = lobby.LastActivityAtUtc;
 
                 await _db.SaveChangesAsync();
             }
@@ -135,26 +141,70 @@ public class PostgresLobbyRepository : ILobbyRepository
                 .Take(take)
                 .ToListAsync();
 
-            var list = new List<Lobby>();
-            foreach (var entity in entities)
-            {
-                try
-                {
-                    var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings)!;
-                    lobby.CurrentGame?.Initialize();
-                    list.Add(lobby);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to deserialize lobby JSON for lobby entity {EntityId}, code={LobbyCode}", entity.Id, entity.Code);
-                }
-            }
-            return list;
+            return DeserializeEntities(entities);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving lobbies page skip={Skip} take={Take}", skip, take);
             throw;
         }
+    }
+
+    public async Task<IReadOnlyList<Lobby>> GetAvailableAsync(DateTime activeSince, int skip = 0, int take = 100)
+    {
+        try
+        {
+            var entities = await _db.Lobbies
+                .Where(e => e.LastActivityAtUtc >= activeSince)
+                .OrderBy(e => e.CreatedAtUtc)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
+
+            // Further filter in-memory: not started, not full (max players checked in lobby config)
+            var lobbies = DeserializeEntities(entities);
+            return lobbies.Where(l => !l.Started && l.Players.Count > 0).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving available lobbies activeSince={ActiveSince}", activeSince);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<Lobby>> GetInactiveAsync(DateTime cutoff)
+    {
+        try
+        {
+            var entities = await _db.Lobbies
+                .Where(e => e.LastActivityAtUtc < cutoff)
+                .ToListAsync();
+
+            return DeserializeEntities(entities);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving inactive lobbies cutoff={Cutoff}", cutoff);
+            throw;
+        }
+    }
+
+    private List<Lobby> DeserializeEntities(IEnumerable<LobbyEntity> entities)
+    {
+        var list = new List<Lobby>();
+        foreach (var entity in entities)
+        {
+            try
+            {
+                var lobby = JsonConvert.DeserializeObject<Lobby>(entity.StateJson, _settings)!;
+                lobby.CurrentGame?.Initialize();
+                list.Add(lobby);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to deserialize lobby JSON for lobby entity {EntityId}, code={LobbyCode}", entity.Id, entity.Code);
+            }
+        }
+        return list;
     }
 }

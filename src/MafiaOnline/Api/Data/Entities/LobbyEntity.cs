@@ -1,4 +1,4 @@
-﻿namespace Api.Data.Entities
+namespace Api.Data.Entities
 {
     public class LobbyEntity
     {
@@ -7,5 +7,6 @@
         public string StateJson { get; set; } = null!;
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
+        public DateTime LastActivityAtUtc { get; set; }
     }
 }

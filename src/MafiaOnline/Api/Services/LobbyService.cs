@@ -1,4 +1,4 @@
-﻿using MafiaOnline.Api.Dtos;
+using MafiaOnline.Api.Dtos;
 using MafiaOnline.Api.Hubs;
 using MafiaOnline.Api.Identity;
 using MafiaOnline.Api.Models;
@@ -24,6 +24,9 @@ public class LobbyService : ILobbyService
     private readonly ILogger<LobbyService> _logger;
     private readonly ICurrentUser _currentUser;
     private readonly IGameHistoryService _gameHistoryService;
+
+    // How long a waiting lobby stays visible / joinable without any activity
+    private static readonly TimeSpan LobbyActivityWindow = TimeSpan.FromMinutes(30);
 
     public LobbyService(ILobbyRepository repository, IHubContext<LobbyHub> hubContext, INightService nightService, IServiceScopeFactory scopeFactory, ILogger<LobbyService> logger, ICurrentUser currentUser, IGameHistoryService gameHistoryService)
     {
@@ -112,6 +115,10 @@ public class LobbyService : ILobbyService
 
         if (existingPlayer != null)
             return lobby;
+
+        // Reject joins to lobbies that have gone stale (no activity within the window)
+        if (DateTime.UtcNow - lobby.LastActivityAtUtc > LobbyActivityWindow)
+            throw new InvalidOperationException("Lobby is no longer active.");
 
         lobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
 
@@ -614,28 +621,7 @@ public class LobbyService : ILobbyService
 
     public async Task<IReadOnlyList<Lobby>> ListAvailableLobbiesAsync(int skip = 0, int take = 50)
     {
-        var result = new List<Lobby>();
-        var batchSize = Math.Min(100, take);
-        var fetched = 0;
-
-        while (result.Count < take)
-        {
-            var page = await _repository.GetAll(skip + fetched, batchSize);
-            if (page == null || page.Count == 0) break;
-
-            foreach (var l in page)
-            {
-                if (!l.Started && l.Players.Count > 0)
-                {
-                    result.Add(l);
-                    if (result.Count >= take) break;
-                }
-            }
-
-            fetched += page.Count;
-            if (page.Count < batchSize) break; // no more rows
-        }
-
-        return result;
+        var activeSince = DateTime.UtcNow.Subtract(LobbyActivityWindow);
+        return await _repository.GetAvailableAsync(activeSince, skip, take);
     }
 }
