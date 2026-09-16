@@ -2785,6 +2785,29 @@ svg, img {
     .privacy-card__actions .btn { width: 100%; white-space: normal; }
 }
 
+.qr-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+}
+.qr-modal {
+    background: var(--surface, #fff);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    max-width: 92%; width: 300px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+}
+.qr-modal__title { margin: 0; font-size: 1.05rem; }
+.qr-modal__hint { margin: 0; color: var(--text-dim); font-size: 0.82rem; text-align: center; }
+.qr-modal__code { border-radius: 6px; overflow: hidden; line-height: 0; }
+.qr-modal__lobby-code {
+    font-size: 1.4rem; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--accent); font-variant-numeric: tabular-nums;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .toast { animation: none; }
 }

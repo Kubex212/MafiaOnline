@@ -324,5 +324,7 @@
   "lobbyPassword": "Hasło do pokoju",
   "privacyUpdated": "Zmieniono prywatność pokoju.",
   "passwordUpdated": "Zmieniono hasło do pokoju.",
-  "passwordRemoved": "Usunięto hasło do pokoju."
+  "passwordRemoved": "Usunięto hasło do pokoju.",
+  "showQr": "Pokaż kod QR",
+  "qrHint": "Zeskanuj, aby natychmiast dołączyć do pokoju."
 }

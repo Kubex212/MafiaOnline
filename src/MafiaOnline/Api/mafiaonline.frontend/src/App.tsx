@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import type {
     LobbyResponse, RoleResponse, SeatInfo, PlayerResponse,
     NightStartedPayload, NightResolvedPayload, LobbyOrderChangedPayload,
@@ -67,6 +68,7 @@ export default function App() {
     const [privacyPassword, setPrivacyPassword] = useState('');
     const [loadingLobbies, setLoadingLobbies] = useState(false);
     const [savingPrivacy, setSavingPrivacy] = useState(false);
+    const [showQr, setShowQr] = useState(false);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -1101,6 +1103,7 @@ export default function App() {
                                 <div className="invite-panel__actions">
                                     <button className="lobby-room__code" onClick={copyCode} aria-label={t('copyCode')} title={t('copyCode')}>{lobby.code}</button>
                                     <button className="icon-btn icon-btn--touch" onClick={copyJoinLink} aria-label={t('copyLink')} title={t('copyLink')}>🔗</button>
+                                    <button className="icon-btn icon-btn--touch" onClick={() => setShowQr(true)} aria-label={t('showQr')} title={t('showQr')}>▦</button>
                                 </div>
                                 <div className="lobby-room__code-hint">
                                     {codeCopied ? '✓ ' + t('codeCopied') : linkCopied ? '✓ ' + t('linkCopied') : t('tapToCopy')}
@@ -1277,6 +1280,23 @@ export default function App() {
                 onConfirm={joinViaLinkConfirm}
                 onCancel={joinViaLinkCancel}
             />
+            {showQr && lobby && (() => {
+                const joinUrl = `${window.location.origin}/join/${lobby.code}`;
+                return (
+                    <div className="qr-overlay" role="dialog" aria-modal="true" aria-label={t('showQr')}
+                        onClick={() => setShowQr(false)}>
+                        <div className="qr-modal" onClick={e => e.stopPropagation()}>
+                            <h3 className="qr-modal__title">{t('invitePlayers')}</h3>
+                            <p className="qr-modal__hint">{t('qrHint')}</p>
+                            <div className="qr-modal__code">
+                                <QRCodeSVG value={joinUrl} size={200} includeMargin />
+                            </div>
+                            <div className="qr-modal__lobby-code">{lobby.code}</div>
+                            <button className="btn" onClick={() => setShowQr(false)}>{t('close')}</button>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

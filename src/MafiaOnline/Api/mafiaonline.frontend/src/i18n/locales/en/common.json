@@ -321,5 +321,7 @@
   "lobbyPassword": "Lobby password",
   "privacyUpdated": "Lobby privacy updated.",
   "passwordUpdated": "Lobby password updated.",
-  "passwordRemoved": "Lobby password removed."
+  "passwordRemoved": "Lobby password removed.",
+  "showQr": "Show QR code",
+  "qrHint": "Scan to join the lobby instantly."
 }
