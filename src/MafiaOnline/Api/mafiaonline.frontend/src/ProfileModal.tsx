@@ -3,6 +3,7 @@ import { getMe, updateMe, getMyStats, getMyHistory } from './api';
 import type { MeResponse, UserStatisticsResponse, RoleStatisticsResponse, GameHistoryItemResponse } from './api';
 import { useTranslation } from 'react-i18next';
 import { roleSigil } from './roleText';
+import { useUiFeedback } from './UiFeedback';
 
 type Props = {
     open: boolean;
@@ -22,6 +23,7 @@ function fmtDuration(d: string) {
 
 export default function ProfileModal({ open, onClose, onSaved }: Props) {
     const { t, i18n } = useTranslation();
+    const { toast } = useUiFeedback();
 
     const [me, setMe] = useState<MeResponse | null>(null);
     const [nickname, setNickname] = useState('');
@@ -76,9 +78,11 @@ export default function ProfileModal({ open, onClose, onSaved }: Props) {
             const value = nickname.trim();
             await updateMe({ preferredNickname: value });
             onSaved?.(value);
+            toast(t('profileSaved'), 'success');
             onClose();
         } catch (e: any) {
             setError(String(e?.message ?? e));
+            toast(t('actionFailed'), 'error');
         } finally {
             setSaving(false);
         }

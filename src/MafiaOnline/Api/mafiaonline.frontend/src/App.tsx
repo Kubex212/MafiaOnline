@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { ROLE_SIGILS, roleDescKey, roleDescParams } from './roleText';
 import { addLog, clearLog } from './gameLog';
 import { playSound } from './sound';
+import { useUiFeedback } from './UiFeedback';
 
 type GameView = 'lobby' | 'role-reveal' | 'night' | 'day' | 'gameover';
 
@@ -64,6 +65,8 @@ export default function App() {
     const [availableLobbies, setAvailableLobbies] = useState<LobbyResponse[] | null>(null);
     const [showAvailable, setShowAvailable] = useState(false);
     const [privacyPassword, setPrivacyPassword] = useState('');
+    const [loadingLobbies, setLoadingLobbies] = useState(false);
+    const [savingPrivacy, setSavingPrivacy] = useState(false);
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -84,6 +87,8 @@ export default function App() {
     const pendingSubmittedActionsRef = useRef<Array<{ actorId: string; actionType: number; targets: string[] }> | null>(null);
 
     const { t } = useTranslation();
+    const { toast, confirm: confirmDialog, prompt: promptDialog } = useUiFeedback();
+    const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
 
     useEffect(() => { lobbyRef.current = lobby; }, [lobby]);
     useEffect(() => { myPlayerIdRef.current = myPlayerId; }, [myPlayerId]);
@@ -152,6 +157,7 @@ export default function App() {
 
             } catch (err) {
                 console.error('Session init failed', err);
+                toast(t('sessionFailed'), 'error');
             }
             if (cancelled) return;
 
@@ -231,7 +237,7 @@ export default function App() {
                     sessionStorage.removeItem('lobbyCode');
                     setLobby(null);
                     setMyPlayerId(null);
-                    alert(t('youWereKicked'));
+                    toast(t('youWereKicked'), 'warning');
                 }
             });
 
@@ -483,6 +489,7 @@ export default function App() {
             } catch (e) {
                 sessionStorage.removeItem('lobbyCode');
                 console.error('Reconnection failed:', e);
+                toast(t('reconnectFailed'), 'error');
             }
         })();
 
@@ -498,7 +505,7 @@ export default function App() {
         const code = joinCodeFromUrl ?? codeToJoin;
         if (!code) return;
         const nick = (nickname || '').trim();
-        if (!nick) { alert('Please enter a nickname'); return; }
+        if (!nick) { toast(t('nicknameRequired'), 'warning'); return; }
         setShowJoinModal(false);
         await doJoinAndEnter(code, nick);
     }
@@ -520,14 +527,15 @@ export default function App() {
         try {
             setCreating(true);
             const res = await createLobby(nickname);
-            const me = res.players.find(p => p.isHost)!;
+            const me = res.players.find(p => p.isHost);
+            if (!me) throw new Error(t('hostNotFound'));
             setMyPlayerId(me.id);
             setLobby(res);
             sessionStorage.setItem('lobbyCode', res.code);
             setMessages([t('lobbyCreated', { code: res.code })]);
             playSound('create-lobby');
             await joinHubGroup(res.code);
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(errorMessage(e), 'error'); }
         finally { setCreating(false); }
     }
 
@@ -537,7 +545,10 @@ export default function App() {
         let password: string | undefined;
 
         if (knownHasPassword) {
-            const entered = window.prompt(t('enterPassword') ?? 'Enter lobby password:');
+            const entered = await promptDialog({
+                title: t('protectedLobby'), message: t('passwordPromptMessage', { code }), label: t('enterPassword'),
+                placeholder: t('passwordPlaceholder'), confirmLabel: t('join'), cancelLabel: t('cancel')
+            });
             if (entered === null) return;
             password = entered;
         }
@@ -548,21 +559,24 @@ export default function App() {
         } catch (e: any) {
             if (e?.message === 'passwordRequired' && !password) {
                 // Lobby requires a password — ask for it and retry once
-                const entered = window.prompt(t('enterPassword') ?? 'Enter lobby password:');
+                const entered = await promptDialog({
+                    title: t('protectedLobby'), message: t('passwordPromptMessage', { code }), label: t('enterPassword'),
+                    placeholder: t('passwordPlaceholder'), confirmLabel: t('join'), cancelLabel: t('cancel')
+                });
                 if (entered === null) return;
                 try {
                     res = await joinLobby(code, nick, entered);
                 } catch (e2: any) {
-                    alert(e2?.message === 'passwordRequired'
-                        ? (t('incorrectPassword') ?? 'Incorrect password.')
-                        : String(e2));
+                    if (e2?.message === 'passwordRequired') {
+                        toast(t('incorrectPassword'), 'error');
+                    } else toast(errorMessage(e2), 'error');
                     return;
                 }
             } else if (e?.message === 'passwordRequired') {
-                alert(t('incorrectPassword') ?? 'Incorrect password.');
+                toast(t('incorrectPassword'), 'error');
                 return;
             } else {
-                alert(String(e));
+                toast(errorMessage(e), 'error');
                 return;
             }
         }
@@ -584,19 +598,19 @@ export default function App() {
     async function onStart() {
         if (!lobby) return;
         try { await startLobby(lobby.code); }
-        catch (e) { alert(String(e)); }
+        catch (e) { toast(errorMessage(e), 'error'); }
     }
 
     async function withLobby(fn: (code: string) => Promise<LobbyResponse>) {
         if (!lobby) return;
         try { setLobby(await fn(lobby.code)); }
-        catch (e) { alert(String(e)); }
+        catch (e) { toast(errorMessage(e), 'error'); }
     }
 
     async function onConfigChange(config: GameConfig) {
         if (!lobby) return;
         try { await updateConfig(lobby.code, config); }
-        catch (e) { alert(String(e)); }
+        catch (e) { toast(errorMessage(e), 'error'); }
     }
 
     async function copyCode() {
@@ -604,8 +618,9 @@ export default function App() {
         try {
             await navigator.clipboard.writeText(lobby.code);
             setCodeCopied(true);
+            toast(t('codeCopied'), 'success');
             setTimeout(() => setCodeCopied(false), 1500);
-        } catch { /* ignore */ }
+        } catch { toast(t('copyFailed'), 'error'); }
     }
 
     async function copyJoinLink() {
@@ -614,18 +629,23 @@ export default function App() {
             const url = `${window.location.origin}/join/${lobby.code}`;
             await navigator.clipboard.writeText(url);
             setLinkCopied(true);
+            toast(t('linkCopied'), 'success');
             setTimeout(() => setLinkCopied(false), 1500);
-        } catch { /* ignore */ }
+        } catch { toast(t('copyFailed'), 'error'); }
     }
 
     async function loadAvailableLobbies(append = false) {
         try {
+            setLoadingLobbies(true);
             const skip = append && availableLobbies ? availableLobbies.length : 0;
             const page = await listAvailableLobbies(skip, 20);
             setAvailableLobbies(prev => append ? ([...(prev ?? []), ...page]) : page);
         } catch (e) {
             console.error('Failed to load lobbies', e);
             setAvailableLobbies([]);
+            toast(t('lobbyListFailed'), 'error');
+        } finally {
+            setLoadingLobbies(false);
         }
     }
 
@@ -635,14 +655,17 @@ export default function App() {
 
     async function joinFromList(lobbyEntry: LobbyResponse) {
         const nick = (nickname || '').trim();
-        if (!nick) { alert('Please enter a nickname'); return; }
+        if (!nick) { toast(t('nicknameRequired'), 'warning'); return; }
         await doJoinAndEnter(lobbyEntry.code, nick, lobbyEntry.hasPassword);
     }
 
     // Leave lobby handler
     async function onLeaveLobby() {
         if (!lobby) return;
-        if (!confirm(t('confirmLeave') ?? 'Leave lobby?')) return;
+        const accepted = await confirmDialog({
+            title: t('leaveLobby'), message: t('confirmLeave'), confirmLabel: t('leave'), cancelLabel: t('cancel'), danger: true
+        });
+        if (!accepted) return;
         try {
             await leaveLobby(lobby.code);
             sessionStorage.removeItem('lobbyCode');
@@ -652,7 +675,7 @@ export default function App() {
             setMyRole(null);
             setView('lobby');
             setMessages([t('leftLobby')]);
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(errorMessage(e), 'error'); }
     }
 
     // Kick player handler (host only)
@@ -660,12 +683,16 @@ export default function App() {
         if (!lobby) return;
         const target = lobby.players.find(p => p.id === targetId);
         if (!target) return;
-        if (!confirm(t('confirmKick', { name: target.nickname }) ?? `Kick ${target.nickname}?`)) return;
+        const accepted = await confirmDialog({
+            title: t('kickPlayer'), message: t('confirmKick', { name: target.nickname }), confirmLabel: t('kick'), cancelLabel: t('cancel'), danger: true
+        });
+        if (!accepted) return;
         try {
             await kickPlayer(lobby.code, targetId);
             try { const refreshed = await getLobby(lobby.code); setLobby(refreshed); } catch { /* ignore, SignalR will update */ }
             setMessages(m => [...m, t('playerKicked')]);
-        } catch (e) { alert(String(e)); }
+            toast(t('playerKickedMessage', { nick: target.nickname }), 'success');
+        } catch (e) { toast(errorMessage(e), 'error'); }
     }
 
     const isHost = lobby?.players.find(p => p.id === myPlayerId)?.isHost ?? false;
@@ -718,9 +745,9 @@ export default function App() {
             setCurrentGameId(null);
             setView('lobby');
             setMessages(m => [...m, t('joinedLobby', { code: res.code })]);
-            try { await joinHubGroup(res.code); } catch (e) { alert(String(e)); }
+            try { await joinHubGroup(res.code); } catch (e) { toast(errorMessage(e), 'error'); }
         } catch (e) {
-            alert(String(e));
+            toast(errorMessage(e), 'error');
         }
     }
 
@@ -1026,35 +1053,33 @@ export default function App() {
                         </div>
 
                         {showAvailable && (
-                            <div className="card card--parchment" style={{ marginTop: 12 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                    <h3 style={{ margin: 0 }}>{t('availableLobbies')}</h3>
-                                    <button className="btn" onClick={() => loadAvailableLobbies()} title={t('refresh') ?? 'Refresh'}>↺</button>
-                                </div>
-                                <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                                    {availableLobbies === null && <div style={{ color: 'var(--text-dim)' }}>{t('loading')}</div>}
-                                    {availableLobbies && availableLobbies.length === 0 && <div style={{ color: 'var(--text-dim)' }}>{t('noLobbies')}</div>}
+                            <section className="card card--parchment lobby-browser">
+                                <header className="lobby-browser__header">
+                                    <div>
+                                        <h3 className="card__title">{t('availableLobbies')}</h3>
+                                        <p>{t('availableLobbiesHint')}</p>
+                                    </div>
+                                    <button className="icon-btn icon-btn--touch" onClick={() => loadAvailableLobbies()}
+                                        aria-label={t('refresh')} title={t('refresh')} disabled={loadingLobbies}>↻</button>
+                                </header>
+                                <div className="lobby-browser__list" aria-busy={loadingLobbies}>
+                                    {loadingLobbies && availableLobbies === null && <div className="empty-state">{t('loading')}</div>}
+                                    {availableLobbies && availableLobbies.length === 0 && <div className="empty-state">{t('noLobbies')}</div>}
                                     {availableLobbies && availableLobbies.map(l => (
-                                        <div key={l.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600 }}>
-                                                    {l.hasPassword && <span title={t('passwordProtected') ?? 'Password protected'} style={{ marginRight: 4 }}>🔒</span>}
-                                                    {l.code}
-                                                </div>
-                                                <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>{l.players.length} {t('players')}</div>
+                                        <div key={l.code} className="lobby-browser__item">
+                                            <div className="lobby-browser__identity">
+                                                <strong className="lobby-browser__code">{l.code}</strong>
+                                                {l.hasPassword && <span className="lobby-status" title={t('passwordProtected')}>🔒 {t('protected')}</span>}
+                                                <span className="lobby-browser__players">♟ {t('playerCount', { count: l.players.length })}</span>
                                             </div>
-                                            <div>
-                                                <button className="btn" onClick={() => joinFromList(l)}>{t('join')}</button>
-                                            </div>
+                                            <button className="btn btn--sm" onClick={() => joinFromList(l)}>{t('join')}</button>
                                         </div>
                                     ))}
                                     {availableLobbies && availableLobbies.length > 0 && (
-                                        <div style={{ marginTop: 8, textAlign: 'center' }}>
-                                            <button className="btn" onClick={loadMoreAvailable}>{t('loadMore')}</button>
-                                        </div>
+                                        <button className="btn btn--ghost lobby-browser__more" onClick={loadMoreAvailable} disabled={loadingLobbies}>{t('loadMore')}</button>
                                     )}
                                 </div>
-                            </div>
+                            </section>
                         )}
 
                         <Landing />
@@ -1071,25 +1096,21 @@ export default function App() {
                     <div className="lobby-room">
                         <TopBar showStatus={false} compact onProfile={() => setProfileOpen(true)} />
                         <div className="lobby-room__header">
-                            <div>
-                                <button className="lobby-room__code" onClick={copyCode}
-                                    title={t('copyCode')}>
-                                    {lobby.code}
-                                </button>
-                                <button className="btn" onClick={copyJoinLink} style={{ marginLeft: 8 }} title={t('copyLink')}>
-                                    🔗
-                                </button>
+                            <div className="invite-panel">
+                                <span className="field__label">{t('invitePlayers')}</span>
+                                <div className="invite-panel__actions">
+                                    <button className="lobby-room__code" onClick={copyCode} aria-label={t('copyCode')} title={t('copyCode')}>{lobby.code}</button>
+                                    <button className="icon-btn icon-btn--touch" onClick={copyJoinLink} aria-label={t('copyLink')} title={t('copyLink')}>🔗</button>
+                                </div>
                                 <div className="lobby-room__code-hint">
-                                    {codeCopied ? '✓ ' + t('codeCopied') : linkCopied ? '✓ ' + t('codeCopied') : t('tapToCopy')}
+                                    {codeCopied ? '✓ ' + t('codeCopied') : linkCopied ? '✓ ' + t('linkCopied') : t('tapToCopy')}
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div className="lobby-room__status-actions">
                                 <div className={`status-dot ${hubStarted ? '' : 'status-dot--off'}`}>
                                     {hubStarted ? t('connected') : t('connecting')}
                                 </div>
-                                <button className="btn" onClick={onLeaveLobby} title={t('leaveLobby')}>
-                                    {t('leave')}
-                                </button>
+                                <button className="btn btn--danger btn--sm" onClick={onLeaveLobby} title={t('leaveLobby')}>↩ {t('leave')}</button>
                             </div>
                         </div>
 
@@ -1119,8 +1140,9 @@ export default function App() {
                                         {p.isHost && <span className="lobby-tag">{t('host')}</span>}
                                         {p.id === myPlayerId && <span className="lobby-tag tag--you">{t('you')}</span>}
                                         {isHost && !lobby.started && p.id !== myPlayerId && (
-                                            <button className="icon-btn" onClick={() => onKickPlayer(p.id)} title={t('kick')}>
-                                                ❌
+                                            <button className="icon-btn icon-btn--danger icon-btn--touch" onClick={() => onKickPlayer(p.id)}
+                                                title={t('kick')} aria-label={t('kickPlayerNamed', { name: p.nickname })}>
+                                                ✕
                                             </button>
                                         )}
                                         {isHost && !lobby.started && (
@@ -1154,53 +1176,72 @@ export default function App() {
                         </div>
 
                         {!lobby.started && isHost && (
-                            <div className="card card--parchment" style={{ marginTop: 12 }}>
-                                <span className="field__label" style={{ display: 'block', marginBottom: 10 }}>{t('lobbyPrivacy')}</span>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer' }}>
+                            <section className="card card--parchment privacy-card">
+                                <header className="privacy-card__header">
+                                    <div><h3 className="card__title">{t('lobbyPrivacy')}</h3><p>{t('privacyHint')}</p></div>
+                                    <span className={`lobby-status ${lobby.isPrivate ? 'lobby-status--private' : ''}`}>
+                                        {lobby.isPrivate ? `◉ ${t('private')}` : `◎ ${t('public')}`}
+                                    </span>
+                                </header>
+                                <label className="toggle-row">
+                                    <span><strong>{t('privateLobby')}</strong><small>{t('privateLobbyHint')}</small></span>
                                     <input
                                         type="checkbox"
                                         checked={lobby.isPrivate}
                                         onChange={async e => {
                                             try {
+                                                setSavingPrivacy(true);
                                                 const updated = await updatePrivacySettings(lobby.code, e.target.checked, lobby.hasPassword ? privacyPassword || null : null);
                                                 setLobby(updated);
-                                            } catch (err) { alert(String(err)); }
+                                                toast(t('privacyUpdated'), 'success');
+                                            } catch (err) { toast(errorMessage(err), 'error'); }
+                                            finally { setSavingPrivacy(false); }
                                         }}
+                                        disabled={savingPrivacy}
                                     />
-                                    {t('privateLobby')}
                                 </label>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div className="privacy-card__password">
+                                    <label className="field privacy-card__field">
+                                        <span className="field__label">{t('lobbyPassword')}</span>
                                     <input
                                         className="input"
                                         type="password"
                                         placeholder={t('passwordOptional') ?? 'Password (optional)'}
                                         value={privacyPassword}
                                         onChange={e => setPrivacyPassword(e.target.value)}
-                                        style={{ flex: 1 }}
                                     />
-                                    <button className="btn" onClick={async () => {
+                                    </label>
+                                    <div className="privacy-card__actions">
+                                    <button className="btn" disabled={savingPrivacy} onClick={async () => {
                                         try {
+                                            setSavingPrivacy(true);
                                             const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, privacyPassword || null);
                                             setLobby(updated);
                                             if (!privacyPassword) setPrivacyPassword('');
-                                        } catch (err) { alert(String(err)); }
+                                            toast(privacyPassword ? t('passwordUpdated') : t('passwordRemoved'), 'success');
+                                        } catch (err) { toast(errorMessage(err), 'error'); }
+                                        finally { setSavingPrivacy(false); }
                                     }}>
                                         {lobby.hasPassword ? t('updatePassword') : t('setPassword')}
                                     </button>
                                     {lobby.hasPassword && (
-                                        <button className="btn" onClick={async () => {
+                                        <button className="btn btn--ghost" disabled={savingPrivacy} onClick={async () => {
                                             try {
+                                                setSavingPrivacy(true);
                                                 const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, null);
                                                 setLobby(updated);
                                                 setPrivacyPassword('');
-                                            } catch (err) { alert(String(err)); }
+                                                toast(t('passwordRemoved'), 'success');
+                                            } catch (err) { toast(errorMessage(err), 'error'); }
+                                            finally { setSavingPrivacy(false); }
                                         }}>
                                             {t('removePassword')}
                                         </button>
                                     )}
+                                    </div>
                                 </div>
-                                {lobby.hasPassword && <div style={{ color: 'var(--text-dim)', fontSize: 12, marginTop: 6 }}>🔒 {t('passwordSet')}</div>}
-                            </div>
+                                {lobby.hasPassword && <div className="privacy-card__status">🔒 {t('passwordSet')}</div>}
+                            </section>
                         )}
 
                         {!lobby.started && (

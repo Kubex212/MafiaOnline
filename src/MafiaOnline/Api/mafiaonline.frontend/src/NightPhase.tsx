@@ -9,6 +9,7 @@ import { addLog as pushLog } from './gameLog';
 import type { ActionInfo } from './RoundTable';
 import type { TFunction } from 'i18next';
 import { roleDescKey, roleDescParams, roleSigil } from './roleText';
+import { useUiFeedback } from './UiFeedback';
 
 interface Props {
     lobbyCode: string;
@@ -49,6 +50,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
     { lobbyCode, seats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [], showRoles = false }, ref
 ) {
     const { t } = useTranslation();
+    const { toast } = useUiFeedback();
     const [nightPayload, setNightPayload] = useState<NightStartedPayload | null>(null);
     const [timeLeft, setTimeLeft] = useState(NIGHT_SECONDS);
     const [resolved, setResolved] = useState<NightResolvedPayload | null>(null);
@@ -204,7 +206,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setLog(t('attackSubmitted'));
             // Clear selection for next action (ability)
             setSelectedTargets([]);
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(String(e), 'error'); }
         finally { setSubmitting(false); }
     }
 
@@ -221,7 +223,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
             setLog(t('actionSubmitted'));
             // Clear selection after ability
             setSelectedTargets([]);
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(String(e), 'error'); }
         finally { setSubmitting(false); }
     }
 
@@ -231,7 +233,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
         try {
             await skipNightTurn(lobbyCode);
             setLog(t('skipped'));
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(String(e), 'error'); }
         finally { setSubmitting(false); }
     }
 

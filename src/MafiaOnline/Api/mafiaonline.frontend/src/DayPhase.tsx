@@ -6,6 +6,7 @@ import RoundTable, { type TableSeatState, type VoteArrow } from './RoundTable';
 import RoleInfo from './RoleInfo';
 import EventLog from './EventLog';
 import { addLog as pushLog } from './gameLog';
+import { useUiFeedback } from './UiFeedback';
 
 export interface DayPhaseHandle {
     onDayStarted(payload: DayStartedPayload): void;
@@ -29,6 +30,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
     { lobbyCode, allSeats, myPlayerId, myRole, deadIds = [], config, otherWerewolvesIds = [] }, ref
 ) {
     const { t } = useTranslation();
+    const { toast } = useUiFeedback();
     const [alivePlayers, setAlivePlayers] = useState<SeatInfo[]>([]);
     const [duration, setDuration] = useState(180);
     const [showVoteTargets, setShowVoteTargets] = useState<ShowVotes>('Never');
@@ -112,7 +114,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             await castVote(lobbyCode, selectedTarget);
             setMyVote(selectedTarget);
             setLog(t('yourVoteCast'));
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(String(e), 'error'); }
         finally { setSubmitting(false); }
     }
 
@@ -123,7 +125,7 @@ const DayPhase = forwardRef<DayPhaseHandle, Props>(function DayPhase(
             await castVote(lobbyCode, null);
             setMyVote(null);
             setLog(t('yourVoteCast'));
-        } catch (e) { alert(String(e)); }
+        } catch (e) { toast(String(e), 'error'); }
         finally { setSubmitting(false); }
     }
 
