@@ -69,6 +69,7 @@ export default function App() {
     const [loadingLobbies, setLoadingLobbies] = useState(false);
     const [savingPrivacy, setSavingPrivacy] = useState(false);
     const [showQr, setShowQr] = useState(false);
+    const [lobbyTab, setLobbyTab] = useState<'privacy' | 'settings' | 'roles'>('settings');
 
     const connRef = useRef<HubConnection | null>(null);
     const lobbyRef = useRef<LobbyResponse | null>(null);
@@ -1179,78 +1180,97 @@ export default function App() {
                         </div>
 
                         {!lobby.started && isHost && (
-                            <section className="card card--parchment privacy-card">
-                                <header className="privacy-card__header">
-                                    <div><h3 className="card__title">{t('lobbyPrivacy')}</h3><p>{t('privacyHint')}</p></div>
-                                    <span className={`lobby-status ${lobby.isPrivate ? 'lobby-status--private' : ''}`}>
-                                        {lobby.isPrivate ? `◉ ${t('private')}` : `◎ ${t('public')}`}
-                                    </span>
-                                </header>
-                                <label className="toggle-row">
-                                    <span><strong>{t('privateLobby')}</strong><small>{t('privateLobbyHint')}</small></span>
-                                    <input
-                                        type="checkbox"
-                                        checked={lobby.isPrivate}
-                                        onChange={async e => {
-                                            try {
-                                                setSavingPrivacy(true);
-                                                const updated = await updatePrivacySettings(lobby.code, e.target.checked, lobby.hasPassword ? privacyPassword || null : null);
-                                                setLobby(updated);
-                                                toast(t('privacyUpdated'), 'success');
-                                            } catch (err) { toast(errorMessage(err), 'error'); }
-                                            finally { setSavingPrivacy(false); }
-                                        }}
-                                        disabled={savingPrivacy}
-                                    />
-                                </label>
-                                <div className="privacy-card__password">
-                                    <label className="field privacy-card__field">
-                                        <span className="field__label">{t('lobbyPassword')}</span>
-                                    <input
-                                        className="input"
-                                        type="password"
-                                        placeholder={t('passwordOptional') ?? 'Password (optional)'}
-                                        value={privacyPassword}
-                                        onChange={e => setPrivacyPassword(e.target.value)}
-                                    />
-                                    </label>
-                                    <div className="privacy-card__actions">
-                                    <button className="btn" disabled={savingPrivacy} onClick={async () => {
-                                        try {
-                                            setSavingPrivacy(true);
-                                            const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, privacyPassword || null);
-                                            setLobby(updated);
-                                            if (!privacyPassword) setPrivacyPassword('');
-                                            toast(privacyPassword ? t('passwordUpdated') : t('passwordRemoved'), 'success');
-                                        } catch (err) { toast(errorMessage(err), 'error'); }
-                                        finally { setSavingPrivacy(false); }
-                                    }}>
-                                        {lobby.hasPassword ? t('updatePassword') : t('setPassword')}
-                                    </button>
-                                    {lobby.hasPassword && (
-                                        <button className="btn btn--ghost" disabled={savingPrivacy} onClick={async () => {
-                                            try {
-                                                setSavingPrivacy(true);
-                                                const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, null);
-                                                setLobby(updated);
-                                                setPrivacyPassword('');
-                                                toast(t('passwordRemoved'), 'success');
-                                            } catch (err) { toast(errorMessage(err), 'error'); }
-                                            finally { setSavingPrivacy(false); }
-                                        }}>
-                                            {t('removePassword')}
-                                        </button>
-                                    )}
-                                    </div>
+                            <section className="card card--parchment">
+                                <div className="tabs">
+                                    <button className={`tabs__tab${lobbyTab === 'settings' ? ' is-active' : ''}`}
+                                        onClick={() => setLobbyTab('settings')}>{t('gameConfig')}</button>
+                                    <button className={`tabs__tab${lobbyTab === 'roles' ? ' is-active' : ''}`}
+                                        onClick={() => setLobbyTab('roles')}>{t('roleCards')}</button>
+                                    <button className={`tabs__tab${lobbyTab === 'privacy' ? ' is-active' : ''}`}
+                                        onClick={() => setLobbyTab('privacy')}>{t('lobbyPrivacy')}</button>
                                 </div>
-                                {lobby.hasPassword && <div className="privacy-card__status">🔒 {t('passwordSet')}</div>}
+
+                                {lobbyTab === 'privacy' && (
+                                    <div className="privacy-card">
+                                        <header className="privacy-card__header">
+                                            <div><h3 className="card__title">{t('lobbyPrivacy')}</h3><p>{t('privacyHint')}</p></div>
+                                            <span className={`lobby-status ${lobby.isPrivate ? 'lobby-status--private' : ''}`}>
+                                                {lobby.isPrivate ? `◉ ${t('private')}` : `◎ ${t('public')}`}
+                                            </span>
+                                        </header>
+                                        <label className="toggle-row">
+                                            <span><strong>{t('privateLobby')}</strong><small>{t('privateLobbyHint')}</small></span>
+                                            <input
+                                                type="checkbox"
+                                                checked={lobby.isPrivate}
+                                                onChange={async e => {
+                                                    try {
+                                                        setSavingPrivacy(true);
+                                                        const updated = await updatePrivacySettings(lobby.code, e.target.checked, lobby.hasPassword ? privacyPassword || null : null);
+                                                        setLobby(updated);
+                                                        toast(t('privacyUpdated'), 'success');
+                                                    } catch (err) { toast(errorMessage(err), 'error'); }
+                                                    finally { setSavingPrivacy(false); }
+                                                }}
+                                                disabled={savingPrivacy}
+                                            />
+                                        </label>
+                                        <div className="privacy-card__password">
+                                            <label className="field privacy-card__field">
+                                                <span className="field__label">{t('lobbyPassword')}</span>
+                                                <input
+                                                    className="input"
+                                                    type="password"
+                                                    placeholder={t('passwordOptional') ?? 'Password (optional)'}
+                                                    value={privacyPassword}
+                                                    onChange={e => setPrivacyPassword(e.target.value)}
+                                                />
+                                            </label>
+                                            <div className="privacy-card__actions">
+                                                <button className="btn" disabled={savingPrivacy} onClick={async () => {
+                                                    try {
+                                                        setSavingPrivacy(true);
+                                                        const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, privacyPassword || null);
+                                                        setLobby(updated);
+                                                        if (!privacyPassword) setPrivacyPassword('');
+                                                        toast(privacyPassword ? t('passwordUpdated') : t('passwordRemoved'), 'success');
+                                                    } catch (err) { toast(errorMessage(err), 'error'); }
+                                                    finally { setSavingPrivacy(false); }
+                                                }}>
+                                                    {lobby.hasPassword ? t('updatePassword') : t('setPassword')}
+                                                </button>
+                                                {lobby.hasPassword && (
+                                                    <button className="btn btn--ghost" disabled={savingPrivacy} onClick={async () => {
+                                                        try {
+                                                            setSavingPrivacy(true);
+                                                            const updated = await updatePrivacySettings(lobby.code, lobby.isPrivate, null);
+                                                            setLobby(updated);
+                                                            setPrivacyPassword('');
+                                                            toast(t('passwordRemoved'), 'success');
+                                                        } catch (err) { toast(errorMessage(err), 'error'); }
+                                                        finally { setSavingPrivacy(false); }
+                                                    }}>
+                                                        {t('removePassword')}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {lobby.hasPassword && <div className="privacy-card__status">🔒 {t('passwordSet')}</div>}
+                                    </div>
+                                )}
+
+                                {lobbyTab === 'settings' && (
+                                    <GameConfigPanel config={lobby.config} onChange={onConfigChange} section="settings" />
+                                )}
+
+                                {lobbyTab === 'roles' && (
+                                    <GameConfigPanel config={lobby.config} onChange={onConfigChange} section="roles" />
+                                )}
                             </section>
                         )}
 
-                        {!lobby.started && (
-                            isHost
-                                ? <GameConfigPanel config={lobby.config} onChange={onConfigChange} />
-                                : <GameConfigView config={lobby.config} />
+                        {!lobby.started && !isHost && (
+                            <GameConfigView config={lobby.config} />
                         )}
 
                         {canStart && (

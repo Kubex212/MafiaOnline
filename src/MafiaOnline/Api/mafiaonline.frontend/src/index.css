@@ -571,6 +571,9 @@ code {
 .lobby-room {
     max-width: 520px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .lobby-room__header {

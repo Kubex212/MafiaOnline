@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { GameConfig, WerewolfConfig } from './api';
 import { nonStandardRoleTypes } from './api';
 import { DEFAULT_WEREWOLF_CONFIG } from './api';
@@ -16,6 +16,7 @@ function Flag({ on, t }: { on: boolean; t: (k: string) => string }) {
 /** Read-only mirror of the host's game configuration (live via ConfigUpdated). */
 export default function GameConfigView({ config }: { config: GameConfig }) {
     const { t } = useTranslation();
+    const [activeTab, setActiveTab] = useState<'settings' | 'roles'>('settings');
     const werewolf: WerewolfConfig = { ...DEFAULT_WEREWOLF_CONFIG, ...(config.werewolf ?? {}) };
     const votesLabel = (v: string) =>
         v === 'Never' ? t('votesNever')
@@ -23,62 +24,83 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
             : t('votesAlways');
 
     return (
-        <div className="config config--readonly">
-            <h3 style={{ color: 'var(--accent)', margin: '0 0 12px',
-                letterSpacing: '0.12em', textTransform: 'uppercase', fontSize: '0.9rem' }}>
-                {t('gameConfig')}
-            </h3>
-
-            <div className="config__section">
-                <h4 className="config__section-title">{t('generalSettings')}</h4>
-                <div className="config__row">
-                    <span>{t('werewolfCount')}</span>
-                    <span className="config__value">{config.werewolfCount ?? 0}</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('turnDurationSeconds')}</span>
-                    <span className="config__value">{config.turnDurationSeconds ?? 0}</span>
-                </div>
+        <div className="card card--parchment config config--readonly">
+            <div className="tabs">
+                <button className={`tabs__tab${activeTab === 'settings' ? ' is-active' : ''}`}
+                    onClick={() => setActiveTab('settings')}>{t('gameConfig')}</button>
+                <button className={`tabs__tab${activeTab === 'roles' ? ' is-active' : ''}`}
+                    onClick={() => setActiveTab('roles')}>{t('roleCards')}</button>
             </div>
 
-            <div className="config__section">
-                <h4 className="config__section-title">{t('daySettings')}</h4>
-                <div className="config__row">
-                    <span>{t('dayDurationSeconds')}</span>
-                    <span className="config__value">{config.day?.durationSeconds ?? 0}</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('votesRequiredFraction')}</span>
-                    <span className="config__value">{config.day?.votesRequiredFraction ?? 0}</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('drawResolution')}</span>
-                    <span className="config__value">{t('draw' + (config.day?.drawResolution ?? ''))}</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('showVoteTargets')}</span>
-                    <span className="config__value">{votesLabel(config.day?.showVoteTargets ?? 'Always')}</span>
-                </div>
-            </div>
+            {activeTab === 'settings' && (
+                <>
+                    <div className="config__section">
+                        <h4 className="config__section-title">{t('generalSettings')}</h4>
+                        <div className="config__row">
+                            <span>{t('werewolfCount')}</span>
+                            <span className="config__value">{config.werewolfCount ?? 0}</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('turnDurationSeconds')}</span>
+                            <span className="config__value">{config.turnDurationSeconds ?? 0}</span>
+                        </div>
+                    </div>
 
-            <div className="config__section">
-                <h4 className="config__section-title">{t('werewolfSettings')}</h4>
-                <div className="config__row">
-                    <span>{t('werewolfDrawResolution')}</span>
-                    <span className="config__value">{t('draw' + (werewolf.drawResolution ?? DEFAULT_WEREWOLF_CONFIG.drawResolution))}</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('werewolfShowVoteTargets')}</span>
-                    <span className="config__value">{votesLabel(werewolf.showVoteTargets)}</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('werewolfAlibi')}</span>
-                    <Flag on={werewolf.showAlibi ?? DEFAULT_WEREWOLF_CONFIG.showAlibi} t={t} />
-                </div>
-            </div>
+                    <div className="config__section">
+                        <h4 className="config__section-title">{t('daySettings')}</h4>
+                        <div className="config__row">
+                            <span>{t('dayDurationSeconds')}</span>
+                            <span className="config__value">{config.day?.durationSeconds ?? 0}</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('votesRequiredFraction')}</span>
+                            <span className="config__value">{config.day?.votesRequiredFraction ?? 0}</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('drawResolution')}</span>
+                            <span className="config__value">{t('draw' + (config.day?.drawResolution ?? ''))}</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('showVoteTargets')}</span>
+                            <span className="config__value">{votesLabel(config.day?.showVoteTargets ?? 'Always')}</span>
+                        </div>
+                    </div>
 
-            <div className="config__section">
-                <h4 className="config__section-title">{t('roleCards')}</h4>
+                    <div className="config__section">
+                        <h4 className="config__section-title">{t('werewolfSettings')}</h4>
+                        <div className="config__row">
+                            <span>{t('werewolfDrawResolution')}</span>
+                            <span className="config__value">{t('draw' + (werewolf.drawResolution ?? DEFAULT_WEREWOLF_CONFIG.drawResolution))}</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('werewolfShowVoteTargets')}</span>
+                            <span className="config__value">{votesLabel(werewolf.showVoteTargets)}</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('werewolfAlibi')}</span>
+                            <Flag on={werewolf.showAlibi ?? DEFAULT_WEREWOLF_CONFIG.showAlibi} t={t} />
+                        </div>
+                    </div>
+
+                    <div className="config__section">
+                        <h4 className="config__section-title">{t('drunkSettings')}</h4>
+                        <div className="config__row">
+                            <span>{t('drunkOccuranceChance')}</span>
+                            <span className="config__value">{config.drunk?.drunkOccuranceChance ?? 100}%</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('drunkEffectChance')}</span>
+                            <span className="config__value">{config.drunk?.drunkEffectChance ?? 100}%</span>
+                        </div>
+                        <div className="config__row">
+                            <span>{t('announceDrunkOccurance')}</span>
+                            <span className="config__value">{config.drunk?.announceDrunkOccurance ? t('on') : t('off')}</span>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {activeTab === 'roles' && (
                 <div className="config__grid">
                     {nonStandardRoleTypes.map(key => {
                         const enabled = !!config.enabledRoles?.includes(key);
@@ -132,23 +154,7 @@ export default function GameConfigView({ config }: { config: GameConfig }) {
                         );
                     })}
                 </div>
-            </div>
-
-            <div className="config__section">
-                <h4 className="config__section-title">{t('drunkSettings')}</h4>
-                <div className="config__row">
-                    <span>{t('drunkOccuranceChance')}</span>
-                    <span className="config__value">{config.drunk?.drunkOccuranceChance ?? 100}%</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('drunkEffectChance')}</span>
-                    <span className="config__value">{config.drunk?.drunkEffectChance ?? 100}%</span>
-                </div>
-                <div className="config__row">
-                    <span>{t('announceDrunkOccurance')}</span>
-                    <span className="config__value">{config.drunk?.announceDrunkOccurance ? t('on') : t('off')}</span>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
