@@ -111,7 +111,7 @@
   "GhostDescriptionLong": "You are undetectable - for any villager ability, whether passive or active, you appear as a regular villager.",
   "GhostDescriptionShort": "You are undetectable by any villager ability.",
   "CharmerDescriptionLong": "You can select a player to make them fall asleep. In result their night ability, either passive or active, will not work.",
-  "ChamerDescriptionShort": "You can make a player fall asleep, disabling their night ability.",
+  "CharmerDescriptionShort": "You can make a player fall asleep, disabling their night ability.",
   "VillagerDescriptionLong": "A villager with no special ability. Your goal is to find the werewolves and banish them from the village.",
   "VillagerDescriptionShort": "Find the werewolves and banish them.",
   "GuardianDescriptionLong": "Each night you can protect a player. The protected player will be immune to any werewolf attacks.",
@@ -307,6 +307,8 @@
   "availableLobbiesHint": "Join an open table without entering a code.",
   "protected": "Protected",
   "playerCount_one": "{{count}} player",
+  "playerCount_few": "{{count}} players",
+  "playerCount_many": "{{count}} players",
   "playerCount_other": "{{count}} players",
   "confirmLeave": "Are you sure you want to leave this lobby?",
   "kickPlayer": "Remove player",
@@ -324,4 +326,21 @@
   "passwordRemoved": "Lobby password removed.",
   "showQr": "Show QR code",
   "qrHint": "Scan to join the lobby instantly."
+  ,"createOrJoin": "Create or join"
+  ,"lobbyActions": "Lobby options"
+  ,"chooseYourAction": "Choose your action"
+  ,"differenceTeams": "different teams"
+  ,"draw": "Draw"
+  ,"kick": "Remove"
+  ,"leaveLobby": "Leave lobby"
+  ,"leftLobby": "You left the lobby."
+  ,"nightStarted": "Night has begun."
+  ,"playerKicked": "A player was removed from the lobby."
+  ,"playerLeft": "{{nick}} left the lobby."
+  ,"playerSubmittedAction": "{{name}} submitted their action."
+  ,"youWereKicked": "You were removed from the lobby."
+  ,"yourActionSubmitted": "Your action was submitted."
+  ,"spyClueLong": "Spy clue — {{player}} {{did}} leave their house tonight."
+  ,"spyClue-true": "DID"
+  ,"spyClue-false": "DID NOT"
 }

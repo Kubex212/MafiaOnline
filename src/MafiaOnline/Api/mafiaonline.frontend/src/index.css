@@ -521,6 +521,49 @@ code {
     box-shadow: var(--shadow, 0 10px 30px rgba(0,0,0,0.25));
 }
 
+.home-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+}
+
+.home-tabs__tab {
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 10px;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    font: 700 0.72rem/1.2 var(--font-ui);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+
+.home-tabs__tab.is-active {
+    color: var(--accent-2);
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow-md);
+}
+
+.home-tab-panel {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+    width: 100%;
+}
+
+.profile-card__login-actions {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
 @media (min-width: 620px) {
     .join-form {
         gap: 18px;
@@ -2745,9 +2788,12 @@ svg, img {
 .btn--sm { min-height: 38px; padding: 8px 13px; }
 .icon-btn--touch { min-width: 42px; min-height: 42px; }
 .icon-btn--danger { color: var(--danger-2); border-color: color-mix(in srgb, var(--danger-2) 40%, transparent); }
+.icon-btn--kick { width: 28px; height: 19px; padding: 0; flex: 0 0 28px; }
+.btn--leave { color: var(--danger-2); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); border-color: color-mix(in srgb, var(--danger-2) 45%, var(--border)); }
+.btn--leave:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--danger) 24%, var(--surface)); border-color: var(--danger-2); }
 .empty-state { padding: 24px 12px; color: var(--text-dim); text-align: center; }
 
-.lobby-browser { margin-top: 12px; overflow: hidden; }
+.lobby-browser { overflow: hidden; min-width: 0; max-width: 100%; }
 .lobby-browser__header, .privacy-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
 .card__title { margin: 0; font-size: 1.05rem; }
 .lobby-browser__header p, .privacy-card__header p { margin: 4px 0 0; color: var(--text-dim); font-size: 0.8rem; line-height: 1.4; }
@@ -2780,6 +2826,7 @@ svg, img {
     .lobby-browser__header p, .privacy-card__header p { display: none; }
     .lobby-browser__item { align-items: stretch; }
     .lobby-browser__item .btn { align-self: center; }
+    .home-tabs__tab { font-size: 0.68rem; padding-inline: 6px; }
     .lobby-room__header { align-items: flex-start; flex-wrap: wrap; }
     .lobby-room__status-actions { width: 100%; justify-content: space-between; }
     .privacy-card__header { align-items: center; }

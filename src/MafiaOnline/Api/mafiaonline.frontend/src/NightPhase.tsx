@@ -38,11 +38,12 @@ export interface ActionData {
     attack: string[];
 }
 
-export enum ActionType {
-    Attack = 0,
-    Ability = 1,
-    Other = 2,
-}
+export const ActionType = {
+    Attack: 0,
+    Ability: 1,
+    Other: 2,
+} as const;
+export type ActionType = typeof ActionType[keyof typeof ActionType];
 
 const NIGHT_SECONDS = 1000;
 
@@ -330,7 +331,7 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                 centreLabel={t('night')}
                 centreIcon="🌙"
                 onSeatClick={s => toggleTarget(s.id)}
-                myAction={myAction}
+                myAction={myAction ?? undefined}
             />
 
             {nightPayload && !resolved && (
@@ -399,12 +400,12 @@ const NightPhase = forwardRef<NightPhaseHandle, Props>(function NightPhase(
                     )}
                     {nightInfo?.type === 'Peeper' && (
                         <div className="resolution__clue">
-                            👀 {t('peeperClueLong', { player: t(nightInfo.data.SubjectName), is: t('peeperClue-' + nightInfo.clue) })}
+                            👀 {t('peeperClueLong', { player: t(String(nightInfo.data.SubjectName)), is: t('peeperClue-' + nightInfo.clue) })}
                         </div>
                     )}
                     {nightInfo?.type === 'Spy' && (
                         <div className="resolution__clue">
-                            🕵️‍ {t('spyClueLong', { player: t(nightInfo.data.SubjectName), did: t('spyClue-' + nightInfo.clue) })}
+                            🕵️‍ {t('spyClueLong', { player: t(String(nightInfo.data.SubjectName)), did: t('spyClue-' + nightInfo.clue) })}
                         </div>
                     )}
                     {nightInfo?.type === 'Ranger' && (
@@ -446,7 +447,7 @@ function displayAlchemistClue(clueData: any, t: TFunction): string {
         case 2:
         case 3:
         case 4:
-            return t(resource, { pool: clueData.data.map(s => t(s)).join(", ") });
+            return t(resource, { pool: clueData.data.map((s: string) => t(s)).join(", ") });
         default:
             return t(resource, { werewolves: clueData.data.join(", ") });
     }

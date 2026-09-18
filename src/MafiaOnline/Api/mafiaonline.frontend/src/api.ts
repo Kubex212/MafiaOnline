@@ -290,33 +290,34 @@ export type TurnFinishedPayload = {
 
 export type NightResolvedPayload = { gameId?: string; killed: string[]; attackBlocked: boolean; };
 
-export enum ClueType {
-    Detective = "Detective",
-    DogTamer = "DogTamer",
-    Seer = "Seer",
-    Trailer = "Trailer",
-    Peeper = "Peeper",
-    Spy = "Spy",
-    Ranger = "Ranger",
-    Alchemist = "Alchemist",
-    Sorcerer = "Sorcerer",
-    Innkeeper = "Innkeeper"
-}
+export const ClueType = {
+    Detective: "Detective",
+    DogTamer: "DogTamer",
+    Seer: "Seer",
+    Trailer: "Trailer",
+    Peeper: "Peeper",
+    Spy: "Spy",
+    Ranger: "Ranger",
+    Alchemist: "Alchemist",
+    Sorcerer: "Sorcerer",
+    Innkeeper: "Innkeeper",
+} as const;
+export type ClueType = typeof ClueType[keyof typeof ClueType];
 
 export interface ClueResponse { type: ClueType | string; data: Record<string, unknown>; clue: unknown; }
-export interface DetectiveClueResponse extends ClueResponse { type: ClueType.Detective; clue: string; }
-export interface DogTamerClueResponse extends ClueResponse { type: ClueType.DogTamer; clue: boolean; }
+export interface DetectiveClueResponse extends ClueResponse { type: typeof ClueType.Detective; clue: string; }
+export interface DogTamerClueResponse extends ClueResponse { type: typeof ClueType.DogTamer; clue: boolean; }
 export interface SeerClueResponse extends ClueResponse {
-    type: ClueType.Seer; clue: boolean;
+    type: typeof ClueType.Seer; clue: boolean;
     data: { SubjectAName: string; SubjectBName: string; SubjectA: string; SubjectB: string; };
 }
-export interface TrailerClueResponse extends ClueResponse { type: ClueType.Trailer; clue: string; }
-export interface PeeperClueResponse extends ClueResponse { type: ClueType.Peeper; clue: boolean; }
-export interface SpyClueResponse extends ClueResponse { type: ClueType.Spy; clue: boolean; }
-export interface RangerClueResponse extends ClueResponse { type: ClueType.Ranger; clue: number; }
-export interface AlchemistClueResponse extends ClueResponse { type: ClueType.Alchemist; clue: any; }
-export interface SorcererClueResponse extends ClueResponse { type: ClueType.Sorcerer; clue: number; }
-export interface InnkeeperClueResponse extends ClueResponse { type: ClueType.Innkeeper; clue: string[]; }
+export interface TrailerClueResponse extends ClueResponse { type: typeof ClueType.Trailer; clue: string; }
+export interface PeeperClueResponse extends ClueResponse { type: typeof ClueType.Peeper; clue: boolean; }
+export interface SpyClueResponse extends ClueResponse { type: typeof ClueType.Spy; clue: boolean; }
+export interface RangerClueResponse extends ClueResponse { type: typeof ClueType.Ranger; clue: number; }
+export interface AlchemistClueResponse extends ClueResponse { type: typeof ClueType.Alchemist; clue: any; }
+export interface SorcererClueResponse extends ClueResponse { type: typeof ClueType.Sorcerer; clue: number; }
+export interface InnkeeperClueResponse extends ClueResponse { type: typeof ClueType.Innkeeper; clue: string[]; }
 
 export type AnyClueResponse =
     | DetectiveClueResponse | DogTamerClueResponse | SeerClueResponse | TrailerClueResponse | PeeperClueResponse | SpyClueResponse | RangerClueResponse | AlchemistClueResponse | SorcererClueResponse | InnkeeperClueResponse;

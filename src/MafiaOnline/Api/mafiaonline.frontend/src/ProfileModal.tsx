@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getMe, updateMe, getMyStats, getMyHistory } from './api';
+import { getMe, updateMe, getMyStats, getMyHistory, getDiscordLoginUrl, getGoogleLoginUrl } from './api';
 import type { MeResponse, UserStatisticsResponse, RoleStatisticsResponse, GameHistoryItemResponse } from './api';
 import { useTranslation } from 'react-i18next';
 import { roleSigil } from './roleText';
@@ -134,9 +134,14 @@ export default function ProfileModal({ open, onClose, onSaved }: Props) {
                                     {me.isAnonymous ? (
                                         <>
                                             <p className="profile-card__hint">{t('guestHint')}</p>
-                                            <a className="btn btn--discord btn--block" href="/api/auth/discord">
-                                                {t('loginWithDiscord')}
-                                            </a>
+                                            <div className="profile-card__login-actions">
+                                                <a className="btn btn--discord btn--block" href={getDiscordLoginUrl(window.location.pathname)}>
+                                                    {t('loginWithDiscord')}
+                                                </a>
+                                                <a className="btn btn--google btn--block" href={getGoogleLoginUrl(window.location.pathname)}>
+                                                    {t('loginWithGoogle')}
+                                                </a>
+                                            </div>
                                         </>
                                     ) : (
                                         <ul className="profile-providers">
@@ -196,8 +201,8 @@ export default function ProfileModal({ open, onClose, onSaved }: Props) {
                                                     <ul className="history">
                                                         {history.slice(0, 10).map((g, i) => (
                                                             <li key={i} className={g.won ? 'history__item is-won' : 'history__item'}>
-                                                                <span className="history__sigil" aria-hidden>{roleSigil(g.role)}</span>
-                                                                <span className="history__role">{t(g.role)}</span>
+                                                                <span className="history__sigil" aria-hidden>{roleSigil(g.roleId)}</span>
+                                                                <span className="history__role">{t(g.roleId)}</span>
                                                                 <span className="history__meta">
                                                                     {new Date(g.playedAtUtc).toLocaleDateString(i18n.language)} · {g.playerCount}p · {fmtDuration(g.duration)}
                                                                 </span>

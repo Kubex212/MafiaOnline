@@ -154,7 +154,7 @@ export default function RoundTable({
                 const d = Math.sqrt(dx * dx + dy * dy);
                 const ux = dx / d;
                 const uy = dy / d;
-                const style = arrowStyles[v.kind];
+                const style = arrowStyles[v.kind ?? 'vote'];
 
                 return (
                     <line

@@ -250,8 +250,8 @@ export default function GameConfigPanel({ config, onChange, section }: GameConfi
                                     <label>
                                         <span>{t('innkeeperSuspectCount')}</span>
                                         <input type="number" min={1} max={10} className="config__num"
-                                            value={local.innkeeper?.supsectCount ?? 2}
-                                            onChange={e => updateNested('innkeeper', { supsectCount: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)) })} />
+                                            value={local.innkeeper?.suspectCount ?? 2}
+                                            onChange={e => updateNested('innkeeper', { suspectCount: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)) })} />
                                     </label>
                                 </div>
                             )}

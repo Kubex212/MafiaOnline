@@ -64,7 +64,7 @@ export default function App() {
     const [showJoinModal, setShowJoinModal] = useState(false);
 
     const [availableLobbies, setAvailableLobbies] = useState<LobbyResponse[] | null>(null);
-    const [showAvailable, setShowAvailable] = useState(false);
+    const [homeTab, setHomeTab] = useState<'create' | 'available'>('create');
     const [privacyPassword, setPrivacyPassword] = useState('');
     const [loadingLobbies, setLoadingLobbies] = useState(false);
     const [savingPrivacy, setSavingPrivacy] = useState(false);
@@ -257,11 +257,11 @@ export default function App() {
                         isHost: o.isHost,
                         seatIndex: existing?.seatIndex ?? -1,
                         lobbyPosition: o.lobbyPosition,
-                        readyForRematch: o.ready ?? existing?.ready ?? false,
+                        ready: o.ready ?? existing?.ready ?? false,
                     } as PlayerResponse;
                 });
 
-                setLobby({ code: prev.code, started: prev.started, players: newPlayers, config: prev.config });
+                setLobby({ ...prev, players: newPlayers });
             });
 
             conn.on('ConfigUpdated', (cfg: GameConfig) => {
@@ -591,7 +591,7 @@ export default function App() {
         setMessages([t('joinedLobby', { code: res.code })]);
         playSound('join-lobby');
         try { await joinHubGroup(res.code); } catch { /* ignore */ }
-        setShowAvailable(false);
+        setHomeTab('create');
     }
 
     async function onJoin() {
@@ -729,11 +729,13 @@ export default function App() {
     // Handlers for rematch creation/joining
     async function joinRematchHandler() {
         const code = sessionStorage.getItem('lobbyCode');
+        if (!code) {
+            toast(t('actionFailed'), 'error');
+            return;
+        }
         try {
             // Signal server that I'm ready for rematch
-            if (code) {
-                try { await markReadyForRematch(code); } catch { /* ignore */ }
-            }
+            try { await markReadyForRematch(code); } catch { /* ignore */ }
 
             const res = await getLobby(code);
             const me = res.players.find(p => p.nickname.toLowerCase() === nickname.toLowerCase())
@@ -988,6 +990,22 @@ export default function App() {
                         </header>
 
                         <div className="join-form">
+                            <div className="home-tabs" role="tablist" aria-label={t('lobbyActions')}>
+                                <button type="button" role="tab" aria-selected={homeTab === 'create'}
+                                    className={`home-tabs__tab${homeTab === 'create' ? ' is-active' : ''}`}
+                                    onClick={() => setHomeTab('create')}>
+                                    {t('createOrJoin')}
+                                </button>
+                                <button type="button" role="tab" aria-selected={homeTab === 'available'}
+                                    className={`home-tabs__tab${homeTab === 'available' ? ' is-active' : ''}`}
+                                    onClick={async () => {
+                                        setHomeTab('available');
+                                        await loadAvailableLobbies();
+                                    }}>
+                                    {t('availableLobbies')}
+                                </button>
+                            </div>
+
                             <label className="field">
                                 <span className="field__label">{t('nickname')}</span>
                                 <input className="input" value={nickname}
@@ -996,67 +1014,25 @@ export default function App() {
                                     maxLength={16} />
                             </label>
 
-                            <button className="btn btn--primary btn--block"
-                                onClick={onCreate} disabled={creating || !nickname.trim() || !sessionReady}>
-                                {creating ? (
-                                    <>
-                                        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-                                            <g fill="none" stroke="currentColor" strokeWidth="2">
-                                                <circle cx="8" cy="8" r="6" strokeOpacity="0.25" />
-                                                <path d="M14 8a6 6 0 0 0-6-6" strokeLinecap="round">
-                                                    <animateTransform attributeName="transform" type="rotate"
-                                                        from="0 8 8" to="360 8 8" dur="0.9s" repeatCount="indefinite" />
-                                                </path>
-                                            </g>
-                                        </svg>
-                                        {t('creating')}
-                                    </>
-                                ) : t('createLobby')}
-                            </button>
-
-                            <div className="join-form__divider">{t('orJoin')}</div>
-
-                            <div className="join-form__row">
-                                <input className="input input--code"
-                                    value={codeToJoin}
-                                    placeholder="XXXXXX"
-                                    maxLength={8}
-                                    onChange={e => setCodeToJoin(e.target.value.toUpperCase())} />
-                                <button className="btn" onClick={onJoin}
-                                    disabled={!codeToJoin.trim() || !nickname.trim() || !sessionReady}>
-                                    {t('join')}
-                                </button>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                <button className="btn" onClick={async () => { setShowAvailable(s => !s); if (!availableLobbies) await loadAvailableLobbies(); }}>
-                                    {t('availableLobbies')}
-                                </button>
-                            </div>
-
-                            <div className="join-form__divider">{t('orLoginWith')}</div>
-
-                            <a className="btn btn--discord btn--block" href={getDiscordLoginUrl(window.location.pathname)}>
-                                <svg width="20" height="20" viewBox="0 0 127.14 96.36" aria-hidden fill="currentColor">
-                                    <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
-                                </svg>
-                                {t('loginWithDiscord')}
-                            </a>
-
-                            <a className="btn btn--google btn--block" href={getGoogleLoginUrl(window.location.pathname)}>
-                                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-                                    <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.4 17.7 9.5 24 9.5z" />
-                                    <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.1h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.7 6c4.5-4.2 6.4-10.1 6.4-17.3z" />
-                                    <path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.7 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z" />
-                                    <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.7-5.8l-7.7-6c-2.1 1.4-4.8 2.4-8 2.4-6.3 0-11.6-3.9-13.5-9.4l-7.9 6.2C6.5 42.6 14.6 48 24 48z" />
-                                </svg>
-                                {t('loginWithGoogle')}
-                            </a>
-
-                        </div>
-
-                        {showAvailable && (
-                            <section className="card card--parchment lobby-browser">
+                            {homeTab === 'create' ? (
+                                <div className="home-tab-panel" role="tabpanel">
+                                    <button className="btn btn--primary btn--block"
+                                        onClick={onCreate} disabled={creating || !nickname.trim() || !sessionReady}>
+                                        {creating ? t('creating') : t('createLobby')}
+                                    </button>
+                                    <div className="join-form__divider">{t('orJoin')}</div>
+                                    <div className="join-form__row">
+                                        <input className="input input--code" value={codeToJoin}
+                                            aria-label={t('lobbyCodePlaceholder')} placeholder="XXXXXX" maxLength={8}
+                                            onChange={e => setCodeToJoin(e.target.value.toUpperCase())} />
+                                        <button className="btn" onClick={onJoin}
+                                            disabled={!codeToJoin.trim() || !nickname.trim() || !sessionReady}>
+                                            {t('join')}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                            <section className="lobby-browser home-tab-panel" role="tabpanel">
                                 <header className="lobby-browser__header">
                                     <div>
                                         <h3 className="card__title">{t('availableLobbies')}</h3>
@@ -1083,7 +1059,8 @@ export default function App() {
                                     )}
                                 </div>
                             </section>
-                        )}
+                            )}
+                        </div>
 
                         <Landing />
 
@@ -1114,7 +1091,7 @@ export default function App() {
                                 <div className={`status-dot ${hubStarted ? '' : 'status-dot--off'}`}>
                                     {hubStarted ? t('connected') : t('connecting')}
                                 </div>
-                                <button className="btn btn--danger btn--sm" onClick={onLeaveLobby} title={t('leaveLobby')}>↩ {t('leave')}</button>
+                                <button className="btn btn--leave btn--sm" onClick={onLeaveLobby} title={t('leaveLobby')}>↩ {t('leave')}</button>
                             </div>
                         </div>
 
@@ -1138,13 +1115,13 @@ export default function App() {
                             <ul className="player-list">
                                 {orderedPlayers.map((p, i) => (
                                     <li key={p.id}
-                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''} ${!p.readyForRematch ? 'player-list__item--not-ready' : ''}`}>
+                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''} ${!p.ready ? 'player-list__item--not-ready' : ''}`}>
                                         <span className="seat-num">{i + 1}</span>
                                         <span className="player-name">{p.nickname}</span>
                                         {p.isHost && <span className="lobby-tag">{t('host')}</span>}
                                         {p.id === myPlayerId && <span className="lobby-tag tag--you">{t('you')}</span>}
                                         {isHost && !lobby.started && p.id !== myPlayerId && (
-                                            <button className="icon-btn icon-btn--danger icon-btn--touch" onClick={() => onKickPlayer(p.id)}
+                                            <button className="icon-btn icon-btn--danger icon-btn--kick" onClick={() => onKickPlayer(p.id)}
                                                 title={t('kick')} aria-label={t('kickPlayerNamed', { name: p.nickname })}>
                                                 ✕
                                             </button>

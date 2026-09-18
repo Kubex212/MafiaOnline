@@ -277,6 +277,7 @@
   "announceDrunkOccurance": "Ogłaszaj pojawienie się Pijaka",
   "drunkRevealed": "Pijakiem był: {{name}}",
   "drunkPresent": "W tej grze jest Pijak...",
+  "joinLobbyAs": "Dołącz do pokoju {{code}} jako {{name}}?",
   "copyLink": "Kopiuj link do dołączenia",
   "availableLobbies": "Dostępne pokoje",
   "noLobbies": "Nie znaleziono żadnych pokoi",
@@ -327,4 +328,18 @@
   "passwordRemoved": "Usunięto hasło do pokoju.",
   "showQr": "Pokaż kod QR",
   "qrHint": "Zeskanuj, aby natychmiast dołączyć do pokoju."
+  ,"createOrJoin": "Utwórz lub dołącz"
+  ,"lobbyActions": "Opcje pokoju"
+  ,"chooseYourAction": "Wybierz akcję"
+  ,"differenceTeams": "są w różnych drużynach"
+  ,"draw": "Remis"
+  ,"kick": "Usuń"
+  ,"leaveLobby": "Opuść pokój"
+  ,"leftLobby": "Opuszczono pokój."
+  ,"nightStarted": "Rozpoczęła się noc."
+  ,"playerKicked": "Gracz został usunięty z pokoju."
+  ,"playerLeft": "{{nick}} opuścił pokój."
+  ,"playerSubmittedAction": "{{name}} zatwierdził akcję."
+  ,"youWereKicked": "Usunięto Cię z pokoju."
+  ,"yourActionSubmitted": "Twoja akcja została zatwierdzona."
 }

@@ -33,7 +33,7 @@ public class LobbyResponse
                     IsHost = x.IsHost,
                     LobbyPosition = i,
                     SeatIndex = x.SeatIndex,
-                    ReadyForRematch = x.Ready
+                    Ready = x.Ready
                 })
                 .ToList(),
             Config = GameConfigDto.FromConfig(lobby.Config),
@@ -56,5 +56,5 @@ public class PlayerResponse
     /// <summary>-1 until the game has started; equals LobbyPosition once started.</summary>
     public int SeatIndex { get; set; } = -1;
 
-    public bool ReadyForRematch { get; set; } = false;
+    public bool Ready { get; set; } = false;
 }

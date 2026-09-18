@@ -477,7 +477,7 @@ public class LobbyService : ILobbyService
                 .SendAsync("PlayerLeft", player.Nickname);
 
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, readyForRematch = p.Ready })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
                 .ToList();
 
             await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
@@ -520,7 +520,7 @@ public class LobbyService : ILobbyService
             await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerKicked", target.Nickname);
 
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, readyForRematch = p.Ready })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
                 .ToList();
 
             await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
