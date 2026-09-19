@@ -72,7 +72,7 @@ public class DayService : IDayService
         }
 
         var alivePlayers = lobby.Players
-            .Where(p => game.Players.First(ep => ep.Id == p.Id).IsAlive)
+            .Where(p => !p.IsSpectator && game.Players.First(ep => ep.Id == p.Id).IsAlive)
             .Select(p => new { id = p.Id, nickname = p.Nickname, seatIndex = p.SeatIndex })
             .ToList();
 
@@ -257,7 +257,7 @@ public class DayService : IDayService
         var config = game.Config.Day;
 
         // Count alive players according to the game state
-        var alivePlayers = lobby.Players.Where(p => game.Players.First(ep => ep.Id == p.Id).IsAlive).Select(p => p.Id).ToList();
+        var alivePlayers = lobby.Players.Where(p => !p.IsSpectator && game.Players.First(ep => ep.Id == p.Id).IsAlive).Select(p => p.Id).ToList();
         var aliveCount = alivePlayers.Count;
 
         // Votes map (includes skips as null)

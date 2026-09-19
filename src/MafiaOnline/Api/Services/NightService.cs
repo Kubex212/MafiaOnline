@@ -48,7 +48,7 @@ public class NightService : INightService
 
         var game = lobby.CurrentGame ?? throw new InvalidOperationException("Game not started.");
         var gameId = game.Id;
-        var alivePlayers = lobby.Players.Where(p => game.Players.First(ep => ep.Id == p.Id).IsAlive).ToList();
+        var alivePlayers = lobby.Players.Where(p => !p.IsSpectator && game.Players.First(ep => ep.Id == p.Id).IsAlive).ToList();
 
         // Get info for each player: do they have an ability?
         var playerInfos = new List<dynamic>();

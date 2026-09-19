@@ -85,6 +85,20 @@ public class Lobby
         _players.Add(player);
     }
 
+    public void AddSpectator(LobbyPlayer player)
+    {
+        if (!Started)
+            throw new InvalidOperationException("Cannot add spectator when game has not started.");
+
+        if (_players.Any(x => x.Nickname.Equals(player.Nickname, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Nickname already taken.");
+
+        player.IsSpectator = true;
+        player.SeatIndex = -1;
+        player.Ready = false;
+        _players.Add(player);
+    }
+
     public void MovePlayerUp(Guid playerId)
     {
         AssertNotStarted();
@@ -168,7 +182,11 @@ public class Lobby
         CurrentGame = null;
         NightSession = null;
         DaySession = null;
-        foreach (var p in _players) p.Ready = false;
+        foreach (var p in _players)
+        {
+            p.Ready = false;
+            p.IsSpectator = false;
+        }
         ResetLobbySeatIndices();
     }
 
@@ -180,24 +198,28 @@ public class Lobby
 
     public void RemovePlayerByUserId(Guid userId)
     {
-        AssertNotStarted();
         var idx = _players.FindIndex(p => p.UserId == userId);
         if (idx < 0) return;
-        RemovePlayerAtIndex(idx);
+        var player = _players[idx];
+        if (Started && !player.IsSpectator)
+            throw new InvalidOperationException("Cannot remove a game participant during an active game.");
+        RemovePlayerAtIndex(idx, recalculateSeats: !Started);
     }
 
     public void RemovePlayerById(Guid playerId)
     {
-        AssertNotStarted();
         var idx = _players.FindIndex(p => p.Id == playerId);
         if (idx < 0) return;
-        RemovePlayerAtIndex(idx);
+        var player = _players[idx];
+        if (Started && !player.IsSpectator)
+            throw new InvalidOperationException("Cannot remove a game participant during an active game.");
+        RemovePlayerAtIndex(idx, recalculateSeats: !Started);
     }
 
-    private void RemovePlayerAtIndex(int idx)
+    private void RemovePlayerAtIndex(int idx, bool recalculateSeats = true)
     {
         _players.RemoveAt(idx);
-        ResetLobbySeatIndices();
+        if (recalculateSeats) ResetLobbySeatIndices();
 
         if (!_players.Any(p => p.IsHost) && _players.Count > 0)
             _players[0].IsHost = true;
@@ -211,7 +233,7 @@ public class Lobby
 
         CurrentGame.Execute(new StartNightCommand(Guid.Empty));
 
-        var alive = _players.Where(p => CurrentGame.Players.First(ep => ep.Id == p.Id).IsAlive);
+        var alive = _players.Where(p => !p.IsSpectator && CurrentGame.Players.First(ep => ep.Id == p.Id).IsAlive);
         NightSession = new NightSession(alive);
         DaySession = null;
     }
@@ -269,7 +291,7 @@ public class Lobby
     {
         if (CurrentGame is null) throw new InvalidOperationException("Game not started.");
 
-        var alive = _players.Where(p => CurrentGame.Players.First(ep => ep.Id == p.Id).IsAlive);
+        var alive = _players.Where(p => !p.IsSpectator && CurrentGame.Players.First(ep => ep.Id == p.Id).IsAlive);
         DaySession = new DaySession(alive);
         NightSession = null;
     }

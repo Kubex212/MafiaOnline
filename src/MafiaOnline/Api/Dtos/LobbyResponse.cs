@@ -33,7 +33,8 @@ public class LobbyResponse
                     IsHost = x.IsHost,
                     LobbyPosition = i,
                     SeatIndex = x.SeatIndex,
-                    Ready = x.Ready
+                    Ready = x.Ready,
+                    IsSpectator = x.IsSpectator
                 })
                 .ToList(),
             Config = GameConfigDto.FromConfig(lobby.Config),
@@ -57,4 +58,6 @@ public class PlayerResponse
     public int SeatIndex { get; set; } = -1;
 
     public bool Ready { get; set; } = false;
+
+    public bool IsSpectator { get; set; } = false;
 }

@@ -53,6 +53,7 @@ export default function App() {
     const [linkCopied, setLinkCopied] = useState(false);
     const [deadIds, setDeadIds] = useState<string[]>([]);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [isSpectating, setIsSpectating] = useState(false);
     const [drunkPresent, setDrunkPresent] = useState<boolean | null>(null);
     const [showRolesPanel, setShowRolesPanel] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
@@ -244,6 +245,17 @@ export default function App() {
                 }
             });
 
+            conn.on('SpectatorJoined', async (nick: string) => {
+                setMessages(m => [...m, t('spectatorJoined', { nick })]);
+                const code = lobbyRef.current?.code;
+                if (code) {
+                    try {
+                        const refreshed = await getLobby(code);
+                        setLobby(refreshed);
+                    } catch { /* ignore */ }
+                }
+            });
+
             conn.on('LobbyOrderChanged', (payload: LobbyOrderChangedPayload) => {
                 const prev = lobbyRef.current;
                 if (!prev) return;
@@ -258,6 +270,7 @@ export default function App() {
                         seatIndex: existing?.seatIndex ?? -1,
                         lobbyPosition: o.lobbyPosition,
                         ready: o.ready ?? existing?.ready ?? false,
+                        isSpectator: (o as any).isSpectator ?? existing?.isSpectator ?? false,
                     } as PlayerResponse;
                 });
 
@@ -391,6 +404,7 @@ export default function App() {
                     setGameOver(null);
                     setDeadIds([]);
                     setCurrentGameId(null);
+                    setIsSpectating(false);
                     setView('lobby');
                 } catch { /* ignore */ }
             });
@@ -485,6 +499,10 @@ export default function App() {
                 setMyPlayerId(data.myPlayerId);
                 setMyRole(data.myRole ?? null);
                 setCurrentGameId(data.lobby.started ? (data.gameOver?.gameId ?? null) : null);
+
+                // Detect if the reconnecting user is a spectator
+                const amISpectator = data.lobby.players.some(p => p.id === data.myPlayerId && p.isSpectator);
+                if (amISpectator) setIsSpectating(true);
 
                 const alivePlayersSeats = (data.gamePhase === 'day' ? data.day?.alivePlayers : data.night?.allAlivePlayers) ?? [];
                 setDeadIds((data.seats ?? []).filter(s => !alivePlayersSeats.some(p => p.id === s.id)).map(s => s.id));
@@ -592,6 +610,47 @@ export default function App() {
         playSound('join-lobby');
         try { await joinHubGroup(res.code); } catch { /* ignore */ }
         setHomeTab('create');
+
+        // If the game is already in progress, reconnect to get current phase state (spectator mode)
+        if (res.started && mePlayer?.isSpectator) {
+            setIsSpectating(true);
+            try {
+                const data = await reconnect(res.code);
+                if (data.seats) setSeats(data.seats as SeatInfo[]);
+                if (data.gamePhase === 'night') {
+                    if (data.night) {
+                        pendingNightStartedRef.current = {
+                            gameId: undefined,
+                            durationSeconds: data.night.durationSeconds,
+                            playerInfos: data.night.playerInfos,
+                            allAlivePlayers: data.night.allAlivePlayers,
+                        } as NightStartedPayload;
+                    }
+                    setView('night');
+                } else if (data.gamePhase === 'day') {
+                    if (data.day) {
+                        pendingDayStartedRef.current = {
+                            gameId: undefined,
+                            durationSeconds: data.day.durationSeconds,
+                            showVoteTargets: data.day.showVoteTargets,
+                            alivePlayers: data.day.alivePlayers,
+                            enshrouded: data.day.enshrouded ?? [],
+                            asleep: data.day.asleep ?? [],
+                        };
+                        if (data.day.votes) {
+                            const total = Object.keys(data.day.votes).length;
+                            pendingVoteCastsRef.current = Object.entries(data.day.votes).map(([voterId, candidateId]) => ({ voterId, candidateId, totalVotesCast: total }));
+                        }
+                    }
+                    setView('day');
+                } else if (data.gamePhase === 'gameover') {
+                    setGameOver(data.gameOver ?? null);
+                    setView('gameover');
+                }
+            } catch (e) {
+                console.error('Spectator reconnect failed:', e);
+            }
+        }
     }
 
     async function onJoin() {
@@ -712,8 +771,16 @@ export default function App() {
 
     const canStart = isHost && (lobby?.players.length ?? 0) >= 4 && !lobby?.started;
     const iAmDead = !!myPlayerId && deadIds.includes(myPlayerId);
-    const spectatorClass = iAmDead ? ' is-spectating' : '';
-    const SpectatorBanner = () => iAmDead ? (
+    const spectatorClass = (iAmDead || isSpectating) ? ' is-spectating' : '';
+    const SpectatorBanner = () => isSpectating ? (
+        <div className="spectator-banner" role="status">
+            <span aria-hidden>👁</span>
+            <span className="spectator-banner__text">
+                <strong>{t('youAreSpectating')}</strong>
+                <small>{t('youAreWatching')}</small>
+            </span>
+        </div>
+    ) : iAmDead ? (
         <div className="spectator-banner" role="status">
             <span aria-hidden>💀</span>
             <span className="spectator-banner__text">
@@ -722,6 +789,12 @@ export default function App() {
             </span>
         </div>
     ) : null;
+
+    // Spectators get a synthetic "Villager" role so the full game view renders (same as dead players).
+    // They won't appear in playerInfos so no action buttons are shown.
+    const effectiveRole: RoleResponse | null = myRole ?? (isSpectating
+        ? { name: 'Villager', teamName: 'Villagers', teamId: 0, alibi: '' } as RoleResponse
+        : null);
     const orderedPlayers = lobby
         ? [...lobby.players].sort((a, b) => a.lobbyPosition - b.lobbyPosition)
         : [];
@@ -748,6 +821,7 @@ export default function App() {
             myRoleRef.current = null;
             setDeadIds([]);
             setCurrentGameId(null);
+            setIsSpectating(false);
             setView('lobby');
             setMessages(m => [...m, t('joinedLobby', { code: res.code })]);
             try { await joinHubGroup(res.code); } catch (e) { toast(errorMessage(e), 'error'); }
@@ -757,7 +831,7 @@ export default function App() {
     }
 
     // ── GAME OVER ───────────────────────────────────────────────────────
-    if (view === 'gameover' && gameOver && myRole) {
+    if (view === 'gameover' && gameOver && (myRole || isSpectating)) {
         // Do not clear session here — keep stored lobbyCode so rematch works
         const goHomeHandler = async () => {
             try {
@@ -773,7 +847,11 @@ export default function App() {
 
         return (
             <div className="phase"><div className="phase__inner">
-                <GameOver payload={gameOver} myRoleLabel={t(myRole.name)} myRole={myRole.name} myTeam={myRole.teamId}
+                <GameOver payload={gameOver}
+                    myRoleLabel={myRole ? t(myRole.name) : undefined}
+                    myRole={myRole?.name}
+                    myTeam={myRole?.teamId}
+                    isSpectating={isSpectating}
                     onJoinRematch={joinRematchHandler} onGoHome={goHomeHandler} />
             </div></div>
         );
@@ -823,7 +901,7 @@ export default function App() {
     }
 
     // ── NIGHT PHASE ─────────────────────────────────────────────────────
-    if (view === 'night' && seats && myPlayerId && myRole) {
+    if (view === 'night' && seats && myPlayerId && (myRole || isSpectating)) {
         return (
             <div className={`phase${spectatorClass}`}><div className="phase__inner">
                 <div className="phase-veil phase-veil--night" key="veil-night" aria-hidden />
@@ -866,7 +944,7 @@ export default function App() {
                      lobbyCode={lobby!.code}
                      seats={seats}
                      myPlayerId={myPlayerId}
-                     myRole={myRole}
+                     myRole={effectiveRole!}
                      deadIds={deadIds}
                      otherWerewolvesIds={otherWerewolvesIds}
                      config={lobby?.config}
@@ -876,7 +954,7 @@ export default function App() {
      }
 
     // ── DAY PHASE ────────────────────────────────────────────────────────
-    if (view === 'day' && seats && myPlayerId && myRole) {
+    if (view === 'day' && seats && myPlayerId && (myRole || isSpectating)) {
         return (
             <div className={`phase${spectatorClass}`}><div className="phase__inner">
                 <div className="phase-veil phase-veil--day" key="veil-day" aria-hidden />
@@ -910,7 +988,7 @@ export default function App() {
                     lobbyCode={lobby!.code}
                     allSeats={seats}
                     myPlayerId={myPlayerId}
-                    myRole={myRole}
+                    myRole={effectiveRole!}
                     deadIds={deadIds}
                     otherWerewolvesIds={otherWerewolvesIds}
                     config={lobby?.config}
@@ -1044,16 +1122,22 @@ export default function App() {
                                 <div className="lobby-browser__list" aria-busy={loadingLobbies}>
                                     {loadingLobbies && availableLobbies === null && <div className="empty-state">{t('loading')}</div>}
                                     {availableLobbies && availableLobbies.length === 0 && <div className="empty-state">{t('noLobbies')}</div>}
-                                    {availableLobbies && availableLobbies.map(l => (
+                                    {availableLobbies && availableLobbies.map(l => {
+                                        const activePlayers = l.players.filter(p => !p.isSpectator);
+                                        const spectatorCount = l.players.filter(p => p.isSpectator).length;
+                                        return (
                                         <div key={l.code} className="lobby-browser__item">
                                             <div className="lobby-browser__identity">
                                                 <strong className="lobby-browser__code">{l.code}</strong>
+                                                {l.started && <span className="lobby-status lobby-status--active" title={t('gameInProgress')}>▶ {t('gameInProgress')}</span>}
                                                 {l.hasPassword && <span className="lobby-status" title={t('passwordProtected')}>🔒 {t('protected')}</span>}
-                                                <span className="lobby-browser__players">♟ {t('playerCount', { count: l.players.length })}</span>
+                                                <span className="lobby-browser__players">♟ {t('playerCount', { count: activePlayers.length })}</span>
+                                                {spectatorCount > 0 && <span className="lobby-browser__spectators">👁 {t('spectators', { count: spectatorCount })}</span>}
                                             </div>
-                                            <button className="btn btn--sm" onClick={() => joinFromList(l)}>{t('join')}</button>
+                                            <button className="btn btn--sm" onClick={() => joinFromList(l)}>{l.started ? t('spectate') : t('join')}</button>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                     {availableLobbies && availableLobbies.length > 0 && (
                                         <button className="btn btn--ghost lobby-browser__more" onClick={loadMoreAvailable} disabled={loadingLobbies}>{t('loadMore')}</button>
                                     )}
@@ -1115,10 +1199,11 @@ export default function App() {
                             <ul className="player-list">
                                 {orderedPlayers.map((p, i) => (
                                     <li key={p.id}
-                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''} ${!p.ready ? 'player-list__item--not-ready' : ''}`}>
-                                        <span className="seat-num">{i + 1}</span>
+                                        className={`player-list__item ${p.id === myPlayerId ? 'player-list__item--me' : ''} ${!p.ready ? 'player-list__item--not-ready' : ''} ${p.isSpectator ? 'player-list__item--spectator' : ''}`}>
+                                        <span className="seat-num">{p.isSpectator ? '👁' : i + 1}</span>
                                         <span className="player-name">{p.nickname}</span>
                                         {p.isHost && <span className="lobby-tag">{t('host')}</span>}
+                                        {p.isSpectator && <span className="lobby-tag tag--spectator">{t('youAreSpectating')}</span>}
                                         {p.id === myPlayerId && <span className="lobby-tag tag--you">{t('you')}</span>}
                                         {isHost && !lobby.started && p.id !== myPlayerId && (
                                             <button className="icon-btn icon-btn--danger icon-btn--kick" onClick={() => onKickPlayer(p.id)}
@@ -1126,7 +1211,7 @@ export default function App() {
                                                 ✕
                                             </button>
                                         )}
-                                        {isHost && !lobby.started && (
+                                        {isHost && !lobby.started && !p.isSpectator && (
                                             <span className="move-player-arrows" style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
                                                 <button className="icon-btn"
                                                     disabled={i === 0}

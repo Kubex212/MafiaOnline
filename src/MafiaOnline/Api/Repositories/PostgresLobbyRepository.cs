@@ -162,7 +162,10 @@ public class PostgresLobbyRepository : ILobbyRepository
                 .ToListAsync();
 
             var lobbies = DeserializeEntities(entities);
-            return lobbies.Where(l => !l.Started && l.Players.Count > 0 && !l.IsPrivate).ToList();
+            // Include lobbies that are waiting OR have a game in progress (spectating is allowed).
+            // Exclude private lobbies and lobbies where the game has already finished (pre-rematch limbo).
+            return lobbies.Where(l => l.Players.Count > 0 && !l.IsPrivate
+                && l.CurrentGame?.Phase != MafiaOnline.Engine.GamePhase.Finished).ToList();
         }
         catch (Exception ex)
         {

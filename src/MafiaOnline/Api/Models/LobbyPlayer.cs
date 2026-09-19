@@ -5,7 +5,7 @@ namespace MafiaOnline.Api.Models;
 public class LobbyPlayer
 {
     [JsonConstructor]
-    public LobbyPlayer(Guid id, Guid userId, string nickname, bool isHost, int seatIndex, bool readyForRematch)
+    public LobbyPlayer(Guid id, Guid userId, string nickname, bool isHost, int seatIndex, bool readyForRematch, bool isSpectator = false)
     {
         Id = id;
         UserId = userId;
@@ -13,6 +13,7 @@ public class LobbyPlayer
         IsHost = isHost;
         SeatIndex = seatIndex;
         Ready = readyForRematch;
+        IsSpectator = isSpectator;
     }
 
     public LobbyPlayer(Guid userId, string nickname, bool isHost)
@@ -31,4 +32,6 @@ public class LobbyPlayer
     public int SeatIndex { get; set; } = -1;
 
     public bool Ready { get; set; } = false;
+
+    public bool IsSpectator { get; set; } = false;
 }

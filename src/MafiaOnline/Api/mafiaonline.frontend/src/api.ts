@@ -148,6 +148,7 @@ export type PlayerResponse = {
     lobbyPosition: number;
     seatIndex: number;
     ready?: boolean;
+    isSpectator?: boolean;
 };
 
 export type DrawResolution = 'KickNone' | 'KickRandom' | 'KickAll';

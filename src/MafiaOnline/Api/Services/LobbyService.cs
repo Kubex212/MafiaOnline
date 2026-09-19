@@ -123,14 +123,43 @@ public class LobbyService : ILobbyService
         if (lobby.Password != null && lobby.Password != password?.Trim())
             throw new UnauthorizedAccessException("Incorrect password.");
 
-        lobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
+        if (lobby.Started)
+        {
+            // Game is in progress — add as spectator only, not as a game participant
+            lobby.AddSpectator(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
+            await _repository.Update(lobby);
 
-        await _repository.Update(lobby);
-        await _hubContext.Clients
-            .Group(lobby.Code)
-            .SendAsync("PlayerJoined", nickname);
+            try
+            {
+                await _hubContext.Clients
+                    .Group(lobby.Code)
+                    .SendAsync("SpectatorJoined", nickname.Trim());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to broadcast SpectatorJoined for lobby {LobbyCode}", lobby.Code);
+            }
 
-        _logger.LogInformation("Player {Nickname} joined lobby {LobbyCode} user={UserId}", nickname, lobby.Code, _currentUser.UserId);
+            _logger.LogInformation("Player {Nickname} joined lobby {LobbyCode} as spectator user={UserId}", nickname, lobby.Code, _currentUser.UserId);
+        }
+        else
+        {
+            lobby.AddPlayer(new LobbyPlayer(_currentUser.UserId, nickname.Trim(), false));
+            await _repository.Update(lobby);
+
+            try
+            {
+                await _hubContext.Clients
+                    .Group(lobby.Code)
+                    .SendAsync("PlayerJoined", nickname.Trim());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to broadcast PlayerJoined for lobby {LobbyCode}", lobby.Code);
+            }
+
+            _logger.LogInformation("Player {Nickname} joined lobby {LobbyCode} user={UserId}", nickname, lobby.Code, _currentUser.UserId);
+        }
 
         return lobby;
     }
@@ -261,7 +290,7 @@ public class LobbyService : ILobbyService
         await _repository.Update(lobby);
 
         var orderedPlayers = lobby.Players
-            .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
+            .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready, isSpectator = p.IsSpectator })
             .ToList();
 
         await _hubContext.Clients
@@ -318,6 +347,7 @@ public class LobbyService : ILobbyService
         }
 
         response.Seats = lobby.Players
+            .Where(p => !p.IsSpectator)
             .OrderBy(p => p.SeatIndex)
             .Select(p => new SeatInfoResponse
             {
@@ -331,7 +361,7 @@ public class LobbyService : ILobbyService
         {
             response.GamePhase = "night";
 
-            var alivePlayers = lobby.Players.Where(p => currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
+            var alivePlayers = lobby.Players.Where(p => !p.IsSpectator && currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
                 .OrderBy(p => p.SeatIndex)
                 .ToList();
 
@@ -426,7 +456,7 @@ public class LobbyService : ILobbyService
                 DurationSeconds = currentGame.Config.Day.DurationSeconds,
                 RemainingSeconds = 0,
                 ShowVoteTargets = currentGame.Config.Day.ShowVoteTargets,
-                AlivePlayers = lobby.Players.Where(p => currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
+                AlivePlayers = lobby.Players.Where(p => !p.IsSpectator && currentGame.Players.First(ep => ep.Id == p.Id).IsAlive)
                     .OrderBy(p => p.SeatIndex)
                     .Select(p => new SeatInfoResponse { Id = p.Id, Nickname = p.Nickname, SeatIndex = p.SeatIndex })
                     .ToList(),
@@ -477,7 +507,7 @@ public class LobbyService : ILobbyService
                 .SendAsync("PlayerLeft", player.Nickname);
 
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready, isSpectator = p.IsSpectator })
                 .ToList();
 
             await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
@@ -520,7 +550,7 @@ public class LobbyService : ILobbyService
             await _hubContext.Clients.Group(lobby.Code).SendAsync("PlayerKicked", target.Nickname);
 
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready, isSpectator = p.IsSpectator })
                 .ToList();
 
             await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
@@ -630,7 +660,7 @@ public class LobbyService : ILobbyService
         try
         {
             var orderedPlayers = lobby.Players
-                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready })
+                .Select((p, i) => new { id = p.Id, nickname = p.Nickname, isHost = p.IsHost, lobbyPosition = i, ready = p.Ready, isSpectator = p.IsSpectator })
                 .ToList();
 
             await _hubContext.Clients.Group(lobby.Code).SendAsync("LobbyOrderChanged", new { players = orderedPlayers });
