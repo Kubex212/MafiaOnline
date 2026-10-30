@@ -193,7 +193,11 @@ public class Lobby
     public void MarkPlayerReadyForRematch(Guid userId)
     {
         var player = _players.FirstOrDefault(p => p.UserId == userId);
-        if (player != null) player.Ready = true;
+        if (player != null)
+        {
+            player.Ready = true;
+            player.IsSpectator = false;
+        }
     }
 
     public void RemovePlayerByUserId(Guid userId)
