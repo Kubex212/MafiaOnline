@@ -1,13 +1,21 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
 namespace MafiaOnline.Api.Hubs;
 
 public class LobbyHub : Hub
 {
+    private readonly ILogger<LobbyHub> _logger;
+
+    public LobbyHub(ILogger<LobbyHub> logger)
+    {
+        _logger = logger;
+    }
+
     public override Task OnConnectedAsync()
     {
-        Console.WriteLine($"SignalR UserId: {Context.User?.FindFirstValue(ClaimTypes.NameIdentifier)}");
+        _logger.LogDebug("SignalR connected: UserId={UserId}", Context.User?.FindFirstValue(ClaimTypes.NameIdentifier));
         return base.OnConnectedAsync();
     }
 

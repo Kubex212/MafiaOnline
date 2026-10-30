@@ -204,13 +204,6 @@ namespace Api
                 {
                     var context = scope.ServiceProvider.GetRequiredService<MafiaDbContext>();
                     context.Database.Migrate();
-                    context.Database.ExecuteSqlRaw(@"
-                        ALTER TABLE ""Lobbies""
-                        ADD COLUMN IF NOT EXISTS ""LastActivityAtUtc"" timestamp with time zone NOT NULL DEFAULT now()
-                    ");
-                    context.Database.ExecuteSqlRaw(@"
-                        CREATE INDEX IF NOT EXISTS ""IX_Lobbies_LastActivityAtUtc"" ON ""Lobbies"" (""LastActivityAtUtc"")
-                    ");
                 }
 
 
