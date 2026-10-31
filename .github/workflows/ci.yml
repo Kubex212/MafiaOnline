@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/MafiaOnline/Api/mafiaonline.frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: src/MafiaOnline/Api/mafiaonline.frontend
+        run: npm ci && npm run build
+
+      - name: Restore dependencies
+        run: dotnet restore src/MafiaOnline/MafiaOnline.sln
+
+      - name: Build
+        run: dotnet build src/MafiaOnline/MafiaOnline.sln --no-restore -c Release -p:SkipFrontendBuild=true
+
+      - name: Test
+        run: dotnet test src/MafiaOnline/MafiaOnline.sln --no-build -c Release --verbosity normal
