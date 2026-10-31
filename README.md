@@ -1,5 +1,12 @@
 <div align="center">
 
+![.NET](https://img.shields.io/badge/.NET_8-512BD4?logo=dotnet&logoColor=white)
+![SignalR](https://img.shields.io/badge/SignalR-realtime-512BD4)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React_18-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+
 # MafiaOnline
 
 **Browser-playable Mafia / Werewolf — no install, no accounts needed to join.**
@@ -27,12 +34,7 @@ Players enter a 6-letter code, get assigned secret roles, and alternate between 
 
 ## Tech stack
 
-![.NET](https://img.shields.io/badge/.NET_8-512BD4?logo=dotnet&logoColor=white)
-![SignalR](https://img.shields.io/badge/SignalR-realtime-512BD4)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
-![React](https://img.shields.io/badge/React_18-61DAFB?logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+
 
 | Layer | Details |
 |---|---|
