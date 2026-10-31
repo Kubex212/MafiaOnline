@@ -1,5 +1,7 @@
-<div align="center">
 
+
+[![CI](https://github.com/Kubex212/MafiaOnline/actions/workflows/ci.yml/badge.svg)](https://github.com/Kubex212/MafiaOnline/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://mafiaonline-production.up.railway.app)
 ![.NET](https://img.shields.io/badge/.NET_8-512BD4?logo=dotnet&logoColor=white)
 ![SignalR](https://img.shields.io/badge/SignalR-realtime-512BD4)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
@@ -13,9 +15,7 @@
 
 Players enter a 6-letter code, get assigned secret roles, and alternate between night phases (silent abilities) and day phases (public vote) until one faction wins.
 
-[![CI](https://github.com/Kubex212/MafiaOnline/actions/workflows/ci.yml/badge.svg)](https://github.com/Kubex212/MafiaOnline/actions/workflows/ci.yml)
-&nbsp;
-[![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://mafiaonline-production.up.railway.app)
+
 
 ![MafiaOnline landing page](docs/screenshots/landing.jpg)
 
