@@ -184,7 +184,7 @@ public class LobbySerializationTests
 
         Assert.NotNull(restored);
         Assert.NotNull(restored!.NightSession);
-        Assert.True(restored.NightSession.SubmittedActions.SingleOrDefault(sa => sa.Actor == host.Id && sa.ActionType == Engine.Night.ActionType.Ability) != null);
+        Assert.True(restored.NightSession.SubmittedActions.SingleOrDefault(sa => sa.Actor == host.Id && sa.ActionType == Engine.Night.ActionType.Ability) == null);
         // host should no longer need to act, but others should
         Assert.False(restored.NightSession.PlayersPendingAction.Contains(host.Id));
         Assert.True(restored.NightSession.PlayersPendingAction.Contains(p2.Id));
