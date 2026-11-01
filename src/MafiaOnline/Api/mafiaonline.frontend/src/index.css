@@ -575,31 +575,22 @@ code {
 }
 
 .join-form__divider {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     color: var(--text-dim);
     font-size: 0.75rem;
     letter-spacing: 0.3em;
     text-transform: uppercase;
-    position: relative;
 }
 
-    .join-form__divider::before,
-    .join-form__divider::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        width: 40%;
-        height: 1px;
-        background: var(--border);
-    }
-
-    .join-form__divider::before {
-        left: 0;
-    }
-
-    .join-form__divider::after {
-        right: 0;
-    }
+.join-form__divider::before,
+.join-form__divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
 
 .join-form__row {
     display: flex;

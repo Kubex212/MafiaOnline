@@ -11,24 +11,25 @@
 
 # MafiaOnline
 
-**Browser-playable Mafia / Werewolf — no install, no accounts needed to join.**
+**Browser-playable Mafia game — no install, no accounts needed to join.**
 
 Players enter a 6-letter code, get assigned secret roles, and alternate between night phases (silent abilities) and day phases (public vote) until one faction wins.
 
 
 
-![MafiaOnline landing page](docs/screenshots/landing.jpg)
-
-</div>
+![MafiaOnline landing page](docs/screenshots/ladning.PNG)
 
 ---
 
 ## Screenshots
 
-<!-- Replace with your own once captured -->
-| Landing | Night phase | Day phase |
-|:---:|:---:|:---:|
-| ![](docs/screenshots/landing.jpg) | _coming soon_ | _coming soon_ |
+![Landing page](docs/screenshots/ladning.PNG)
+
+![Lobby](docs/screenshots/lobby.PNG)
+
+![Night phase](docs/screenshots/night-phase.PNG)
+
+![Day phase](docs/screenshots/day-phase.PNG)
 
 ---
 
