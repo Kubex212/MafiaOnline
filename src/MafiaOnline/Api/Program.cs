@@ -15,6 +15,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
 using Serilog;
+using StackExchange.Redis;
 
 namespace Api
 {
@@ -44,6 +45,22 @@ namespace Api
                 builder.Services.AddDbContext<MafiaDbContext>(options =>
                     options.UseNpgsql(builder.Configuration.GetConnectionString("MafiaDb")));
 
+                // Redis: session token cache (IDistributedCache) and night timers (INightTimerStore).
+                // Both share one connection; AbortOnConnectFail=false lets the app start before Redis is reachable.
+                var redisOptions = ConfigurationOptions.Parse(
+                    builder.Configuration["Redis:ConnectionString"]
+                    ?? throw new InvalidOperationException("Missing configuration value 'Redis:ConnectionString'."));
+                redisOptions.AbortOnConnectFail = false;
+                var redis = ConnectionMultiplexer.Connect(redisOptions);
+
+                builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+                builder.Services.AddStackExchangeRedisCache(options =>
+                {
+                    options.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(redis);
+                    options.InstanceName = "mafia:";
+                });
+                builder.Services.AddSingleton<INightTimerStore, RedisNightTimerStore>();
+
                 builder.Services.AddScoped<ILobbyRepository, PostgresLobbyRepository>();
                 builder.Services.AddScoped<ILobbyService, LobbyService>();
                 builder.Services.AddScoped<INightService, NightService>();
@@ -53,6 +70,9 @@ namespace Api
 
                 // Background service: periodically clean up abandoned / finished lobbies
                 builder.Services.AddHostedService<LobbyCleanupService>();
+
+                // Background service: resolves nights whose timer expired (also after an app restart)
+                builder.Services.AddHostedService<NightTimerService>();
 
                 builder.Services.Configure<ForwardedHeadersOptions>(options =>
                 {

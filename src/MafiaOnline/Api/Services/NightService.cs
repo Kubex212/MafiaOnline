@@ -26,16 +26,15 @@ public class NightService : INightService
     private readonly ILobbyRepository _repository;
     private readonly IHubContext<LobbyHub> _hub;
     private readonly IDayService _day_service;
-    private readonly Dictionary<string, CancellationTokenSource> _timers = new();
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly INightTimerStore _timers;
     private readonly ILogger<NightService> _logger;
 
-    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService, IServiceScopeFactory serviceScopeFactory, ILogger<NightService> logger)
+    public NightService(ILobbyRepository repository, IHubContext<LobbyHub> hub, IDayService dayService, INightTimerStore timers, ILogger<NightService> logger)
     {
         _repository = repository;
         _hub = hub;
         _day_service = dayService;
-        _scopeFactory = serviceScopeFactory;
+        _timers = timers;
         _logger = logger;
     }
 
@@ -94,60 +93,9 @@ public class NightService : INightService
 
         _logger.LogInformation("NightStarted broadcast for lobby {LobbyCode} duration={Duration} alivePlayers={Count}", lobbyCode, nightDurationSeconds, alivePlayers.Count);
 
-        var timerKey = GetTimerKey(lobby.Code, gameId);
-        var cts = new CancellationTokenSource();
-        lock (_timers)
-        {
-            if (_timers.TryGetValue(timerKey, out var previous))
-                previous.Cancel();
-            _timers[timerKey] = cts;
-        }
-
-        var sessionStartId = lobby.NightSession!.SessionStartId;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                _logger.LogDebug("Starting night timer for lobby {LobbyCode} game={GameId} seconds={Seconds}", lobbyCode, gameId, nightDurationSeconds);
-                await Task.Delay(TimeSpan.FromSeconds(nightDurationSeconds), cts.Token);
-
-                using var scope = _scopeFactory.CreateScope();
-                var lobbyService = scope.ServiceProvider.GetRequiredService<ILobbyService>();
-                var current = await lobbyService.GetLobby(lobby.Code);
-
-                if (current.CurrentGame?.Id != gameId || current.NightSession is null || current.NightSession.SessionStartId != sessionStartId)
-                {
-                    _logger.LogDebug("Night timer expired but session has changed for lobby {LobbyCode}", lobbyCode);
-                    return;
-                }
-
-                _logger.LogInformation("Night timer expired for lobby {LobbyCode} game={GameId}, resolving night", lobbyCode, gameId);
-                var lobbyRepository = scope.ServiceProvider.GetRequiredService<ILobbyRepository>();
-                var lobbyToResolve = await lobbyRepository.Get(lobby.Code);
-                if (lobbyToResolve?.CurrentGame?.Id == gameId && lobbyToResolve.NightSession != null)
-                {
-                    var nightService = scope.ServiceProvider.GetRequiredService<INightService>();
-                    await nightService.ResolveNightAsync(lobbyToResolve);
-                }
-            }
-            catch (TaskCanceledException)
-            {
-                _logger.LogDebug("Night timer cancelled for lobby {LobbyCode} game={GameId}", lobbyCode, gameId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in night timer task for lobby {LobbyCode} game={GameId}", lobbyCode, gameId);
-            }
-            finally
-            {
-                lock (_timers)
-                {
-                    if (_timers.TryGetValue(timerKey, out var current) && current == cts)
-                        _timers.Remove(timerKey);
-                }
-                cts.Dispose();
-            }
-        }, CancellationToken.None);
+        // NightTimerService resolves the night once this deadline passes (unless it is cancelled first).
+        await _timers.ScheduleAsync(lobby.Code, gameId, TimeSpan.FromSeconds(nightDurationSeconds));
+        _logger.LogDebug("Night timer scheduled for lobby {LobbyCode} game={GameId} seconds={Seconds}", lobbyCode, gameId, nightDurationSeconds);
     }
 
     public async Task SubmitActionAsync(string lobbyCode, Guid userId, List<Guid> targets, ActionType actionType)
@@ -209,7 +157,7 @@ public class NightService : INightService
         if (IsNightComplete(lobby))
         {
             _logger.LogInformation("All players submitted actions for lobby {LobbyCode}, resolving night immediately", lobbyCode);
-            CancelTimer(GetTimerKey(lobby.Code, gameId));
+            await _timers.CancelAsync(lobby.Code, gameId);
             await ResolveNightAsync(lobby);
         }
     }
@@ -238,7 +186,7 @@ public class NightService : INightService
         if (IsNightComplete(lobby))
         {
             _logger.LogInformation("All players submitted actions for lobby {LobbyCode}, resolving night immediately", lobbyCode);
-            CancelTimer(GetTimerKey(lobby.Code, gameId));
+            await _timers.CancelAsync(lobby.Code, gameId);
             await ResolveNightAsync(lobby);
         }
     }
@@ -342,19 +290,6 @@ public class NightService : INightService
         await _day_service.BeginDayAsync(lobby.Code);
     }
 
-    private void CancelTimer(string key)
-    {
-        lock (_timers)
-        {
-            if (_timers.TryGetValue(key, out var cts))
-            {
-                _logger.LogDebug("Cancelling timer {TimerKey}", key);
-                cts.Cancel();
-                _timers.Remove(key);
-            }
-        }
-    }
-
     private async Task<Lobby> GetLobby(string code)
         => await _repository.Get(code.ToUpperInvariant())
            ?? throw new InvalidOperationException("Lobby not found.");
@@ -362,9 +297,6 @@ public class NightService : INightService
     private static Guid GetActorId(Lobby lobby, Guid userId)
         => lobby.Players.FirstOrDefault(p => p.UserId == userId)?.Id
            ?? throw new InvalidOperationException("Player not found in lobby.");
-
-    private static string GetTimerKey(string lobbyCode, Guid gameId)
-        => $"{lobbyCode.ToUpperInvariant()}:{gameId}";
 
     public async Task<ClueResponse?> GetClueAsync(string code, Guid userId)
     {
