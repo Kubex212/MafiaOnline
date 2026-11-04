@@ -1,4 +1,5 @@
 using MafiaOnline.Api.Repositories;
+using StackExchange.Redis;
 
 namespace MafiaOnline.Api.Services;
 
@@ -36,6 +37,10 @@ public class NightTimerService : BackgroundService
                     // Resolving a night waits several seconds before the day starts; don't hold up other timers.
                     _ = ResolveNightAsync(timer);
                 }
+            }
+            catch (RedisConnectionException ex)
+            {
+                _logger.LogWarning("Redis is unavailable, night timers were not checked: {Message}", ex.Message);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

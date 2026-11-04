@@ -51,6 +51,9 @@ namespace Api
                     builder.Configuration["Redis:ConnectionString"]
                     ?? throw new InvalidOperationException("Missing configuration value 'Redis:ConnectionString'."));
                 redisOptions.AbortOnConnectFail = false;
+                // While Redis is unreachable, fail commands immediately instead of queueing them for 5s,
+                // so the session cache can fall back to the database without slowing every request.
+                redisOptions.BacklogPolicy = BacklogPolicy.FailFast;
                 var redis = ConnectionMultiplexer.Connect(redisOptions);
 
                 builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
