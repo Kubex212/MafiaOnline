@@ -18,14 +18,14 @@ Items to complete before considering the project done.
 - [x] **`docker-compose.yml`** — Dockerfile exists; compose file lets any reviewer run the project in one command (Postgres + app)
 - [x] **GitHub Actions CI** — `.github/workflows/ci.yml`; build + test on push/PR to main
 - [x] **README with screenshots** — landing page screenshot, demo link, tech stack, architecture, how to run locally
-- [ ] **More screenshots** — lobby waiting room, night phase, day phase (needs a live game session to capture)
+- [x] **More screenshots** — lobby waiting room, night phase, day phase
 
 ---
 
 ## Tier 2 — Hot topics that show backend depth
 
-- [ ] **Redis** — `_timers` in `NightService` is an in-memory `Dictionary` that breaks on restart and horizontal scaling; swap for Redis-backed distributed timers + cache session lookups (currently hits Postgres on every request via `SessionService`)
-- [ ] **Health checks** — `/health` endpoint checking EF Core + Redis; ASP.NET Core built-in, ~1 hour, shows production awareness
+- [x] **Redis** — Redis-backed night timers + session token cache
+- [x] **Health checks** — `/health` (Postgres + Redis detail; Redis down = Degraded since sessions fall back to the DB) and `/health/live` (process liveness)
 - [ ] **Rate limiting** — ASP.NET Core built-in `AddRateLimiter`; apply to auth + lobby creation endpoints; ~1 hour
 
 ---

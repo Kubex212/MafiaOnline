@@ -1,4 +1,5 @@
 using Api.Data;
+using Api.Health;
 using Api.Repositories;
 using Api.Services;
 using MafiaOnline.Api.Hubs;
@@ -10,7 +11,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
@@ -220,6 +223,9 @@ namespace Api
 
                 builder.Services.AddSignalR();
 
+                builder.Services.AddHealthChecks()
+                    .AddDbContextCheck<MafiaDbContext>("postgres", failureStatus: HealthStatus.Unhealthy)
+                    .AddCheck<RedisHealthCheck>("redis", failureStatus: HealthStatus.Degraded);
 
                 var app = builder.Build();
 
@@ -245,6 +251,10 @@ namespace Api
                 app.UseAuthentication();
                 app.UseAuthorization();
                 app.UseMiddleware<SessionMiddleware>();
+
+                // /health/live: process is up (no dependencies). /health: Postgres + Redis detail.
+                app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+                app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = HealthResponseWriter.WriteAsync });
 
                 app.MapControllers();
                 app.MapFallbackToFile("index.html");
