@@ -16,9 +16,6 @@
 Players enter a 6-letter code, get assigned secret roles, and alternate between night phases (silent abilities) and day phases (public vote) until one faction wins.
 
 
-
-![MafiaOnline landing page](docs/screenshots/ladning.PNG)
-
 ---
 
 ## Screenshots
